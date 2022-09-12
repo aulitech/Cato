@@ -9,6 +9,8 @@ import Cato as Cato_LIB
 cato = Cato_LIB.Cato()
 num_to_move = 5000
 while True:
+    if(not cato.Blue.ble.connected):
+        cato.Blue.connectBluetooth()
     print("moving")
     cato.read_IMU()
     cato.move_Mouse()
