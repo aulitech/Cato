@@ -47,7 +47,7 @@ class Cato:
         self.ax, self.ay, self.az \
                 = self._setup_imu()
         self.blue = BluetoothControl()
-        self.blue.connectBluetooth()
+        self.blue.connect_bluetooth()
         self.state = ST.IDLE
         self.st_matrix = [
             #       ST.IDLE             ST.MOUSE_BUTTONS        ST.KEYBOARD
