@@ -25,7 +25,7 @@ class BluetoothControl:
         self.kl = KeyboardLayoutUS(self.k)
         self.mouse = Mouse(self.hid.devices)
         
-    def connectBluetooth(self):
+    def connect_bluetooth(self):
         self.advertisement = ProvideServicesAdvertisement(self.hid)
         print("Waiting for BLE connection")
         self.ble.start_advertising(self.advertisement, self.scan_response)

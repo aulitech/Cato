@@ -1,4 +1,5 @@
 {
     "python.languageServer": "Pylance",
-    "python.linting.pylintEnabled": false
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": false
 }

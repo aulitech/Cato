@@ -5,6 +5,16 @@
         {
             "label": "copy_to_board",
             "type": "shell",
+            "command":"scripts/copy_to_board.sh",
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
+        },
+        {
+            "label": "copy_to_board_WINDOWS",
+            "type": "shell",
             "windows": {
                 "command": "scripts/copy_to_board.cmd"
             },

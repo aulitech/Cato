@@ -13,11 +13,11 @@ class Dog:
 cato = Cato()
 while True:
     Dog.feed()
-    if(not cato.Blue.ble.connected):
+    if(not cato.blue.ble.connected):
         #code will idle in connectBluetooth until BT is connected
-        cato.Blue.connectBluetooth()
+        cato.blue.connect_bluetooth()
     print("moving")
-    cato.moveMouse()
+    cato.move_mouse()
     print("sleeping")
     for i in range(3,0,-1):
         time.sleep(1)

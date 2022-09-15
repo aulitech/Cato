@@ -36,13 +36,13 @@ echo BOARD WILL RESTART AND RECONNECT
 echo     WAITING FOR AUTO-RECONNECT
 ping 192.0.2.2 -n 1 -w 1000 > nul
 if not exist E:/boot_out.txt goto :hang_reconnect_as_circuitpy
-
+echo     CONNECTION ESTABLISHED
 
 ::copy source files
-echo     CONNECTION ESTABLISHED
-echo COPYING SRC FILES TO BOARD
+echo COPYING *.PY FILES TO BOARD
 cp %cd%/*.py /e/
 echo     PY FILES COPIED
+echo COPYING /lib/ (TAKES TIME)
 cp -r %cd%/lib/ /e/
 echo     LIBS COPIED
 echo     DONE
