@@ -4,16 +4,20 @@ import busio
 import sys
 import time
 
-import Cato as Cato_LIB
+from Cato import Cato
 
-cato = Cato_LIB.Cato()
-num_to_move = 5000
+class Dog:
+    def feed():
+        pass
+
+cato = Cato()
 while True:
+    Dog.feed()
     if(not cato.Blue.ble.connected):
+        #code will idle in connectBluetooth until BT is connected
         cato.Blue.connectBluetooth()
     print("moving")
-    cato.read_IMU()
-    cato.move_Mouse()
+    cato.moveMouse()
     print("sleeping")
     for i in range(3,0,-1):
         time.sleep(1)

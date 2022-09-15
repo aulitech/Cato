@@ -1,8 +1,0 @@
-config file with fileio
-In the future, we might want to be able to update different things on the mouse -- dynamic configuration control mechanism
-To get started
-    Screen resolution (for control)
-    and "Zero" position
-
-Concept of normalized coordinate space -- train based on normalized coordinate space
-    Do 3d transform on 
