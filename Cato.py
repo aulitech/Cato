@@ -43,10 +43,12 @@ class Cato:
     # SETUP METHODS
     def __init__(self):
         self.gx_trim, self.gy_trim, self.gz_trim = 0, 0, 0
+        print("imu setup")
         self.sensor, \
         self.gx,        self.gy,        self.gz,        \
         self.ax,        self.ay,        self.az         \
                 = self._setup_imu()
+        print("    Done")
         self.gx_trim, self.gy_trim, self.gz_trim = self.calibrate()
         self.blue = BluetoothControl()
         self.blue.connect_bluetooth()
@@ -84,6 +86,10 @@ class Cato:
         num_to_calibrate = 1000
         x, y, z = 0, 0, 0
         for cycles in range(num_to_calibrate):
+            time.sleep(0.001)
+            if(cycles % 100 == 0):
+                #print(int(cycles / 10), '%')
+                pass
             self.read_imu()
             x += self.gx
             y += self.gy
@@ -152,7 +158,7 @@ class Cato:
             y_mvmt = self.gz
             mag = sqrt(x_mvmt**2 + y_mvmt**2)
             ang = atan2(y_mvmt, x_mvmt)
-            print("mag: {mag}, ang: {ang}".format(mag = mag, ang = ang))
+            #print("mag: {mag}, ang: {ang}".format(mag = mag, ang = ang))
             scale_str = "linear"
             #control mouse scale / type
             #print(mag)
