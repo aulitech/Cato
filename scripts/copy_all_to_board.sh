@@ -8,6 +8,8 @@
     BLFILE2=/e/INDEX.HTM
     BLFILE3=/e/INFO_UF2.TXT
 
+echo "BEGINNING UPLOAD PROCESS"
+
 # Test that board is in bootloader mode, give user chance to reset board
     if test -f "$FILE1"; then
         echo BOARD MUST BE IN BOOTLOADER MODE. TAP RESET 2x
@@ -22,6 +24,7 @@
 
 # must wait for board to reconnect after power is cycled
     echo "WAITING FOR RECONNECTION AFTER POWER CYCLE"
+    sleep 1
     while [ ! -d /e/ ]
     do
         sleep 1
@@ -62,17 +65,21 @@
     echo "    RECONNECTED"
 
 # copy the source files
-    echo "COPYING SRC FILES"
+    echo "UPLOADING"
     echo "    COPYING .PY FILES"
     cp ./*.py /e/
-    echo "        DONE"
-    echo "COPYING LIBS"
+    echo "    DONE WITH .PY FILES"
+    echo "    COPYING LIBS"
+    if ! test -d /e/lib; then
+        echo "        LIB FOLDER NOT FOUND -- CREATING LIB FOLDER"
+        mkdir /e/lib
+    fi
     for dir in ./lib/**     # list directories in the form "/tmp/dirname/"
     do
         dir=$dir
-        echo "    COPYING ${dir}"
-        cp -r $dir /e/
-        echo "        DONE"   
+        echo "        COPYING ${dir}"
+        cp -r $dir /e/lib
+        echo "            DONE"   
     done
     echo "    DONE WITH LIBS"
-    echo "DONE"
+    echo "UPLOAD COMPLETE"

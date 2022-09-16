@@ -17,7 +17,7 @@ from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
 from adafruit_hid.mouse import Mouse
 
 from BluetoothControl import BluetoothControl
-from math import sqrt, atan2, sin, cos
+from math import sqrt, atan2, sin, cos, pow
 
 #helpers and enums
 
@@ -42,10 +42,12 @@ class Cato:
     ''' Main Class of Cato Gesture Mouse '''
     # SETUP METHODS
     def __init__(self):
+        self.gx_trim, self.gy_trim, self.gz_trim = 0, 0, 0
         self.sensor, \
-        self.gx, self.gy, self.gz, \
-        self.ax, self.ay, self.az \
+        self.gx,        self.gy,        self.gz,        \
+        self.ax,        self.ay,        self.az         \
                 = self._setup_imu()
+        self.gx_trim, self.gy_trim, self.gz_trim = self.calibrate()
         self.blue = BluetoothControl()
         self.blue.connect_bluetooth()
         self.state = ST.IDLE
@@ -62,6 +64,7 @@ class Cato:
                 [   self.noop,          self.noop,              self.noop]      #EV.SHAKE_NO
         ]
         
+        
     def _setup_imu(self):
         ''' helper method -- encapsulate imu portion of init '''
         imupwr = digitalio.DigitalInOut(board.IMU_PWR)
@@ -76,6 +79,21 @@ class Cato:
 
         return sensor, gx, gy, gz, ax, ay, az
 
+    def calibrate(self):
+        print("Calibrating")
+        num_to_calibrate = 1000
+        x, y, z = 0, 0, 0
+        for cycles in range(num_to_calibrate):
+            self.read_imu()
+            x += self.gx
+            y += self.gy
+            z += self.gz
+        x = x / num_to_calibrate
+        y = y / num_to_calibrate
+        z = z / num_to_calibrate
+        print("Done")
+        return x, y, z
+
     # State Control / Execution Utils
     def detect_event(self):
         ''' calls to gesture detection libraries, controls flow of program '''
@@ -89,6 +107,16 @@ class Cato:
     def read_imu(self):
         ''' reads data off of the IMU into -> gx, gy, gz, ax, ay, az '''
         self.gx, self.gy, self.gz = self.sensor.gyro
+        rad_to_deg = 57.3 # 360 / 2PI
+
+        self.gx = self.gx*rad_to_deg
+        self.gy = self.gy*rad_to_deg
+        self.gz = self.gz*rad_to_deg
+
+        self.gx -= self.gx_trim
+        self.gy -= self.gy_trim
+        self.gz -= self.gz_trim
+
         self.ax, self.ay, self.az = self.sensor.acceleration
 
     # Cato Actions
@@ -102,56 +130,63 @@ class Cato:
     def move_mouse(self):
         '''
             move the mouse via bluetooth until sufficiently idle
-            returns to idle
         '''
         idle_count = 0
         max_idle_cycles = 100
-        idle_thresh = 1.0
-        #MOUSE_TYPE = "LINEAR"
-        MOUSE_TYPE = "ACCEL"
-        slow_thresh = 1.8
-        fast_thresh = 5.0
-        scale = 1.0
-        sleep_time = 0.010 #per cycle seconds to delay
+        idle_thresh = 5.0
+        sleep_time = 0.004 #per cycle seconds to delay
         idle_time = 0.5 #seconds to idle before exiting
         max_idle_cycles = int(idle_time / sleep_time)
+        
+        MOUSE_TYPE = "ACCEL"
+        slow_thresh = 20.0
+        fast_thresh = 200.0
+        scale = 1.0 #remain at 1.0 for linear
+        slow_scale = 0.1
+        fast_scale = 3.0
+        
         while(idle_count < max_idle_cycles):
-            time.sleep(sleep_time)
+            #time.sleep(sleep_time)
             self.read_imu()
-            x_mvmt = 10 * self.gy
-            y_mvmt = 10 * self.gz
+            x_mvmt = self.gy
+            y_mvmt = self.gz
             mag = sqrt(x_mvmt**2 + y_mvmt**2)
             ang = atan2(y_mvmt, x_mvmt)
-            #scale_str = "linear"
+            print("mag: {mag}, ang: {ang}".format(mag = mag, ang = ang))
+            scale_str = "linear"
             #control mouse scale / type
+            #print(mag)
+            
             if(MOUSE_TYPE == "LINEAR"):
-                pass
+                scale = 1.0
             if(MOUSE_TYPE == "ACCEL"):
                 if(mag <= slow_thresh):
-                    #scale_str = "slow"
-                    scale = mag*1.0
+                    #print("s")
+                    scale = slow_scale
                 elif(mag > slow_thresh and mag <= fast_thresh):
-                    #scale_str = "mid"
-                    scale = mag*2.5
+                    #print("m")
+                    scale = slow_scale + (fast_scale - slow_scale)/(fast_thresh - slow_thresh)*(mag - slow_thresh)
                 else:
-                    #scale_str = "fast"
-                    scale = mag*4.0
-
+                    #print("f")
+                    scale = fast_scale
             #idle checking
             if( mag <= idle_thresh ):
                 #print("idle detected ({a}) max idle: {b}".format(a=idle_count, b=max_idle_cycles))
                 idle_count += 1
             else:
                 idle_count = 0
-            x_amt = scale * cos(ang)
-            y_amt = scale * sin(ang)
             #print("rate: %s, x: %f, y: %f" % (scale_str, x_amt, y_amt))
-            self.blue.mouse.move(int(x_amt), int(y_amt), 0)
+            #self.blue.mouse.move(int(self.gy), int(self.gz))
+            self.blue.mouse.move(int(scale * mag * cos(ang)), int(scale * mag * sin(ang)), 0)
 
     def scroll(self):
         ''' scrolls the mouse until sufficient exit condition is reached '''
-        while (not True):
-            scroll_amt = 0
+        print("Scrolling")
+        while (False):
+            time.sleep(0.2)
+            self.read_imu()
+            scroll_amt = int(80 * self.gz)
+            #print(self.gz)
             self.blue.mouse.move(0, 0, scroll_amt)
 
     #shift + scroll = lateral scroll on MOST applications

@@ -45,5 +45,5 @@ echo     PY FILES COPIED
 echo COPYING /lib/ (TAKES TIME)
 cp -r %cd%/lib/ /e/
 echo     LIBS COPIED
-echo     DONE
+echo DONE
 exit
