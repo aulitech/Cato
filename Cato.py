@@ -188,11 +188,9 @@ class Cato:
     def scroll(self):
         ''' scrolls the mouse until sufficient exit condition is reached '''
         print("Scrolling")
-        while (False):
-            time.sleep(0.2)
-            self.read_imu()
-            scroll_amt = int(80 * self.gz)
-            #print(self.gz)
+        scroll_amt = 10
+        scroll_dur = 100
+        for i in range(scroll_dur):
             self.blue.mouse.move(0, 0, scroll_amt)
 
     #shift + scroll = lateral scroll on MOST applications
@@ -201,19 +199,23 @@ class Cato:
             laterally scroll until exit condition
         '''
         #press shift
-        scroll_amt = 0
-        while(not True):
+        scroll_amt = 10
+        scroll_dur = 100
+        for i in range(scroll_dur):
             self.blue.mouse.move(0, 0, scroll_amt)
         #release shift
 
     def left_click(self):
         ''' docstring stub '''
+        self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
 
     def right_click(self):
         ''' docstring stub '''
+        self.blue.mouse.click(self.blue.mouse.RIGHT_BUTTON)
 
     def middle_click(self):
         ''' docstring stub '''
+        self.blue.mouse.click(self.blue.mouse.MIDDLE_BUTTON)
 
     def left_click_drag(self):
         ''' docstring stub '''
@@ -221,26 +223,36 @@ class Cato:
     def right_click_drag(self):
         ''' docstring stub '''
 
+    def middle_click_drag(self):
+        ''' docstring stub '''
+
     def left_press(self):
         ''' docstring stub '''
+        self.blue.mouse.press(self.blue.mouse.LEFT_BUTTON)
 
     def left_release(self):
         ''' docstring stub '''
+        self.blue.mouse.release(self.blue.mouse.LEFT_BUTTON)
 
     def right_press(self):
         ''' docstring stub '''
+        self.blue.mouse.press(self.blue.mouse.RIGHT_BUTTON)
 
     def right_release(self):
         ''' docstring stub '''
+        self.blue.mouse.release(self.blue.mouse.RIGHT_BUTTON)
 
     def middle_press(self):
         ''' docstring stub '''
+        self.blue.mouse.press(self.blue.mouse.MIDDLE_BUTTON)
 
     def middle_release(self):
         ''' docstring stub '''
+        self.blue.mouse.release(self.blue.mouse.MIDDLE_BUTTON)
 
     def all_release(self):
         ''' docstring stub '''
+        self.blue.mouse.release_all()
 
     # cato keyboard actions
     def press_enter(self):

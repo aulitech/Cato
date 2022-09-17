@@ -16,7 +16,7 @@ while True:
     if(not cato.blue.ble.connected):
         #code will idle in connectBluetooth until BT is connected
         cato.blue.connect_bluetooth()
-    cato.move_mouse()
+    cato.scroll()
     print("Sleeping")
     for i in range(5, 0, -1):
         print(i)
