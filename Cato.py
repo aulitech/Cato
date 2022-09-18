@@ -13,6 +13,7 @@ import digitalio
 from adafruit_lsm6ds.lsm6ds3trc import LSM6DS3TRC
 
 from adafruit_hid.keyboard import Keyboard
+from adafruit_hid.keycode import Keycode
 from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
 from adafruit_hid.mouse import Mouse
 
@@ -188,10 +189,13 @@ class Cato:
     def scroll(self):
         ''' scrolls the mouse until sufficient exit condition is reached '''
         print("Scrolling")
-        scroll_amt = 10
-        scroll_dur = 100
-        for i in range(scroll_dur):
-            self.blue.mouse.move(0, 0, scroll_amt)
+        multiplier = 0.1
+        while(True):
+            time.sleep(0.100)
+            self.read_imu()
+            self.blue.mouse.move(0, 0, int(multiplier * self.gz))
+            if(self.gy > 30.0):
+                break
 
     #shift + scroll = lateral scroll on MOST applications
     def scroll_lr(self):
@@ -199,10 +203,17 @@ class Cato:
             laterally scroll until exit condition
         '''
         #press shift
-        scroll_amt = 10
-        scroll_dur = 100
-        for i in range(scroll_dur):
-            self.blue.mouse.move(0, 0, scroll_amt)
+        ''' scrolls the mouse until sufficient exit condition is reached '''
+        self.blue.k.press(Keycode.SHIFT)
+        print("Scrolling")
+        multiplier = -0.1
+        while(True):
+            time.sleep(0.100)
+            self.read_imu()
+            self.blue.mouse.move(0, 0, int(multiplier * self.gy))
+            if(self.gz > 30.0):
+                self.blue.k.release(Keycode.SHIFT)
+                break
         #release shift
 
     def left_click(self):
@@ -219,12 +230,21 @@ class Cato:
 
     def left_click_drag(self):
         ''' docstring stub '''
+        self.left_press()
+        self.move_mouse()
+        self.left_release()
 
     def right_click_drag(self):
         ''' docstring stub '''
+        self.right_press()
+        self.move_mouse()
+        self.right_release()
 
     def middle_click_drag(self):
         ''' docstring stub '''
+        self.middle_press()
+        self.move_mouse()
+        self.middle_release()
 
     def left_press(self):
         ''' docstring stub '''
@@ -257,5 +277,7 @@ class Cato:
     # cato keyboard actions
     def press_enter(self):
         ''' docstring stub '''
+        self.blue.k.press(Keycode.ENTER)
+        self.blue.k.release(Keycode.ENTER)
 
     # ToDo, the rest of the keyboard buttons

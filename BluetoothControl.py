@@ -6,6 +6,7 @@ from adafruit_ble.services.standard.device_info import DeviceInfoService
 
 from adafruit_hid.keyboard import Keyboard
 from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
+from adafruit_hid.keycode import Keycode as Keycode
 from adafruit_hid.mouse import Mouse
 
 class BluetoothControl:
