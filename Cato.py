@@ -44,12 +44,10 @@ class Cato:
     # SETUP METHODS
     def __init__(self):
         self.gx_trim, self.gy_trim, self.gz_trim = 0, 0, 0
-        print("imu setup")
         self.sensor, \
         self.gx,        self.gy,        self.gz,        \
         self.ax,        self.ay,        self.az         \
                 = self._setup_imu()
-        print("    Done")
         self.gx_trim, self.gy_trim, self.gz_trim = self.calibrate()
         self.blue = BluetoothControl()
         self.blue.connect_bluetooth()
@@ -57,7 +55,7 @@ class Cato:
         self.st_matrix = [
             #       ST.IDLE             ST.MOUSE_BUTTONS        ST.KEYBOARD
                 [   self.noop,          self.noop,              self.noop],     #EV.NONE
-                [   self.noop,          self.noop,              self.noop],     #EV.UP
+                [   self,          self.noop,              self.noop],     #EV.UP
                 [   self.noop,          self.noop,              self.noop],     #EV.DOWN
                 [   self.noop,          self.noop,              self.noop],     #EV.RIGHT
                 [   self.noop,          self.noop,              self.noop],     #EV.LEFT
@@ -70,6 +68,7 @@ class Cato:
         
     def _setup_imu(self):
         ''' helper method -- encapsulate imu portion of init '''
+        print("IMU setup")
         imupwr = digitalio.DigitalInOut(board.IMU_PWR)
         imupwr.direction = digitalio.Direction.OUTPUT
         imupwr.value = True
@@ -79,7 +78,7 @@ class Cato:
 
         gx, gy, gz = sensor.gyro
         ax, ay, az = sensor.acceleration
-
+        print("    Done")
         return sensor, gx, gy, gz, ax, ay, az
 
     def calibrate(self):
@@ -98,7 +97,7 @@ class Cato:
         x = x / num_to_calibrate
         y = y / num_to_calibrate
         z = z / num_to_calibrate
-        print("Done")
+        print("    Done")
         return x, y, z
 
     # State Control / Execution Utils
@@ -132,27 +131,38 @@ class Cato:
         ''' no operation '''
         print("nooping")
     
+    def to_idle(self):
+        self.state = ST.IDLE
+    
+    def to_mouse_buttons(self):
+        self.state = ST.MOUSE_BUTTONS
+    
+    def to_keyboard(self):
+        self.state = ST.KEYBOARD
+        
     # Cato Mouse Actions
 
     def move_mouse(self):
         '''
             move the mouse via bluetooth until sufficiently idle
         '''
+        t_start = time.monotonic()
         idle_count = 0
-        max_idle_cycles = 100
         idle_thresh = 5.0
-        sleep_time = 0.004 #per cycle seconds to delay
+        sleep_time = 0.002 #per cycle seconds to delay
         idle_time = 0.5 #seconds to idle before exiting
-        max_idle_cycles = int(idle_time / sleep_time)
-        
+        max_idle_cycles = 150
+        min_run_cycles = 300
+        cycle_count = 0
         MOUSE_TYPE = "ACCEL"
         slow_thresh = 20.0
-        fast_thresh = 200.0
+        fast_thresh = 240.0
         scale = 1.0 #remain at 1.0 for linear
-        slow_scale = 0.1
+        slow_scale = 0.05
         fast_scale = 3.0
-        
+        t_idle_start = time.monotonic()
         while(idle_count < max_idle_cycles):
+            cycle_count += 1
             #time.sleep(sleep_time)
             self.read_imu()
             x_mvmt = self.gy
@@ -163,7 +173,7 @@ class Cato:
             scale_str = "linear"
             #control mouse scale / type
             #print(mag)
-            
+
             if(MOUSE_TYPE == "LINEAR"):
                 scale = 1.0
             if(MOUSE_TYPE == "ACCEL"):
@@ -177,14 +187,19 @@ class Cato:
                     #print("f")
                     scale = fast_scale
             #idle checking
-            if( mag <= idle_thresh ):
+            if( cycle_count == min_run_cycles):
+                print("    minimum duration reached at {a} seconds".format( a = (time.monotonic() - t_start) ) )
+            if( mag <= idle_thresh and cycle_count >= min_run_cycles): #only count idle if it's after minimum run length
                 #print("idle detected ({a}) max idle: {b}".format(a=idle_count, b=max_idle_cycles))
+                if (idle_count == 0):
+                    t_idle_start = time.monotonic()
                 idle_count += 1
             else:
                 idle_count = 0
             #print("rate: %s, x: %f, y: %f" % (scale_str, x_amt, y_amt))
             #self.blue.mouse.move(int(self.gy), int(self.gz))
             self.blue.mouse.move(int(scale * mag * cos(ang)), int(scale * mag * sin(ang)), 0)
+        print( "    Time idled: {} s".format( time.monotonic() - t_idle_start) )
 
     def scroll(self):
         ''' scrolls the mouse until sufficient exit condition is reached '''
@@ -230,9 +245,12 @@ class Cato:
 
     def left_click_drag(self):
         ''' docstring stub '''
+        print("Left click")
         self.left_press()
+        print("Drag")
         self.move_mouse()
         self.left_release()
+        print("Mouse released")
 
     def right_click_drag(self):
         ''' docstring stub '''

@@ -32,6 +32,6 @@ class BluetoothControl:
         self.ble.start_advertising(self.advertisement, self.scan_response)
         while not self.ble.connected:
             pass
-        print("Connected")
+        print("    Connected")
 
 
