@@ -47,7 +47,7 @@ echo "BEGINNING UPLOAD PROCESS"
 
 # install the new bootloader
     echo "INSTALLING NEW BOOTLOADER"
-    if test -f ./.bootloader/adafruit-circuitpython-Seeed_XIAO_nRF52840_Sense-en_US-7.3.3.uf2; then
+    if test -f ./.bootloader/*.uf2; then
         echo "    FOUND FILE"
         echo "    COPYING .UF2"
         cp ./.bootloader/* /e/
