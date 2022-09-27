@@ -30,7 +30,11 @@ class BluetoothControl:
         self.advertisement = ProvideServicesAdvertisement(self.hid)
         print("Waiting for BLE connection")
         self.ble.start_advertising(self.advertisement, self.scan_response)
+        # multiple connections occur here
+        # device powers up -> how do we connect to multiple devices
+        # "conenction is triggered from far end" -> when we advertise, if there are 2 devices that know us, both will try to connect
         while not self.ble.connected:
+            #we will need to increase granularity
             pass
         print("    Connected")
 
