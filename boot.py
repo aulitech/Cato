@@ -13,7 +13,7 @@ Then run the script
 Then unplug the board, and reconnect the board. 
     Reopen Serial Monitor
 '''
-
+import os
 import storage
 import json
 import microcontroller as mc
@@ -65,5 +65,9 @@ except OSError:
                 print("config file write error")
     except:
         print("config file creation Error")
-
+try:
+    os.mkdir("data")
+except:
+    print("Did not make new data directory")
+    
 storage.remount("/", mc.nvm[0])

@@ -20,12 +20,17 @@ print("Free space in MB", fs_stat[0] * fs_stat[3] / 1024 / 1024)
 mc.nvm[0] = False
 
 cato = Cato()
-cato.collect_n_gestures(2)
-print("Done with Gestures")
+
 while True:
     try:
-        time.sleep(1)
-        pass
+        print("Frozen until user movement wakes me up")
+        cato.hang_until_motion()
+        print("Awake!")
+        print("Moving Mouse")
+        cato.move_mouse()
+        print("Done with movement")
+        cato.left_click()
+        print("Clicked")
     except KeyboardInterrupt:
         break
 

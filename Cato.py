@@ -64,7 +64,7 @@ class Cato:
             = self._setup_imu() 
         self.gx_trim, self.gy_trim, self.gz_trim = self.calibrate()
         self.blue = BluetoothControl()
-        #self.blue.connect_bluetooth()
+        self.blue.connect_bluetooth()
         self.state = ST.IDLE
         self.st_matrix = [
             #       ST.IDLE                     ST.MOUSE_BUTTONS            ST.KEYBOARD
@@ -156,6 +156,8 @@ class Cato:
 
     def read_imu(self):
         ''' reads data off of the IMU into -> gx, gy, gz, ax, ay, az '''
+        self.buf = (self.buf + 1) % Spec.num_samples
+        
         dt = (supervisor.ticks_ms() - self.last_read) % 2**29 #ticks_ms overflow amount
         #print("dt = {}".format(dt))
         if(dt < Spec.imu_ms_delay):
@@ -167,7 +169,7 @@ class Cato:
         rad_to_deg = 57.3 # 360 / 2PI
         self.gx_hist[self.buf], self.gy_hist[self.buf], self.gz_hist[self.buf] = [(x * rad_to_deg) for x in self.sensor.gyro]
         self.ax_hist[self.buf], self.ay_hist[self.buf], self.az_hist[self.buf] = self.sensor.acceleration
-        self.buf = (self.buf + 1) % Spec.num_samples
+        
 
         self.gx_hist[self.buf] -= self.gx_trim
         self.gy_hist[self.buf] -= self.gy_trim
@@ -201,13 +203,13 @@ class Cato:
         sleep_time = 0.002 #per cycle seconds to delay
         idle_time = 0.5 #seconds to idle before exiting
         max_idle_cycles = 150
-        min_run_cycles = 300
+        min_run_cycles = 2 * Spec.g_dur
         cycle_count = 0
         MOUSE_TYPE = "ACCEL"
         slow_thresh = 20.0
         fast_thresh = 240.0
         scale = 1.0 #remain at 1.0 for linear
-        slow_scale = 0.05
+        slow_scale = 0.2
         fast_scale = 3.0
         t_idle_start = time.monotonic()
         while(idle_count < max_idle_cycles):
@@ -248,7 +250,7 @@ class Cato:
             #print("rate: %s, x: %f, y: %f" % (scale_str, x_amt, y_amt))
             #self.blue.mouse.move(int(self.gy), int(self.gz))
             self.blue.mouse.move(int(scale * mag * cos(ang)), int(scale * mag * sin(ang)), 0)
-        print( "    Time idled: {} s".format( time.monotonic() - t_idle_start) )
+        #print( "    Time idled: {} s".format( time.monotonic() - t_idle_start) )
 
     def scroll(self):
         ''' scrolls the mouse until sufficient exit condition is reached '''
@@ -361,15 +363,19 @@ class Cato:
         print(self.gy, end=',')
         print(self.gz)
 
-    def hang_until_motion(self, tr = 90):
+    def hang_until_motion(self, tr = 110):
+        x_scale = 1.00
+        y_scale = 1.00
+        z_scale = 1.85
         thresh = tr
         self.read_imu()
-        val = sqrt(self.gx**2 + self.gy**2 + 1.5*self.gz**2)
+        val = sqrt(x_scale * self.gx**2 + y_scale * self.gy**2 + z_scale * self.gz**2)
+        highest = 0.0
+        t = supervisor.ticks_ms()
         while(val < thresh):
             self.read_imu()
-            val = sqrt(self.gx**2 + self.gy**2 + 1.5*self.gz**2)
-            #print(val)
-        print("Motion Above {} detected".format(tr))
+            val = sqrt(x_scale * self.gx**2 + y_scale * self.gy**2 + z_scale * self.gz**2)
+        print("Triggered at {}".format(supervisor.ticks_ms()))
 
     def collect_gesture(self):
         self.read_imu()
@@ -390,14 +396,14 @@ class Cato:
     def collect_n_gestures(self, n=1):
         for i in range(n):
             self.hang_until_motion()
-            my_file = "data{:03}.txt".format(i)
+            my_file = "data/data{:03}.txt".format(i)
             print("Writing to: {}".format(my_file))
             self.collect_gesture()
             with open(my_file, "w") as f:
                 for sample in range(Spec.num_samples):
                     b_pos = (self.buf + sample) % Spec.num_samples
                     f.write( \
-                        "{},{},{},{},{},{},{}\n".format(  self.time_hist[b_pos], \
+                        "{},{},{},{},{},{},{}\n".format(self.time_hist[b_pos], \
                                                         self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],  \
                                                         self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos])
                     )
