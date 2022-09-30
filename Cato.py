@@ -4,9 +4,10 @@ auli.tech software to drive the Cato gesture Mouse
 Written by Finn Biggs finn@auli.tech
     15-Sept-22
 '''
-
+import sys
 import board
 import busio
+import os
 import io
 import json
 import time
@@ -51,7 +52,7 @@ class Spec:
 class Cato:
     ''' Main Class of Cato Gesture Mouse '''
     # SETUP METHODS
-    def __init__(self):
+    def __init__(self, bt = True):
         self.gx_trim, self.gy_trim, self.gz_trim = 0, 0, 0
         self.last_read = supervisor.ticks_ms()
 
@@ -64,19 +65,20 @@ class Cato:
             = self._setup_imu() 
         self.gx_trim, self.gy_trim, self.gz_trim = self.calibrate()
         self.blue = BluetoothControl()
-        self.blue.connect_bluetooth()
+        if bt:
+            self.blue.connect_bluetooth()
         self.state = ST.IDLE
         self.st_matrix = [
             #       ST.IDLE                     ST.MOUSE_BUTTONS            ST.KEYBOARD
-                [   self.noop,                  self.noop,                  self.noop           ],     #EV.NONE
-                [   self.move_mouse,            self.to_idle,               self.to_idle        ],     #EV.UP
-                [   self.left_click,            self.left_click,            self.press_enter    ],     #EV.DOWN
-                [   self.noop,                  self.noop,                  self.noop           ],     #EV.RIGHT
-                [   self.noop,                  self.noop,                  self.noop           ],     #EV.LEFT
-                [   self.noop,                  self.noop,                  self.noop           ],     #EV.ROLL_R
-                [   self.noop,                  self.noop,                  self.noop           ],     #EV.ROLL_L
-                [   self.noop,                  self.noop,                  self.noop           ],     #EV.SHAKE_YES
-                [   self.noop,                  self.noop,                  self.noop           ]      #EV.SHAKE_NO
+                [   self.noop,                  self.noop,                  self.noop           ],     #EV.NONE = 0
+                [   self.move_mouse,            self.to_idle,               self.to_idle        ],     #EV.UP = 1
+                [   self.left_click,            self.left_click,            self.press_enter    ],     #EV.DOWN = 2
+                [   self.noop,                  self.noop,                  self.noop           ],     #EV.RIGHT = 3
+                [   self.noop,                  self.noop,                  self.noop           ],     #EV.LEFT = 4
+                [   self.noop,                  self.noop,                  self.noop           ],     #EV.ROLL_R = 5
+                [   self.noop,                  self.noop,                  self.noop           ],     #EV.ROLL_L = 6
+                [   self.noop,                  self.noop,                  self.noop           ],     #EV.SHAKE_YES = 7
+                [   self.noop,                  self.noop,                  self.noop           ]      #EV.SHAKE_NO = 8
         ]  
         
         
@@ -375,39 +377,46 @@ class Cato:
         while(val < thresh):
             self.read_imu()
             val = sqrt(x_scale * self.gx**2 + y_scale * self.gy**2 + z_scale * self.gz**2)
-        print("Triggered at {}".format(supervisor.ticks_ms()))
+        #print("Triggered at {}".format(supervisor.ticks_ms()))
 
-    def collect_gesture(self):
+    def read_gesture(self):
         self.read_imu()
-        ti = self.last_read
         for i in range(Spec.num_samples):
             self.read_imu()
-        tf = self.last_read
-        for i in range(Spec.num_samples):
-            b_pos = (self.buf + i) % Spec.num_samples
-            print( \
-                "{},{},{},{},{},{},{}".format(  self.time_hist[b_pos], \
-                                                self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],  \
-                                                self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos])
-            )
-        print("Collection elapsed over: {} ms".format(tf - ti))
-        return tf-ti
     
     def collect_n_gestures(self, n=1):
+        for file in os.listdir("/data"):
+            try:
+                print("removing existing copy of {}".format(file))
+                os.remove("data/{}".format(file))
+            except:
+                print("could not remove {}".format(file))
         for i in range(n):
+            my_file = "data/data{:02}.txt".format(i)
+            print("Ready to read into: {}".format(my_file))
+            print("    Waiting for motion")
             self.hang_until_motion()
-            my_file = "data/data{:03}.txt".format(i)
-            print("Writing to: {}".format(my_file))
-            self.collect_gesture()
-            with open(my_file, "w") as f:
+            print("Capturing")
+            self.read_gesture()
+            print("Done")
+            my_string = ""
+            chunks = 0
+            chunksize = 10
+            with io.open(my_file, "w") as f:
+                temp = ""
+                print("{} opened".format(my_file))
                 for sample in range(Spec.num_samples):
-                    b_pos = (self.buf + sample) % Spec.num_samples
-                    f.write( \
-                        "{},{},{},{},{},{},{}\n".format(self.time_hist[b_pos], \
-                                                        self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],  \
-                                                        self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos])
-                    )
+                    b_pos = (self.buf + sample + 1) % Spec.num_samples
+                    temp = "%d,%f,%f,%f,%f,%f,%f" % (self.time_hist[b_pos],    
+                                                    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],
+                                                    self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos])
+                    chunks += 1
+                    print(temp, file = f)
+                    if chunks % chunksize == 0:
+                        print('', file=f, flush=True, end='')
+                    #f.write("%d,%f,%f,%f,%f,%f,%f\r\n" % (self.time_hist[b_pos],    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],  \
+                    #                                                            self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos]) )
+                #f.write(my_string)
+                #print(my_string)
                 f.close()
-            print("captured {}".format(my_file))
-                    
-
+            print("{} written".format(my_file))

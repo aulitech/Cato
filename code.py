@@ -1,4 +1,5 @@
 import board
+import io
 import digitalio
 import busio
 import sys
@@ -8,65 +9,68 @@ import microcontroller as mc
 import supervisor as sp
 from Cato import Cato
 from math import sqrt
-'''
 import os
-import gc
-
-fs_stat = os.statvfs('/')
-print("Free Ram space: ", gc.mem_free())
-print("Disk size in MB", fs_stat[0] * fs_stat[2] / 1024 / 1024)
-print("Free space in MB", fs_stat[0] * fs_stat[3] / 1024 / 1024)
-'''
-mc.nvm[0] = False
-
-cato = Cato()
 
 while True:
     try:
-        print("Frozen until user movement wakes me up")
-        cato.hang_until_motion()
-        print("Awake!")
-        print("Moving Mouse")
-        cato.move_mouse()
-        print("Done with movement")
-        cato.left_click()
-        print("Clicked")
+        print("Waiting to begin (CtrC)")
+        time.sleep(1)
+    except KeyboardInterrupt:
+            break
+
+print("Continuing to execution")
+print("boot_out.txt:")
+with io.open("boot_out.txt") as b: 
+    for line in b.readlines():
+        print(line)
+    b.close()
+
+print("Initializing")
+try:
+    cato = Cato(bt = False)
+    cato.collect_n_gestures(50)
+except KeyboardInterrupt:
+    print("interrupted")
+    pass
+
+while True:
+    try:
+        print("Done")
+        time.sleep(3)
     except KeyboardInterrupt:
         break
 
-'''
-_sum = sum(time_list)
-_len = len(time_list)
-_sq_list = [i**2 for i in time_list]
-_sq_sum = sum(_sq_list)
-_mean = _sum / _len
-_var = (_sq_sum / _len) - (_mean**2)
+boot_timer = 3
+def to_computer_writable():
+    mc.nvm[0] = True
+    print("\nMicrocontroller.nvm[0] -> True")
+    print("Rebooting into computer writable mode in {} seconds. For self-writable hit CtrC again".format(boot_timer))
+    try:
+        for i in range(boot_timer):
+            print(boot_timer - i)
+            time.sleep(1)
+    except KeyboardInterrupt:
+        return
+    mc.reset()
 
-print("\nnum: {} \nmean: {} \nstd:{}".format(_len, _mean, sqrt(_var)))
-print("")
-'''
+def to_self_writable():
+    mc.nvm[0] = False
+    print("\nMicrocontroller.nvm[0] -> False")
+    print("Rebooting into self writable mode in {} seconds. For computer-writable hit CtrC again".format(boot_timer))
+    try:
+        for i in range(boot_timer):
+            print(boot_timer - i)
+            time.sleep(1)
+    except KeyboardInterrupt:
+        return
+    mc.reset()
 
-"""
-fs_stat = os.statvfs('/')
-print("Free Ram space: ", gc.mem_free())
-print("Disk size in MB", fs_stat[0] * fs_stat[2] / 1024 / 1024)
-print("Free space in MB", fs_stat[0] * fs_stat[3] / 1024 / 1024)
-"""
-mc.nvm[0] = True
-print("Microcontroller.nvm[0] -> True")
-
-'''
+self_writable = True
+print("Deciding next boot mode: ")
 while True:
-    Dog.feed()
-    if(not cato.blue.ble.connected):
-        #code will idle in connectBluetooth until BT is connected
-        cato.blue.connect_bluetooth()
-    print("Moving")
-    cato.move_mouse()
-    print("Sleeping")
-    sleep_time = 5 
-    interval = 1
-    for i in range(sleep_time, 0, -interval):
-        print("    {}".format(i))
-        time.sleep(interval)
-'''
+    
+    self_writable =  not self_writable
+    if self_writable == True:
+        to_self_writable()
+    else:
+        to_computer_writable()

@@ -23,6 +23,9 @@ import microcontroller as mc
 # at time of boot, decide whether we're in 
 
 storage.remount("/", False)
+
+os.sync()
+
 new_name = "auli_cato"
 m = storage.getmount("/")
 m.label = new_name
@@ -33,6 +36,7 @@ config = {
         "lastused": "",
         "lastboot": "",
         "firmwareVersion":"",
+        "computer_write_enabled_on_boot":mc.nvm[0]
     },
     "connections" :  [
         {
@@ -61,13 +65,26 @@ except OSError:
             try:
                 with open("config.json", "w") as j:
                     j.write(json.dumps(config))
+                    j.close()
             except:
                 print("config file write error")
     except:
         print("config file creation Error")
+
+os.sync()
+
 try:
-    os.mkdir("data")
+    os.rmdir("/data")
+    print("/data deleted")
+except:
+    print("Error removing /data")
+try:
+    os.mkdir("/data")
+    print("/data created")
 except:
     print("Did not make new data directory")
-    
+
+print("Board is computer writable: {}".format(True if mc.nvm[0] else False))
+
 storage.remount("/", mc.nvm[0])
+os.sync()
