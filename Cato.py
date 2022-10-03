@@ -53,6 +53,9 @@ class Cato:
     ''' Main Class of Cato Gesture Mouse '''
     # SETUP METHODS
     def __init__(self, bt = True):
+        with open("config.json", 'r') as f:
+            self.config = json.load(f)
+        print(self.config)
         self.gx_trim, self.gy_trim, self.gz_trim = 0, 0, 0
         self.last_read = supervisor.ticks_ms()
 
