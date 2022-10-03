@@ -25,7 +25,7 @@ echo "BEGINNING UPLOAD PROCESS"
 # must wait for board to reconnect after power is cycled
     echo "WAITING FOR RECONNECTION AFTER POWER CYCLE"
     sleep 1
-    while [ ! -d /e/ ]
+    while [ ! -d /d/ ]
     do
         sleep 1
         echo "    WAITING FOR AUTO-RECONNECT"
@@ -47,10 +47,10 @@ echo "BEGINNING UPLOAD PROCESS"
 
 # install the new bootloader
     echo "INSTALLING NEW BOOTLOADER"
-    if test -f ./.bootloader/adafruit-circuitpython-Seeed_XIAO_nRF52840_Sense-en_US-7.3.3.uf2; then
+    if test -f ./.bootloader/*.uf2; then
         echo "    FOUND FILE"
         echo "    COPYING .UF2"
-        cp ./.bootloader/* /e/
+        cp ./.bootloader/* /d/
         echo "    DONE"
     fi
 
@@ -66,15 +66,12 @@ echo "BEGINNING UPLOAD PROCESS"
 
 # copy the source files
     echo "UPLOADING"
-    echo "    COPYING .PY FILES"
-    cp ./*.py /e/
-    echo "    DONE WITH .PY FILES"
     echo "    COPYING LIBS"
     if ! test -d /e/lib; then
         echo "        LIB FOLDER NOT FOUND -- CREATING LIB FOLDER"
         mkdir /e/lib
     fi
-    for dir in ./lib/**     # list directories in the form "/tmp/dirname/"
+    for dir in ./lib/**
     do
         dir=$dir
         echo "        COPYING ${dir}"
@@ -82,4 +79,7 @@ echo "BEGINNING UPLOAD PROCESS"
         echo "            DONE"   
     done
     echo "    DONE WITH LIBS"
+    echo "    COPYING .PY FILES"
+    cp ./*.py /e/
+    echo "    DONE WITH .PY FILES"
     echo "UPLOAD COMPLETE"

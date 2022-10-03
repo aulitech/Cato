@@ -4,9 +4,12 @@ auli.tech software to drive the Cato gesture Mouse
 Written by Finn Biggs finn@auli.tech
     15-Sept-22
 '''
-
+import sys
 import board
 import busio
+import os
+import io
+import json
 import time
 import digitalio
 
@@ -20,6 +23,7 @@ from adafruit_hid.mouse import Mouse
 from BluetoothControl import BluetoothControl
 from math import sqrt, atan2, sin, cos, pow
 
+import supervisor
 #helpers and enums
 
 class ST():
@@ -39,31 +43,46 @@ class EV():
     SHAKE_YES = 7
     SHAKE_NO = 8
 
+class Spec:
+    freq = 100 
+    imu_ms_delay = 1000.0 / freq
+    g_dur = 0.75 # gesture duration (seconds)
+    num_samples = int(freq * g_dur)
+
 class Cato:
     ''' Main Class of Cato Gesture Mouse '''
     # SETUP METHODS
-    def __init__(self):
+    def __init__(self, bt = True):
+        with open("config.json", 'r') as f:
+            self.config = json.load(f)
+        print(self.config)
         self.gx_trim, self.gy_trim, self.gz_trim = 0, 0, 0
+        self.last_read = supervisor.ticks_ms()
+
+        self.buf = 0
+        
         self.sensor, \
-        self.gx,        self.gy,        self.gz,        \
-        self.ax,        self.ay,        self.az         \
-                = self._setup_imu()
+            self.time_hist, \
+            self.gx_hist,        self.gy_hist,        self.gz_hist,        \
+            self.ax_hist,        self.ay_hist,        self.az_hist         \
+            = self._setup_imu() 
         self.gx_trim, self.gy_trim, self.gz_trim = self.calibrate()
         self.blue = BluetoothControl()
-        self.blue.connect_bluetooth()
+        if bt:
+            self.blue.connect_bluetooth()
         self.state = ST.IDLE
         self.st_matrix = [
-            #       ST.IDLE             ST.MOUSE_BUTTONS        ST.KEYBOARD
-                [   self.noop,          self.noop,              self.noop],     #EV.NONE
-                [   self,          self.noop,              self.noop],     #EV.UP
-                [   self.noop,          self.noop,              self.noop],     #EV.DOWN
-                [   self.noop,          self.noop,              self.noop],     #EV.RIGHT
-                [   self.noop,          self.noop,              self.noop],     #EV.LEFT
-                [   self.noop,          self.noop,              self.noop],     #EV.ROLL_R
-                [   self.noop,          self.noop,              self.noop],     #EV.ROLL_L
-                [   self.noop,          self.noop,              self.noop],     #EV.SHAKE_YES
-                [   self.noop,          self.noop,              self.noop]      #EV.SHAKE_NO
-        ]
+            #       ST.IDLE                     ST.MOUSE_BUTTONS            ST.KEYBOARD
+                [   self.noop,                  self.noop,                  self.noop           ],     #EV.NONE = 0
+                [   self.move_mouse,            self.to_idle,               self.to_idle        ],     #EV.UP = 1
+                [   self.left_click,            self.left_click,            self.press_enter    ],     #EV.DOWN = 2
+                [   self.noop,                  self.noop,                  self.noop           ],     #EV.RIGHT = 3
+                [   self.noop,                  self.noop,                  self.noop           ],     #EV.LEFT = 4
+                [   self.noop,                  self.noop,                  self.noop           ],     #EV.ROLL_R = 5
+                [   self.noop,                  self.noop,                  self.noop           ],     #EV.ROLL_L = 6
+                [   self.noop,                  self.noop,                  self.noop           ],     #EV.SHAKE_YES = 7
+                [   self.noop,                  self.noop,                  self.noop           ]      #EV.SHAKE_NO = 8
+        ]  
         
         
     def _setup_imu(self):
@@ -76,20 +95,27 @@ class Cato:
         imu_i2c = busio.I2C(board.IMU_SCL, board.IMU_SDA)
         sensor = LSM6DS3TRC(imu_i2c)
 
-        gx, gy, gz = sensor.gyro
-        ax, ay, az = sensor.acceleration
+        gx = [0]*Spec.num_samples
+        gy = [0]*Spec.num_samples
+        gz = [0]*Spec.num_samples
+        ax = [0]*Spec.num_samples
+        ay = [0]*Spec.num_samples
+        az = [0]*Spec.num_samples
+
+        time_hist = [0]*Spec.num_samples
+
+        gx[self.buf], gy[self.buf], gz[self.buf] = sensor.gyro
+        ax[self.buf], ay[self.buf], az[self.buf] = sensor.acceleration
+        
+        self.buf = (self.buf + 1) % Spec.num_samples
         print("    Done")
-        return sensor, gx, gy, gz, ax, ay, az
+        return sensor, time_hist, gx, gy, gz, ax, ay, az
 
     def calibrate(self):
         print("Calibrating")
-        num_to_calibrate = 1000
+        num_to_calibrate = 300
         x, y, z = 0, 0, 0
         for cycles in range(num_to_calibrate):
-            time.sleep(0.001)
-            if(cycles % 100 == 0):
-                #print(int(cycles / 10), '%')
-                pass
             self.read_imu()
             x += self.gx
             y += self.gy
@@ -109,21 +135,51 @@ class Cato:
         self.st_matrix[event][self.state]()
 
     # Sensor utils read_IMU, calibrate
+    @property
+    def gx(self):
+        return self.gx_hist[self.buf]
+    
+    @property
+    def gy(self):
+        return self.gy_hist[self.buf]
+    
+    @property
+    def gz(self):
+        return self.gz_hist[self.buf]
+
+    @property
+    def ax(self):
+        return self.ax_hist[self.buf]
+
+    @property
+    def ay(self):
+        return self.ay_hist[self.buf]
+
+    @property
+    def az(self):
+        return self.az_hist[self.buf]
 
     def read_imu(self):
         ''' reads data off of the IMU into -> gx, gy, gz, ax, ay, az '''
-        self.gx, self.gy, self.gz = self.sensor.gyro
+        self.buf = (self.buf + 1) % Spec.num_samples
+        
+        dt = (supervisor.ticks_ms() - self.last_read) % 2**29 #ticks_ms overflow amount
+        #print("dt = {}".format(dt))
+        if(dt < Spec.imu_ms_delay):
+            time.sleep((Spec.imu_ms_delay - dt) / 1000)
+        
+        self.last_read = supervisor.ticks_ms()
+        self.time_hist[self.buf] = self.last_read
+
         rad_to_deg = 57.3 # 360 / 2PI
+        self.gx_hist[self.buf], self.gy_hist[self.buf], self.gz_hist[self.buf] = [(x * rad_to_deg) for x in self.sensor.gyro]
+        self.ax_hist[self.buf], self.ay_hist[self.buf], self.az_hist[self.buf] = self.sensor.acceleration
+        
 
-        self.gx = self.gx*rad_to_deg
-        self.gy = self.gy*rad_to_deg
-        self.gz = self.gz*rad_to_deg
+        self.gx_hist[self.buf] -= self.gx_trim
+        self.gy_hist[self.buf] -= self.gy_trim
+        self.gz_hist[self.buf] -= self.gz_trim
 
-        self.gx -= self.gx_trim
-        self.gy -= self.gy_trim
-        self.gz -= self.gz_trim
-
-        self.ax, self.ay, self.az = self.sensor.acceleration
 
     # Cato Actions
     # CircuitPython Docs: https://docs.circuitpython.org/projects/hid/en/latest/api.html#adafruit-hid-mouse-mouse '''
@@ -152,13 +208,13 @@ class Cato:
         sleep_time = 0.002 #per cycle seconds to delay
         idle_time = 0.5 #seconds to idle before exiting
         max_idle_cycles = 150
-        min_run_cycles = 300
+        min_run_cycles = 2 * Spec.g_dur
         cycle_count = 0
         MOUSE_TYPE = "ACCEL"
         slow_thresh = 20.0
         fast_thresh = 240.0
         scale = 1.0 #remain at 1.0 for linear
-        slow_scale = 0.05
+        slow_scale = 0.2
         fast_scale = 3.0
         t_idle_start = time.monotonic()
         while(idle_count < max_idle_cycles):
@@ -199,7 +255,7 @@ class Cato:
             #print("rate: %s, x: %f, y: %f" % (scale_str, x_amt, y_amt))
             #self.blue.mouse.move(int(self.gy), int(self.gz))
             self.blue.mouse.move(int(scale * mag * cos(ang)), int(scale * mag * sin(ang)), 0)
-        print( "    Time idled: {} s".format( time.monotonic() - t_idle_start) )
+        #print( "    Time idled: {} s".format( time.monotonic() - t_idle_start) )
 
     def scroll(self):
         ''' scrolls the mouse until sufficient exit condition is reached '''
@@ -299,3 +355,71 @@ class Cato:
         self.blue.k.release(Keycode.ENTER)
 
     # ToDo, the rest of the keyboard buttons
+
+    # DATA COLLECTION TASK:
+    def o_str(self):
+        return "{},{},{},{},{},{},{}".format(self.last_read, self.ax, self.ay, self.az, self.gx, self.gy, self.gz)
+
+    def print_o_str(self):
+        print(self.ax, end=',')
+        print(self.ay, end=',')
+        print(self.az, end=',')
+        print(self.gx, end=',')
+        print(self.gy, end=',')
+        print(self.gz)
+
+    def hang_until_motion(self, tr = 110):
+        x_scale = 1.00
+        y_scale = 1.00
+        z_scale = 1.85
+        thresh = tr
+        self.read_imu()
+        val = sqrt(x_scale * self.gx**2 + y_scale * self.gy**2 + z_scale * self.gz**2)
+        highest = 0.0
+        t = supervisor.ticks_ms()
+        while(val < thresh):
+            self.read_imu()
+            val = sqrt(x_scale * self.gx**2 + y_scale * self.gy**2 + z_scale * self.gz**2)
+        #print("Triggered at {}".format(supervisor.ticks_ms()))
+
+    def read_gesture(self):
+        self.read_imu()
+        for i in range(Spec.num_samples):
+            self.read_imu()
+    
+    def collect_n_gestures(self, n=1):
+        for file in os.listdir("/data"):
+            try:
+                print("removing existing copy of {}".format(file))
+                os.remove("data/{}".format(file))
+            except:
+                print("could not remove {}".format(file))
+        for i in range(n):
+            my_file = "data/data{:02}.txt".format(i)
+            print("Ready to read into: {}".format(my_file))
+            print("    Waiting for motion")
+            self.hang_until_motion()
+            print("Capturing")
+            self.read_gesture()
+            print("Done")
+            my_string = ""
+            chunks = 0
+            chunksize = 10
+            with io.open(my_file, "w") as f:
+                temp = ""
+                print("{} opened".format(my_file))
+                for sample in range(Spec.num_samples):
+                    b_pos = (self.buf + sample + 1) % Spec.num_samples
+                    temp = "%d,%f,%f,%f,%f,%f,%f" % (self.time_hist[b_pos],    
+                                                    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],
+                                                    self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos])
+                    chunks += 1
+                    print(temp, file = f)
+                    if chunks % chunksize == 0:
+                        print('', file=f, flush=True, end='')
+                    #f.write("%d,%f,%f,%f,%f,%f,%f\r\n" % (self.time_hist[b_pos],    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],  \
+                    #                                                            self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos]) )
+                #f.write(my_string)
+                #print(my_string)
+                f.close()
+            print("{} written".format(my_file))
