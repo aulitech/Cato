@@ -57,7 +57,7 @@ echo "BEGINNING UPLOAD PROCESS"
 # install of new bootloader causes board to restart
 # wait to reconnect
     echo "BOARD WILL RESTART"
-    while [ ! -d /e/ ]
+    while [ ! -d /d/ ]
     do
         sleep 1
         echo "    WAITING FOR AUTO-RECONNECT"
@@ -67,19 +67,19 @@ echo "BEGINNING UPLOAD PROCESS"
 # copy the source files
     echo "UPLOADING"
     echo "    COPYING LIBS"
-    if ! test -d /e/lib; then
+    if ! test -d /d/lib; then
         echo "        LIB FOLDER NOT FOUND -- CREATING LIB FOLDER"
-        mkdir /e/lib
+        mkdir /d/lib
     fi
     for dir in ./lib/**
     do
         dir=$dir
         echo "        COPYING ${dir}"
-        cp -r $dir /e/lib
+        cp -r $dir /d/lib
         echo "            DONE"   
     done
     echo "    DONE WITH LIBS"
     echo "    COPYING .PY FILES"
-    cp ./*.py /e/
+    cp ./*.py /d/
     echo "    DONE WITH .PY FILES"
     echo "UPLOAD COMPLETE"

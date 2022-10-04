@@ -24,6 +24,9 @@ from BluetoothControl import BluetoothControl
 from math import sqrt, atan2, sin, cos, pow
 
 import supervisor
+
+from neutonml import Neuton
+
 #helpers and enums
 
 class ST():
@@ -129,7 +132,18 @@ class Cato:
     # State Control / Execution Utils
     def detect_event(self):
         ''' calls to gesture detection libraries, controls flow of program '''
-        return EV.NONE
+        n = Neuton()
+        n.reset_inputs()
+        self.hang_until_motion()
+        flag = False
+        for i in range(Spec.num_samples):
+            b_pos = (i + self.buf) % Spec.num_samples
+            flag = n.set_inputs([   self.ax_hist[b_pos], self.ay_hist[b_pos], self.az_hist[b_pos],
+                                    self.gx_hist[b_pos], self.gy_hist[b_pos], self.gz_hist[b_pos]])
+            if flag == True:
+                break
+        inf = n.inference()
+        return inf
     def dispatch_event(self, event):
         ''' sends event from detect_event to the state transition matrix '''
         self.st_matrix[event][self.state]()
