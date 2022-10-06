@@ -1,5 +1,7 @@
 #!/bin/bash
 
+board_directory = $(cat /proc/partitions)
+echo "$board_directory"
 # Presence of boot_out.txt indicates board is in circuitPython Config
     FILE1=/e/boot_out.txt
 
@@ -25,7 +27,7 @@ echo "BEGINNING UPLOAD PROCESS"
 # must wait for board to reconnect after power is cycled
     echo "WAITING FOR RECONNECTION AFTER POWER CYCLE"
     sleep 1
-    while [ ! -d /d/ ]
+    while [ ! -d /e/ ]
     do
         sleep 1
         echo "    WAITING FOR AUTO-RECONNECT"
@@ -50,14 +52,14 @@ echo "BEGINNING UPLOAD PROCESS"
     if test -f ./.bootloader/*.uf2; then
         echo "    FOUND FILE"
         echo "    COPYING .UF2"
-        cp ./.bootloader/* /d/
+        cp ./.bootloader/* /e/
         echo "    DONE"
     fi
 
 # install of new bootloader causes board to restart
 # wait to reconnect
     echo "BOARD WILL RESTART"
-    while [ ! -d /d/ ]
+    while [ ! -d /e/ ]
     do
         sleep 1
         echo "    WAITING FOR AUTO-RECONNECT"
@@ -67,7 +69,7 @@ echo "BEGINNING UPLOAD PROCESS"
 # copy the source files
     echo "UPLOADING"
     echo "    COPYING LIBS"
-    if ! test -d /d/lib; then
+    if ! test -d /e/lib; then
         echo "        LIB FOLDER NOT FOUND -- CREATING LIB FOLDER"
         mkdir /d/lib
     fi
@@ -75,11 +77,11 @@ echo "BEGINNING UPLOAD PROCESS"
     do
         dir=$dir
         echo "        COPYING ${dir}"
-        cp -r $dir /d/lib
+        cp -r $dir /e/lib
         echo "            DONE"   
     done
     echo "    DONE WITH LIBS"
     echo "    COPYING .PY FILES"
-    cp ./*.py /d/
+    cp ./*.py /e/
     echo "    DONE WITH .PY FILES"
     echo "UPLOAD COMPLETE"

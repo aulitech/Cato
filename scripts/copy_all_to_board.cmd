@@ -1,6 +1,9 @@
 
 @echo off
 
+partitions = ($ls /dev/proc/partitions)
+echo $partitions
+
 :hang_bootloader_check_head
 if exist E:/boot_out.txt echo BOARD MUST BE IN BOOTLOADER MODE. TAP RESET 2x
 

@@ -22,7 +22,7 @@ from adafruit_hid.mouse import Mouse
 
 from BluetoothControl import BluetoothControl
 from math import sqrt, atan2, sin, cos, pow
-
+import array
 import supervisor
 
 from neutonml import Neuton
@@ -51,6 +51,8 @@ class Spec:
     imu_ms_delay = 1000.0 / freq
     g_dur = 0.75 # gesture duration (seconds)
     num_samples = int(freq * g_dur)
+
+outputs = array.array("f", [0,0,0,0,0,0,0,0])
 
 class Cato:
     ''' Main Class of Cato Gesture Mouse '''
@@ -87,6 +89,7 @@ class Cato:
                 [   self.noop,                  self.noop,                  self.noop           ]      #EV.SHAKE_NO = 8
         ]  
         
+        self.n = Neuton(outputs)
         
     def _setup_imu(self):
         ''' helper method -- encapsulate imu portion of init '''
@@ -132,21 +135,32 @@ class Cato:
     # State Control / Execution Utils
     def detect_event(self):
         ''' calls to gesture detection libraries, controls flow of program '''
-        n = Neuton()
-        n.reset_inputs()
+        print("\nDetecting Event")
         self.hang_until_motion()
-        flag = False
-        for i in range(Spec.num_samples):
-            b_pos = (i + self.buf) % Spec.num_samples
-            flag = n.set_inputs([   self.ax_hist[b_pos], self.ay_hist[b_pos], self.az_hist[b_pos],
-                                    self.gx_hist[b_pos], self.gy_hist[b_pos], self.gz_hist[b_pos]])
-            if flag == True:
+        self.read_gesture()
+        flag = True
+        i = 0
+        while(True):
+            b_pos = (1 + i + self.buf) % Spec.num_samples
+            print([  self.ax_hist[b_pos], self.ay_hist[b_pos], self.az_hist[b_pos],
+                                        self.gx_hist[b_pos], self.gy_hist[b_pos], self.gz_hist[b_pos]]
+            )
+            flag = self.n.set_inputs([  self.ax_hist[b_pos], self.ay_hist[b_pos], self.az_hist[b_pos],
+                                        self.gx_hist[b_pos], self.gy_hist[b_pos], self.gz_hist[b_pos]]
+            )
+            i += 1
+            if bool(flag) == False:
                 break
-        inf = n.inference()
-        return inf
+        print("\nInputs set")
+        inf = self.n.inference()
+        print(inf, outputs)
+
+        return 0
+
     def dispatch_event(self, event):
         ''' sends event from detect_event to the state transition matrix '''
-        self.st_matrix[event][self.state]()
+        print("Dispatch Event Called")
+        #self.st_matrix[event][self.state]()
 
     # Sensor utils read_IMU, calibrate
     @property
@@ -387,7 +401,9 @@ class Cato:
         y_scale = 1.00
         z_scale = 1.85
         thresh = tr
-        self.read_imu()
+        #sit peacefully
+        for i in range(20):
+            self.read_imu()
         val = sqrt(x_scale * self.gx**2 + y_scale * self.gy**2 + z_scale * self.gz**2)
         highest = 0.0
         t = supervisor.ticks_ms()

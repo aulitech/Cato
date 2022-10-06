@@ -28,15 +28,21 @@ with io.open("boot_out.txt") as b:
 print("Initializing")
 try:
     cato = Cato(bt = False)
-    cato.collect_n_gestures(50)
+
 except KeyboardInterrupt:
     print("interrupted")
     pass
 
+try:
+    for i in range(10):
+        cato.detect_event()
+except KeyboardInterrupt:
+    print("interrupted")
+
 while True:
     try:
-        print("Done")
-        time.sleep(3)
+        print("done")
+        time.sleep(2)
     except KeyboardInterrupt:
         break
 
