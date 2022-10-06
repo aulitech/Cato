@@ -45,9 +45,9 @@ try:
 except KeyboardInterrupt:
     print("\tinterrupted during gesture detection")
 
-print("\nPROGRAM COMPLETE.")
+print("\nPROGRAM COMPLETE.\n")
 
-boot_timer = 5
+boot_timer = 4
 def countdown(timer = boot_timer):
     for i in range(timer):
         print(timer - i)

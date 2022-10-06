@@ -145,8 +145,8 @@ class Cato:
             print([  self.ax_hist[b_pos], self.ay_hist[b_pos], self.az_hist[b_pos],
                                         self.gx_hist[b_pos], self.gy_hist[b_pos], self.gz_hist[b_pos]]
             )
-            flag = self.n.set_inputs([  self.ax_hist[b_pos], self.ay_hist[b_pos], self.az_hist[b_pos],
-                                        self.gx_hist[b_pos], self.gy_hist[b_pos], self.gz_hist[b_pos]]
+            flag = self.n.set_inputs([  -self.ax_hist[b_pos]/2, -self.ay_hist[b_pos]/2, -self.az_hist[b_pos]/2,
+                                        -self.gx_hist[b_pos]/2, -self.gy_hist[b_pos]/2, -self.gz_hist[b_pos]/2]
             )
             i += 1
             if bool(flag) == False:
