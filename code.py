@@ -11,51 +11,54 @@ from Cato import Cato
 from math import sqrt
 import os
 
+print("\n")
+
+#Wait for user to confirm readiness (calibration, readability)
 while True:
     try:
         print("Waiting to begin (CtrC)")
-        time.sleep(1)
+        time.sleep(5)
     except KeyboardInterrupt:
             break
 
-print("Continuing to execution")
-print("boot_out.txt:")
-with io.open("boot_out.txt") as b: 
-    for line in b.readlines():
-        print(line)
-    b.close()
+print_boot_out = True
+if(print_boot_out == True):
+    print("SETUP INFORMATION: ")
+    print("boot_out.txt: ")
+    with io.open("boot_out.txt") as b: 
+        for line in b.readlines():
+            print('\t', line)
+        b.close()
 
-print("Initializing")
+print("Initializing Cato - interrupt will cause error")
 try:
     cato = Cato(bt = False)
-
+    print("Initialization complete.")
 except KeyboardInterrupt:
-    print("interrupted")
+    print("\tinterrupted during initialization")
     pass
 
+print("Detecting Gestures: ")
 try:
-    num_to_detect = 10
-    for i in range(num_to_detect):
-        cato.detect_event()
+    while True:
+        x = cato.detect_event()
 except KeyboardInterrupt:
-    print("interrupted")
+    print("\tinterrupted during gesture detection")
 
-while True:
-    try:
-        print("done")
-        time.sleep(2)
-    except KeyboardInterrupt:
-        break
+print("\nPROGRAM COMPLETE.")
 
-boot_timer = 3
+boot_timer = 5
+def countdown(timer = boot_timer):
+    for i in range(timer):
+        print(timer - i)
+        time.sleep(1)
+
 def to_computer_writable():
     mc.nvm[0] = True
     print("\nMicrocontroller.nvm[0] -> True")
     print("Rebooting into computer writable mode in {} seconds. For self-writable hit CtrC again".format(boot_timer))
     try:
-        for i in range(boot_timer):
-            print(boot_timer - i)
-            time.sleep(1)
+        countdown()
     except KeyboardInterrupt:
         return
     mc.reset()
@@ -65,19 +68,24 @@ def to_self_writable():
     print("\nMicrocontroller.nvm[0] -> False")
     print("Rebooting into self writable mode in {} seconds. For computer-writable hit CtrC again".format(boot_timer))
     try:
-        for i in range(boot_timer):
-            print(boot_timer - i)
-            time.sleep(1)
+        countdown()
     except KeyboardInterrupt:
         return
     mc.reset()
 
-self_writable = True
-print("Deciding next boot mode: ")
 while True:
-    
-    self_writable =  not self_writable
-    if self_writable == True:
-        to_self_writable()
-    else:
+    print("BOOT MODE / REPL SELECTION")
+    print("Type your selection:")
+    print("\t0: Computer Writable")
+    print("\t1: Self-Writable")
+    print("\t2: REPL (or hit Ctr+C)")
+    print("INPUT:\t", end='')
+    my_str = input()  # type and press ENTER or RETURN
+    if my_str=="0":
         to_computer_writable()
+    elif my_str == "1":
+        to_self_writable()
+    elif my_str == "2":
+        break
+    else:
+        print("\tInput not recognized.\n")
