@@ -34,7 +34,8 @@ except KeyboardInterrupt:
     pass
 
 try:
-    for i in range(10):
+    num_to_detect = 10
+    for i in range(num_to_detect):
         cato.detect_event()
 except KeyboardInterrupt:
     print("interrupted")
