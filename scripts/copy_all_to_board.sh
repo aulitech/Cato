@@ -1,19 +1,20 @@
 #!/bin/bash
 
-board_directory = $(cat /proc/partitions)
-echo "$board_directory"
+boot_load_loc=/d/
+auli_cato_loc=/e/
+
 # Presence of boot_out.txt indicates board is in circuitPython Config
-    FILE1=/e/boot_out.txt
+    FILE1=$auli_cato_loc/boot_out.txt
 
 # Presence of these three files indicates default bootloader config
-    BLFILE1=/e/CURRENT.UF2
-    BLFILE2=/e/INDEX.HTM
-    BLFILE3=/e/INFO_UF2.TXT
+    BLFILE1=$boot_load_loc/CURRENT.UF2
+    BLFILE2=$boot_load_loc/INDEX.HTM
+    BLFILE3=$boot_load_loc/INFO_UF2.TXT
 
 echo "BEGINNING UPLOAD PROCESS"
 
 # Test that board is in bootloader mode, give user chance to reset board
-    if test -f "$FILE1"; then
+    if test -f $FILE1; then
         echo BOARD MUST BE IN BOOTLOADER MODE. TAP RESET 2x
     fi
     # hang until boot_out is gone
@@ -27,7 +28,7 @@ echo "BEGINNING UPLOAD PROCESS"
 # must wait for board to reconnect after power is cycled
     echo "WAITING FOR RECONNECTION AFTER POWER CYCLE"
     sleep 1
-    while [ ! -d /e/ ]
+    while [ ! -d $boot_load_loc ]
     do
         sleep 1
         echo "    WAITING FOR AUTO-RECONNECT"
@@ -52,14 +53,14 @@ echo "BEGINNING UPLOAD PROCESS"
     if test -f ./.bootloader/*.uf2; then
         echo "    FOUND FILE"
         echo "    COPYING .UF2"
-        cp ./.bootloader/* /e/
+        cp ./.bootloader/* "$boot_load_loc"
         echo "    DONE"
     fi
 
 # install of new bootloader causes board to restart
 # wait to reconnect
     echo "BOARD WILL RESTART"
-    while [ ! -d /e/ ]
+    while [ ! -d $auli_cato_loc ]
     do
         sleep 1
         echo "    WAITING FOR AUTO-RECONNECT"
@@ -69,19 +70,19 @@ echo "BEGINNING UPLOAD PROCESS"
 # copy the source files
     echo "UPLOADING"
     echo "    COPYING LIBS"
-    if ! test -d /e/lib; then
+    if ! test -d "$auli_cato_loc/lib"; then
         echo "        LIB FOLDER NOT FOUND -- CREATING LIB FOLDER"
-        mkdir /d/lib
+        mkdir "$auli_cato_loc/lib"
     fi
     for dir in ./lib/**
     do
         dir=$dir
         echo "        COPYING ${dir}"
-        cp -r $dir /e/lib
+        cp -r $dir "$auli_cato_loc/lib"
         echo "            DONE"   
     done
     echo "    DONE WITH LIBS"
     echo "    COPYING .PY FILES"
-    cp ./*.py /e/
+    cp ./*.py "$auli_cato_loc"
     echo "    DONE WITH .PY FILES"
     echo "UPLOAD COMPLETE"

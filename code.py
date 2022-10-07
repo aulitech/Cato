@@ -27,21 +27,21 @@ if(print_boot_out == True):
     print("boot_out.txt: ")
     with io.open("boot_out.txt") as b: 
         for line in b.readlines():
-            print('\t', line)
+            print('\t', line, end='')
         b.close()
 
 print("Initializing Cato - interrupt will cause error")
 try:
-    cato = Cato(bt = False)
+    cato = Cato()
     print("Initialization complete.")
 except KeyboardInterrupt:
     print("\tinterrupted during initialization")
     pass
 
-print("Detecting Gestures: ")
 try:
     while True:
         x = cato.detect_event()
+        cato.dispatch_event(x)
 except KeyboardInterrupt:
     print("\tinterrupted during gesture detection")
 

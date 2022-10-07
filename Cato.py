@@ -73,20 +73,23 @@ class Cato:
             = self._setup_imu() 
         self.gx_trim, self.gy_trim, self.gz_trim = self.calibrate()
         self.blue = BluetoothControl()
+
+        #for data collection or non computer interface dev cycles, it is nice to disable BT
         if bt:
             self.blue.connect_bluetooth()
+        
         self.state = ST.IDLE
         self.st_matrix = [
             #       ST.IDLE                     ST.MOUSE_BUTTONS            ST.KEYBOARD
-                [   self.noop,                  self.noop,                  self.noop           ],     #EV.NONE = 0
-                [   self.move_mouse,            self.to_idle,               self.to_idle        ],     #EV.UP = 1
-                [   self.left_click,            self.left_click,            self.press_enter    ],     #EV.DOWN = 2
-                [   self.noop,                  self.noop,                  self.noop           ],     #EV.RIGHT = 3
-                [   self.noop,                  self.noop,                  self.noop           ],     #EV.LEFT = 4
-                [   self.noop,                  self.noop,                  self.noop           ],     #EV.ROLL_R = 5
-                [   self.noop,                  self.noop,                  self.noop           ],     #EV.ROLL_L = 6
-                [   self.noop,                  self.noop,                  self.noop           ],     #EV.SHAKE_YES = 7
-                [   self.noop,                  self.noop,                  self.noop           ]      #EV.SHAKE_NO = 8
+                [   self.move_mouse,            self.to_idle,               self.to_idle        ], #EV.UP           = 0
+                [   self.left_click,            self.left_click,            self.press_enter    ], #EV.DOWN         = 1
+                [   self.scroll,                self.noop,                  self.noop           ], #EV.RIGHT        = 2
+                [   self.noop,                  self.noop,                  self.noop           ], #EV.LEFT         = 3
+                [   self.scroll_lr,             self.noop,                  self.noop           ], #EV.ROLL_R       = 4
+                [   self.scroll_lr,             self.noop,                  self.noop           ], #EV.ROLL_L       = 5
+                [   self.noop,                  self.noop,                  self.noop           ], #EV.SHAKE_YES    = 6
+                [   self.noop,                  self.noop,                  self.noop           ], #EV.SHAKE_NO     = 7
+                [   self.noop,                  self.noop,                  self.noop           ]  #EV.NONE         = 8
         ]  
         
         self.n = Neuton(outputs)
@@ -132,35 +135,50 @@ class Cato:
         print("    Done")
         return x, y, z
 
+    def display_gesture_menu(self):
+        print("Available actions: ")
+        for ev in range(len(self.st_matrix)):
+            print("\tevent: {}\n\t\taction: {}".format(ev, self.st_matrix[ev][self.state].__name__))
+
     # State Control / Execution Utils
     def detect_event(self):
         ''' calls to gesture detection libraries, controls flow of program '''
+        self.display_gesture_menu()
         print("\nDetecting Event")
         self.hang_until_motion()
         self.read_gesture()
         flag = True
-        i = 0
+        i = 1
         while(True):
-            b_pos = (1 + i + self.buf) % Spec.num_samples
-            print([  self.ax_hist[b_pos], self.ay_hist[b_pos], self.az_hist[b_pos],
-                                        self.gx_hist[b_pos], self.gy_hist[b_pos], self.gz_hist[b_pos]]
+            b_pos = (i + self.buf) % Spec.num_samples
+            arr = array.array( 'f', 
+                [   self.ax_hist[b_pos], self.ay_hist[b_pos], self.az_hist[b_pos],
+                    self.gx_hist[b_pos], self.gy_hist[b_pos], self.gz_hist[b_pos] ]
+
             )
-            flag = self.n.set_inputs([  -self.ax_hist[b_pos]/2, -self.ay_hist[b_pos]/2, -self.az_hist[b_pos]/2,
-                                        -self.gx_hist[b_pos]/2, -self.gy_hist[b_pos]/2, -self.gz_hist[b_pos]/2]
-            )
+            flag = self.n.set_inputs( arr )
             i += 1
             if bool(flag) == False:
                 break
-        print("\nInputs set")
         inf = self.n.inference()
-        print(inf, outputs)
 
-        return 0
+        confidence = max(outputs)
+        #print("\tMax Confidence:  {}".format(confidence))
+        #print("\tPredicted Index: {}".format(inf))
+        #print("\tOutputs:         {}".format(outputs))
+        confidence_thresh = 0.80
+        ret_val = inf
+        if max(outputs) < confidence_thresh:
+            ret_val = 8
+        return ret_val
 
     def dispatch_event(self, event):
+
         ''' sends event from detect_event to the state transition matrix '''
-        print("Dispatch Event Called")
-        #self.st_matrix[event][self.state]()
+        print("Dispatch Event Called with event = {}".format(event))
+        print("event: {}, state: {}".format(event, self.state))
+        print(self.st_matrix[event][self.state].__name__)
+        self.st_matrix[event][self.state]()
 
     # Sensor utils read_IMU, calibrate
     @property
@@ -230,6 +248,7 @@ class Cato:
         '''
             move the mouse via bluetooth until sufficiently idle
         '''
+        print("MOVE MOUSE CALLED")
         t_start = time.monotonic()
         idle_count = 0
         idle_thresh = 5.0
@@ -301,18 +320,20 @@ class Cato:
         ''' shift + scroll = lateral scroll on MOST applications
             laterally scroll until exit condition
         '''
+        print("Scrolling LR")
         #press shift
         ''' scrolls the mouse until sufficient exit condition is reached '''
+        print("Press Shift")
         self.blue.k.press(Keycode.SHIFT)
-        print("Scrolling")
+        #self.blue.k.release(Keycode.SHIFT)
         multiplier = -0.1
         while(True):
             time.sleep(0.100)
             self.read_imu()
             self.blue.mouse.move(0, 0, int(multiplier * self.gy))
             if(self.gz > 30.0):
-                self.blue.k.release(Keycode.SHIFT)
                 break
+        self.blue.k.release(Keycode.SHIFT)
         #release shift
 
     def left_click(self):
@@ -396,13 +417,13 @@ class Cato:
         print(self.gy, end=',')
         print(self.gz)
 
-    def hang_until_motion(self, tr = 110):
+    def hang_until_motion(self, tr = 105):
         x_scale = 1.00
         y_scale = 1.00
         z_scale = 1.85
         thresh = tr
         #sit peacefully
-        for i in range(20):
+        for i in range(3):
             self.read_imu()
         val = sqrt(x_scale * self.gx**2 + y_scale * self.gy**2 + z_scale * self.gz**2)
         highest = 0.0
