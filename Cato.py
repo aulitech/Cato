@@ -277,15 +277,16 @@ class Cato:
         t_start = time.monotonic()
         idle_count = 0
         idle_thresh = 5.0
-        sleep_time = 0.002 #per cycle seconds to delay
-        idle_time = 0.5 #seconds to idle before exiting
-        max_idle_cycles = 150
+        max_idle_cycles = 50
         min_run_cycles = 2 * Spec.g_dur
         cycle_count = 0
         MOUSE_TYPE = "ACCEL"
         slow_thresh = 20.0
         fast_thresh = 240.0
+
+        #scale is "base" for acceleration - do adjustments here
         scale = 1.0 #remain at 1.0 for linear
+
         slow_scale = 0.2
         fast_scale = 3.0
         t_idle_start = time.monotonic()
