@@ -20,6 +20,7 @@ class BluetoothControl:
         self.scan_response = Advertisement()
         self.ble = adafruit_ble.BLERadio()
         if self.ble.connected:
+            print("Woke up connected")
             for c in self.ble.connections:
                 c.disconnect()
         self.k = Keyboard(self.hid.devices)

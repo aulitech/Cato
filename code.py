@@ -7,7 +7,7 @@ import json
 import time
 import microcontroller as mc
 import supervisor as sp
-from Cato import Cato
+import Cato
 from math import sqrt
 import os
 
@@ -32,7 +32,7 @@ if(print_boot_out == True):
 
 print("Initializing Cato - interrupt will cause error")
 try:
-    cato = Cato()
+    c = Cato.Cato(bt=True)
     print("Initialization complete.")
 except KeyboardInterrupt:
     print("\tinterrupted during initialization")
@@ -40,8 +40,11 @@ except KeyboardInterrupt:
 
 try:
     while True:
-        x = cato.detect_event()
-        cato.dispatch_event(x)
+        x = c.detect_event()
+        #print("I'm right before garbage!")
+        #time.sleep(1)
+        #print(Cato.garbage)
+        c.dispatch_event(x)
 except KeyboardInterrupt:
     print("\tinterrupted during gesture detection")
 

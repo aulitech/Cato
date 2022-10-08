@@ -20,10 +20,11 @@ from adafruit_hid.keycode import Keycode
 from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
 from adafruit_hid.mouse import Mouse
 
-from BluetoothControl import BluetoothControl
 from math import sqrt, atan2, sin, cos, pow
 import array
 import supervisor
+
+from random import randint
 
 from neutonml import Neuton
 
@@ -52,7 +53,9 @@ class Spec:
     g_dur = 0.75 # gesture duration (seconds)
     num_samples = int(freq * g_dur)
 
-outputs = array.array("f", [0,0,0,0,0,0,0,0])
+#garbage = array.array('f', [1]*1000)
+neuton_outputs = array.array("f", [0,0,0,0,0,0,0,0])
+#garbage2 = array.array('f', [2]*1000)
 
 class Cato:
     ''' Main Class of Cato Gesture Mouse '''
@@ -72,13 +75,18 @@ class Cato:
             self.ax_hist,        self.ay_hist,        self.az_hist         \
             = self._setup_imu() 
         self.gx_trim, self.gy_trim, self.gz_trim = self.calibrate()
-        self.blue = BluetoothControl()
-
+        
+        self.blue = "."
         #for data collection or non computer interface dev cycles, it is nice to disable BT
         if bt:
-            self.blue.connect_bluetooth()
+            import BluetoothControl
+        else:
+            import DummyBT as BluetoothControl
         
+        self.blue = BluetoothControl.BluetoothControl()
+        self.blue.connect_bluetooth()
         self.state = ST.IDLE
+
         self.st_matrix = [
             #       ST.IDLE                     ST.MOUSE_BUTTONS            ST.KEYBOARD
                 [   self.move_mouse,            self.to_idle,               self.to_idle        ], #EV.UP           = 0
@@ -90,10 +98,18 @@ class Cato:
                 [   self.noop,                  self.noop,                  self.noop           ], #EV.SHAKE_YES    = 6
                 [   self.noop,                  self.noop,                  self.noop           ], #EV.SHAKE_NO     = 7
                 [   self.noop,                  self.noop,                  self.noop           ]  #EV.NONE         = 8
-        ]  
-        
-        self.n = Neuton(outputs)
-        
+        ]
+
+        self.garbage = array.array('f', [0]*1000)
+
+        self.n = Neuton(outputs=neuton_outputs)
+        '''
+        for i in range(len(self.st_matrix)):
+            for j in range(len(self.st_matrix[i])):
+                print("{}, {}".format(i, j))
+                print(self.st_matrix[i][j].__name__)'''
+
+
     def _setup_imu(self):
         ''' helper method -- encapsulate imu portion of init '''
         print("IMU setup")
@@ -141,10 +157,10 @@ class Cato:
             print("\tevent: {}\n\t\taction: {}".format(ev, self.st_matrix[ev][self.state].__name__))
 
     # State Control / Execution Utils
-    def detect_event(self):
+    def detect_event(self, random_event=False):
         ''' calls to gesture detection libraries, controls flow of program '''
-        self.display_gesture_menu()
-        print("\nDetecting Event")
+        #self.display_gesture_menu()
+        #print("\nDetecting Event")
         self.hang_until_motion()
         self.read_gesture()
         flag = True
@@ -156,19 +172,29 @@ class Cato:
                     self.gx_hist[b_pos], self.gy_hist[b_pos], self.gz_hist[b_pos] ]
 
             )
+            #self.garbage = array.array('f', [0]*1000)
             flag = self.n.set_inputs( arr )
+            #self.garbage = array.array('f', [0]*1000)
             i += 1
             if bool(flag) == False:
                 break
+        if random_event:
+            r = randint(0, 8)
+            print("\nRandomly detected event {}".format(r))
+            return r
         inf = self.n.inference()
+        '''for i in range(len(self.st_matrix)):
+            for j in range(len(self.st_matrix[i])):
+                print("{}, {}".format(i, j))
+                print(self.st_matrix[i][j].__name__)'''
 
-        confidence = max(outputs)
+        confidence = max(neuton_outputs)
         #print("\tMax Confidence:  {}".format(confidence))
         #print("\tPredicted Index: {}".format(inf))
         #print("\tOutputs:         {}".format(outputs))
         confidence_thresh = 0.80
         ret_val = inf
-        if max(outputs) < confidence_thresh:
+        if confidence < confidence_thresh:
             ret_val = 8
         return ret_val
 
@@ -221,7 +247,6 @@ class Cato:
         self.gx_hist[self.buf], self.gy_hist[self.buf], self.gz_hist[self.buf] = [(x * rad_to_deg) for x in self.sensor.gyro]
         self.ax_hist[self.buf], self.ay_hist[self.buf], self.az_hist[self.buf] = self.sensor.acceleration
         
-
         self.gx_hist[self.buf] -= self.gx_trim
         self.gy_hist[self.buf] -= self.gy_trim
         self.gz_hist[self.buf] -= self.gz_trim
@@ -422,16 +447,11 @@ class Cato:
         y_scale = 1.00
         z_scale = 1.85
         thresh = tr
-        #sit peacefully
-        for i in range(3):
-            self.read_imu()
+
         val = sqrt(x_scale * self.gx**2 + y_scale * self.gy**2 + z_scale * self.gz**2)
-        highest = 0.0
-        t = supervisor.ticks_ms()
         while(val < thresh):
             self.read_imu()
             val = sqrt(x_scale * self.gx**2 + y_scale * self.gy**2 + z_scale * self.gz**2)
-        #print("Triggered at {}".format(supervisor.ticks_ms()))
 
     def read_gesture(self):
         self.read_imu()
