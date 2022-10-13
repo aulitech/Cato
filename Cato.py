@@ -95,7 +95,7 @@ class Cato:
                 [   self.noop,                  self.noop,                  self.noop           ], #EV.LEFT         = 3
                 [   self.scroll_lr,             self.noop,                  self.noop           ], #EV.ROLL_R       = 4
                 [   self.scroll_lr,             self.noop,                  self.noop           ], #EV.ROLL_L       = 5
-                [   self.noop,                  self.noop,                  self.noop           ], #EV.SHAKE_YES    = 6
+                [   self.double_click,          self.noop,                  self.noop           ], #EV.SHAKE_YES    = 6
                 [   self.noop,                  self.noop,                  self.noop           ], #EV.SHAKE_NO     = 7
                 [   self.noop,                  self.noop,                  self.noop           ]  #EV.NONE         = 8
         ]
@@ -161,7 +161,7 @@ class Cato:
         ''' calls to gesture detection libraries, controls flow of program '''
         #self.display_gesture_menu()
         #print("\nDetecting Event")
-        self.hang_until_motion()
+        self.hang_until_motion(loop_after = 2 * Spec.num_samples)
         self.read_gesture()
         flag = True
         i = 1
@@ -268,11 +268,33 @@ class Cato:
         self.state = ST.KEYBOARD
         
     # Cato Mouse Actions
+    def shake_cursor(self):
+        m = self.blue.mouse
+        mv_size = 5
+        num_wiggles = 2
+        delay = 0.020
+        for i in range(num_wiggles):
+            time.sleep(delay)
+            m.move(-mv_size, 0, 0)
+            time.sleep(delay)
+            m.move(0, mv_size, 0)
+            time.sleep(delay)
+            m.move(2*mv_size, 0, 0)
+            time.sleep(delay)
+            m.move(0, -2*mv_size , 0)
+            time.sleep(delay)
+            m.move(-2*mv_size, 0, 0)
+            time.sleep(delay)
+            m.move(0, 2*mv_size, 0)
+            time.sleep(delay)
+            m.move(mv_size, -mv_size, 0)
+            
 
     def move_mouse(self):
         '''
             move the mouse via bluetooth until sufficiently idle
         '''
+        self.shake_cursor()
         print("MOVE MOUSE CALLED")
         t_start = time.monotonic()
         idle_count = 0
@@ -328,6 +350,7 @@ class Cato:
             #print("rate: %s, x: %f, y: %f" % (scale_str, x_amt, y_amt))
             #self.blue.mouse.move(int(self.gy), int(self.gz))
             self.blue.mouse.move(int(scale * mag * cos(ang)), int(scale * mag * sin(ang)), 0)
+        self.shake_cursor()
         #print( "    Time idled: {} s".format( time.monotonic() - t_idle_start) )
 
     def scroll(self):
@@ -365,7 +388,9 @@ class Cato:
     def left_click(self):
         ''' docstring stub '''
         self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
-
+    def double_click(self):
+        self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
+        self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
     def right_click(self):
         ''' docstring stub '''
         self.blue.mouse.click(self.blue.mouse.RIGHT_BUTTON)
@@ -443,16 +468,28 @@ class Cato:
         print(self.gy, end=',')
         print(self.gz)
 
-    def hang_until_motion(self, tr = 105):
+    def hang_until_motion(self, tr = 105, **kwargs):
+        """
+            tr = threshold of motion to break loop
+            kw_args:
+                loop_after number of cycles after which to call move mouse
+        """
         x_scale = 1.00
         y_scale = 1.00
         z_scale = 1.85
         thresh = tr
 
+        wait_time = 0
         val = sqrt(x_scale * self.gx**2 + y_scale * self.gy**2 + z_scale * self.gz**2)
         while(val < thresh):
+            if "loop_after" in kwargs:
+                wait_time += 1
+                if wait_time > kwargs["loop_after"]:
+                    self.move_mouse()
+                    wait_time = 0
             self.read_imu()
             val = sqrt(x_scale * self.gx**2 + y_scale * self.gy**2 + z_scale * self.gz**2)
+
 
     def read_gesture(self):
         self.read_imu()

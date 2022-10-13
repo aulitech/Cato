@@ -14,14 +14,14 @@ import os
 print("\n")
 
 #Wait for user to confirm readiness (calibration, readability)
-while True:
+while False:
     try:
         print("Waiting to begin (CtrC)")
         time.sleep(5)
     except KeyboardInterrupt:
             break
 
-print_boot_out = True
+print_boot_out = False
 if(print_boot_out == True):
     print("SETUP INFORMATION: ")
     print("boot_out.txt: ")
