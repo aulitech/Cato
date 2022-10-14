@@ -41,6 +41,8 @@ except KeyboardInterrupt:
 try:
     while True:
         x = c.detect_event()
+        if not c.blue.ble.connected:
+            c.blue.connect_bluetooth()
         #print("I'm right before garbage!")
         #time.sleep(1)
         #print(Cato.garbage)

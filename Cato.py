@@ -92,11 +92,11 @@ class Cato:
                 [   self.move_mouse,            self.to_idle,               self.to_idle        ], #EV.UP           = 0
                 [   self.left_click,            self.left_click,            self.press_enter    ], #EV.DOWN         = 1
                 [   self.scroll,                self.noop,                  self.noop           ], #EV.RIGHT        = 2
-                [   self.noop,                  self.noop,                  self.noop           ], #EV.LEFT         = 3
+                [   self.hang_until_motion,     self.noop,                  self.noop           ], #EV.LEFT         = 3
                 [   self.scroll_lr,             self.noop,                  self.noop           ], #EV.ROLL_R       = 4
                 [   self.scroll_lr,             self.noop,                  self.noop           ], #EV.ROLL_L       = 5
                 [   self.double_click,          self.noop,                  self.noop           ], #EV.SHAKE_YES    = 6
-                [   self.noop,                  self.noop,                  self.noop           ], #EV.SHAKE_NO     = 7
+                [   self.hang_until_motion,     self.noop,                  self.noop           ], #EV.SHAKE_NO     = 7
                 [   self.noop,                  self.noop,                  self.noop           ]  #EV.NONE         = 8
         ]
 
@@ -165,13 +165,16 @@ class Cato:
         self.read_gesture()
         flag = True
         i = 1
+        arr = array.array( 'f', [0]*6)
         while(True):
             b_pos = (i + self.buf) % Spec.num_samples
-            arr = array.array( 'f', 
-                [   self.ax_hist[b_pos], self.ay_hist[b_pos], self.az_hist[b_pos],
-                    self.gx_hist[b_pos], self.gy_hist[b_pos], self.gz_hist[b_pos] ]
+            arr[0] = self.ax_hist[b_pos]
+            arr[1] = self.ay_hist[b_pos]
+            arr[2] = self.az_hist[b_pos]
+            arr[3] = self.gx_hist[b_pos]
+            arr[4] = self.gy_hist[b_pos]
+            arr[5] = self.gz_hist[b_pos]
 
-            )
             #self.garbage = array.array('f', [0]*1000)
             flag = self.n.set_inputs( arr )
             #self.garbage = array.array('f', [0]*1000)
@@ -270,24 +273,24 @@ class Cato:
     # Cato Mouse Actions
     def shake_cursor(self):
         m = self.blue.mouse
-        mv_size = 5
-        num_wiggles = 2
-        delay = 0.020
-        for i in range(num_wiggles):
-            time.sleep(delay)
-            m.move(-mv_size, 0, 0)
-            time.sleep(delay)
-            m.move(0, mv_size, 0)
-            time.sleep(delay)
-            m.move(2*mv_size, 0, 0)
-            time.sleep(delay)
-            m.move(0, -2*mv_size , 0)
-            time.sleep(delay)
-            m.move(-2*mv_size, 0, 0)
-            time.sleep(delay)
-            m.move(0, 2*mv_size, 0)
-            time.sleep(delay)
-            m.move(mv_size, -mv_size, 0)
+        mv_size = 4
+        num_wiggles = 1
+        delay = 0.030
+        orig_pos = [0, 0]
+        moves = [
+            (-mv_size,      0,          0),
+            (0,             mv_size,    0),
+            (2*mv_size,     0,          0),
+            (0,             -2*mv_size, 0),
+            (-2*mv_size,    0,          0),
+            (0,             2*mv_size,  0),
+            (mv_size,       -mv_size,   0)
+        ]
+
+        for w in range(num_wiggles):
+            for move in moves:
+                self.blue.mouse.move(*move)
+                time.sleep(delay)
             
 
     def move_mouse(self):
