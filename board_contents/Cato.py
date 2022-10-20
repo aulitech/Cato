@@ -22,7 +22,7 @@ from adafruit_hid.mouse import Mouse
 
 from math import sqrt, atan2, sin, cos, pow
 import array
-import supervisor
+import supervisor as sp
 
 from random import randint
 
@@ -65,7 +65,7 @@ class Cato:
             self.config = json.load(f)
         #print(self.config)
         self.gx_trim, self.gy_trim, self.gz_trim = 0, 0, 0
-        self.last_read = supervisor.ticks_ms()
+        self.last_read = sp.ticks_ms()
 
         self.buf = 0
         
@@ -238,12 +238,12 @@ class Cato:
         ''' reads data off of the IMU into -> gx, gy, gz, ax, ay, az '''
         self.buf = (self.buf + 1) % Spec.num_samples
         
-        dt = (supervisor.ticks_ms() - self.last_read) % 2**29 #ticks_ms overflow amount
+        dt = (sp.ticks_ms() - self.last_read) % 2**29 #ticks_ms overflow amount
         #print("dt = {}".format(dt))
         if(dt < Spec.imu_ms_delay):
             time.sleep((Spec.imu_ms_delay - dt) / 1000)
         
-        self.last_read = supervisor.ticks_ms()
+        self.last_read = sp.ticks_ms()
         self.time_hist[self.buf] = self.last_read
 
         rad_to_deg = 57.3 # 360 / 2PI
@@ -357,15 +357,44 @@ class Cato:
         self.shake_cursor()
         #print( "    Time idled: {} s".format( time.monotonic() - t_idle_start) )
 
+    def do_integration(self):
+        x = 0
+        y = 0
+        z = 0
+        while(True):
+            self.read_imu()
+            x += self.gx * Spec.imu_ms_delay / 1000
+            y += self.gy * Spec.imu_ms_delay / 1000
+            z += self.gz * Spec.imu_ms_delay / 1000
+            print("{:5.2f}, {:5.2f}, {:5.2f}".format(x, y, z))
+        
     def scroll(self):
         ''' scrolls the mouse until sufficient exit condition is reached '''
         print("Scrolling")
+        x = 0.0
+        y = 0.0
+        z = 0.0
         multiplier = 0.1
+        t_last_scrolled = sp.ticks_ms()
+        scroll_interval = 250 # in ms
+        interval_multiplier = 1
         while(True):
-            time.sleep(0.100)
             self.read_imu()
-            self.blue.mouse.move(0, 0, int(multiplier * self.gz))
+
+            x += self.gx * Spec.imu_ms_delay / 1000
+            y += self.gy * Spec.imu_ms_delay / 1000
+            z += self.gz * Spec.imu_ms_delay / 1000
+
+            interval_multiplier = 20 / abs(z)
+            if abs(z) < 3:
+                interval_multiplier = 100000
+
+            if(sp.ticks_ms() - t_last_scrolled >= interval_multiplier * scroll_interval):
+                t_last_scrolled = sp.ticks_ms()
+                self.blue.mouse.move(0, 0, -1 if z > 0 else 1)
+
             if(self.gy > 30.0):
+                print("\tScroll Broken")
                 break
 
     #shift + scroll = lateral scroll on MOST applications
