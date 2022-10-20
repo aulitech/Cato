@@ -273,7 +273,7 @@ class Cato:
     # Cato Mouse Actions
     def shake_cursor(self):
         m = self.blue.mouse
-        mv_size = 4
+        mv_size = 2
         num_wiggles = 1
         delay = 0.030
         orig_pos = [0, 0]
@@ -291,9 +291,11 @@ class Cato:
             for move in moves:
                 self.blue.mouse.move(*move)
                 time.sleep(delay)
-            
 
-    def move_mouse(self):
+    def long_pointer(self):
+        self.move_mouse(200)     
+
+    def move_mouse(self, max_idle_cycles=50):
         '''
             move the mouse via bluetooth until sufficiently idle
         '''
@@ -302,7 +304,6 @@ class Cato:
         t_start = time.monotonic()
         idle_count = 0
         idle_thresh = 5.0
-        max_idle_cycles = 50
         min_run_cycles = 2 * Spec.g_dur
         cycle_count = 0
         MOUSE_TYPE = "ACCEL"
