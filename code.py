@@ -1,15 +1,23 @@
 import board
+
 import io
+import analogio
 import digitalio
 import busio
+
 import sys
-import json
+#import json
+
 import time
-import microcontroller as mc
+import mode_selector
+
+
 import supervisor as sp
 import Cato
-from math import sqrt
-import os
+
+#from math import sqrt
+
+#import os
 
 print("\n")
 
@@ -20,6 +28,13 @@ while False:
         time.sleep(5)
     except KeyboardInterrupt:
             break
+
+# Print battery status
+print("\n========= BATTERY =========\n")
+battery_pin = analogio.AnalogIn(board.VBATT)
+battery_voltage = battery_pin.value / 65536 * 3.3
+print("\tV ON BATTERY: {}".format(battery_voltage))
+print("\n========= END BATTERY =========\n")
 
 print_boot_out = False
 if(print_boot_out == True):
@@ -52,45 +67,4 @@ except KeyboardInterrupt:
 
 print("\nPROGRAM COMPLETE.\n")
 
-boot_timer = 4
-def countdown(timer = boot_timer):
-    for i in range(timer):
-        print(timer - i)
-        time.sleep(1)
-
-def to_computer_writable():
-    mc.nvm[0] = True
-    print("\nMicrocontroller.nvm[0] -> True")
-    print("Rebooting into computer writable mode in {} seconds. For self-writable hit CtrC again".format(boot_timer))
-    try:
-        countdown()
-    except KeyboardInterrupt:
-        return
-    mc.reset()
-
-def to_self_writable():
-    mc.nvm[0] = False
-    print("\nMicrocontroller.nvm[0] -> False")
-    print("Rebooting into self writable mode in {} seconds. For computer-writable hit CtrC again".format(boot_timer))
-    try:
-        countdown()
-    except KeyboardInterrupt:
-        return
-    mc.reset()
-
-while True:
-    print("BOOT MODE / REPL SELECTION")
-    print("Type your selection:")
-    print("\t0: Computer Writable")
-    print("\t1: Self-Writable")
-    print("\t2: REPL (or hit Ctr+C)")
-    print("INPUT:\t", end='')
-    my_str = input()  # type and press ENTER or RETURN
-    if my_str=="0":
-        to_computer_writable()
-    elif my_str == "1":
-        to_self_writable()
-    elif my_str == "2":
-        break
-    else:
-        print("\tInput not recognized.\n")
+mode_selector.select_reboot_mode()

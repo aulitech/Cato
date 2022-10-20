@@ -13,12 +13,14 @@ class BluetoothControl:
     def __init__(self):
         self.hid = HIDService()
         self.device_info = DeviceInfoService(
-            software_revision=adafruit_ble.__version__, manufacturer="AULITECH"
+            software_revision=adafruit_ble.__version__, manufacturer="AULITECH",
         )
         self.advertisement = ProvideServicesAdvertisement(self.hid)
         self.advertisement.appearance = 961
         self.scan_response = Advertisement()
         self.ble = adafruit_ble.BLERadio()
+        #self.ble.name = "MY_BLUETOOTH_NAME"
+        print("BLE NAME:", self.ble.name)
         if self.ble.connected:
             print("Woke up connected")
             for c in self.ble.connections:
