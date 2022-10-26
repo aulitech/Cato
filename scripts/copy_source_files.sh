@@ -1,6 +1,6 @@
 #!/bin/bash
 
-auli_cato_loc=/d/
+auli_cato_loc=/e/
 echo "Checking connection"
 while [ ! -d $auli_cato_loc ]
 do
@@ -9,7 +9,7 @@ do
 done
 
     echo "    COPYING SOURCE FILES"
-    for thing in $(dir ./board_contents/* -a)
+    for thing in $(dir ./* -a)
     do
         f="$thing"
         #echo "        DECIDING ABOUT ${f}"
@@ -19,9 +19,9 @@ done
             echo "            DONE"
         fi
     done
-    if test -f "./board_contents/.env"; then
+    if test -f "./.env"; then
         echo "        COPYING .env"
-        cp board_contents/.env "$auli_cato_loc"
+        cp ./.env "$auli_cato_loc"
         echo "            DONE"
     fi
     echo "    DONE WITH .PY FILES"

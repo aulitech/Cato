@@ -20,11 +20,12 @@ class BluetoothControl:
         self.scan_response = Advertisement()
         self.ble = adafruit_ble.BLERadio()
         #self.ble.name = "MY_BLUETOOTH_NAME"
-        print("BLE NAME:", self.ble.name)
+        #print("BLE NAME:", self.ble.name)
         if self.ble.connected:
             print("Woke up connected")
             for c in self.ble.connections:
                 c.disconnect()
+        self.battery_service = adafruit_ble.services.standard.BatteryService()
         self.k = Keyboard(self.hid.devices)
         self.kl = KeyboardLayoutUS(self.k)
         self.mouse = Mouse(self.hid.devices)

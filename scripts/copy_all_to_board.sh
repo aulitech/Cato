@@ -1,7 +1,7 @@
 #!/bin/bash
 
-boot_load_loc=/d/
-auli_cato_loc=/d/
+boot_load_loc=/e/
+auli_cato_loc=/e/
 
 # Presence of boot_out.txt indicates board is in circuitPython Config
     FILE1=$auli_cato_loc/boot_out.txt
@@ -50,10 +50,10 @@ echo "BEGINNING UPLOAD PROCESS"
 
 # install the new bootloader
     echo "INSTALLING NEW BOOTLOADER"
-    if test -f board_contents/.bootloader/*.uf2; then
+    if test -f .bootloader/*.uf2; then
         echo "    FOUND FILE"
         echo "    COPYING .UF2"
-        cp board_contents/.bootloader/* "$boot_load_loc"
+        cp .bootloader/* "$boot_load_loc"
         echo "    DONE"
     fi
 
@@ -74,7 +74,7 @@ echo "BEGINNING UPLOAD PROCESS"
         echo "        LIB FOLDER NOT FOUND -- CREATING LIB FOLDER"
         mkdir "$auli_cato_loc/lib"
     fi
-    for dir in board_contents/lib/**
+    for dir in lib/**
     do
         dir=$dir
         echo "        COPYING ${dir}"
@@ -84,7 +84,7 @@ echo "BEGINNING UPLOAD PROCESS"
     echo "    DONE WITH LIBS"
 
     echo "    COPYING \"LOOSE\" FILES"
-    for thing in $(dir ./board_contents/* -a)
+    for thing in $(dir ./* -a)
     do
         f="$thing"
         #echo "        DECIDING ABOUT ${f}"
@@ -95,7 +95,7 @@ echo "BEGINNING UPLOAD PROCESS"
         fi
     done
     echo "        COPYING .env"
-    cp board_contents/.env "$auli_cato_loc"
+    cp .env "$auli_cato_loc"
     echo "            DONE"
     echo "    DONE WITH .PY FILES"
     echo "UPLOAD COMPLETE"
