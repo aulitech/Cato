@@ -49,16 +49,23 @@ except KeyboardInterrupt:
     print("\tinterrupted during initialization")
     pass
 
-bat = battery.Bat()
-ti = time.time()
-try:
-    while True:
-        if(bat.ready):
-            print("bat is ready")
-            print("\tTime is: {}".format(bat.counter.t_now))
-            c.blue.battery_service.level = bat.get_percent()
-except KeyboardInterrupt:
-    print("\tinterrupted during gesture detection")
+while True:
+    try:
+        c.dispatch_event( c.detect_event() )
+    except:
+        break
+
+# async this loop to be await async.sleep(
+# bat = battery.Bat()
+# ti = time.time()
+# try:
+#     while True:
+#         if(bat.ready):
+#             print("bat is ready")
+#             print("\tTime is: {}".format(bat.counter.t_now))
+#             c.blue.battery_service.level = bat.get_percent()
+# except KeyboardInterrupt:
+#     print("\tinterrupted during gesture detection")
 
 print("\nPROGRAM COMPLETE.\n")
 
