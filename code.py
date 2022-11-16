@@ -51,7 +51,6 @@ except KeyboardInterrupt:
 
 while True:
     try:
-        print("Here")
         c.blue.battery_service.level = c.battery.get_percent()
         c.dispatch_event( c.detect_event() )
     except:
