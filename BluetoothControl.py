@@ -9,14 +9,31 @@ from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
 from adafruit_hid.keycode import Keycode as Keycode
 from adafruit_hid.mouse import Mouse
 
+class Appearances:
+    remote = 0x0180 #0x0180 to 0x01BF
+    eyeglasses = 0x01C0 #0x01C0 to 0x01FF
+    hid = 0x03C0 # 0x03C0 to 0x03FF
+    control_device = 0x04C0 # 0x04C0 to 0x04FF
+
 class BluetoothControl:
     def __init__(self):
         self.hid = HIDService()
+
         self.device_info = DeviceInfoService(
-            software_revision=adafruit_ble.__version__, manufacturer="AULITECH",
+            manufacturer = "AULITECH",
+            # github will manage
+            # on commit, how is a piece of your code updated
+            # can set up new repo to play with - google "how to do revision control in github"
+            software_revision = adafruit_ble.__version__, # This is the Cato version
+            model_number = None,  # our model number can be "Cato 1"
+            serial_number = None, # look on nrf52840 for hardware serial - can ask on Seeed forum - anything unique per board
+            firmware_revision = "v0.0",
+            hardware_revision = "v0.0",
+            service = None
         )
+
         self.advertisement = ProvideServicesAdvertisement(self.hid)
-        self.advertisement.appearance = 961
+        self.advertisement.appearance = Appearances.hid
         self.scan_response = Advertisement()
         self.ble = adafruit_ble.BLERadio()
         #self.ble.name = "MY_BLUETOOTH_NAME"

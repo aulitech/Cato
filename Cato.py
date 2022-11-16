@@ -23,6 +23,7 @@ from adafruit_hid.mouse import Mouse
 from math import sqrt, atan2, sin, cos, pow
 import array
 import supervisor as sp
+import battery
 
 from random import randint
 
@@ -68,7 +69,7 @@ class Cato:
         self.last_read = sp.ticks_ms()
 
         self.buf = 0
-        
+        self.battery = battery.Bat()
         self.sensor, \
             self.time_hist, \
             self.gx_hist,        self.gy_hist,        self.gz_hist,        \
