@@ -37,14 +37,25 @@ It detects "Yes" and "No"
 Those gestures are mapped as:
 
 self.st_matrix = [
+
     #       ST.IDLE                     ST.MOUSE_BUTTONS            ST.KEYBOARD
+    
         [   self.move_mouse,            self.to_idle,               self.to_idle        ], #EV.UP           = 0
+        
         [   self.left_click,            self.left_click,            self.press_enter    ], #EV.DOWN         = 1
+        
         [   self.scroll,                self.noop,                  self.noop           ], #EV.RIGHT        = 2
+        
         [   self.hang_until_motion,     self.noop,                  self.noop           ], #EV.LEFT         = 3
+        
         [   self.scroll_lr,             self.noop,                  self.noop           ], #EV.ROLL_R       = 4
+        
         [   self.scroll_lr,             self.noop,                  self.noop           ], #EV.ROLL_L       = 5
+        
         [   self.double_click,          self.noop,                  self.noop           ], #EV.SHAKE_YES    = 6
+        
         [   self.hang_until_motion,     self.noop,                  self.noop           ], #EV.SHAKE_NO     = 7
+        
         [   self.noop,                  self.noop,                  self.noop           ]  #EV.NONE         = 8
+        
 ]
