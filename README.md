@@ -59,3 +59,11 @@
             [   self.noop,                  self.noop,                  self.noop           ]  #EV.NONE         = 8
             
     ]
+
+#### Mode 2: Mouse Movement
+
+    Cato moves the cursor on screen until the user idles the cursor for a moment
+
+    It then gently jiggles the cursor to indicate completion of mouse movement
+
+    It then re-enters gesture detection mode
