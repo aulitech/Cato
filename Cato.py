@@ -25,7 +25,7 @@ import array
 import supervisor as sp
 import battery
 
-from random import randint
+import asyncio
 
 from neutonml import Neuton
 
@@ -55,7 +55,7 @@ class Spec:
     num_samples = int(freq * g_dur)
 
 #garbage = array.array('f', [1]*1000)
-neuton_outputs = array.array("f", [0,0,0,0,0,0,0,0])
+neuton_outputs = array.array( "f", [0, 0, 0, 0, 0, 0, 0, 0] )
 #garbage2 = array.array('f', [2]*1000)
 
 class Cato:
@@ -111,13 +111,13 @@ class Cato:
                 print(self.st_matrix[i][j].__name__)'''
 
 
-    def _setup_imu(self):
+    async def _setup_imu(self):
         ''' helper method -- encapsulate imu portion of init '''
         print("IMU setup")
         imupwr = digitalio.DigitalInOut(board.IMU_PWR)
         imupwr.direction = digitalio.Direction.OUTPUT
         imupwr.value = True
-        time.sleep(0.1)
+        await asyncio.sleep(0.1)
         imu_i2c = busio.I2C(board.IMU_SCL, board.IMU_SDA)
         sensor = LSM6DS3TRC(imu_i2c)
 
@@ -158,7 +158,7 @@ class Cato:
             print("\tevent: {}\n\t\taction: {}".format(ev, self.st_matrix[ev][self.state].__name__))
 
     # State Control / Execution Utils
-    def detect_event(self, random_event=False):
+    def detect_event(self):
         ''' calls to gesture detection libraries, controls flow of program '''
         #self.display_gesture_menu()
         #print("\nDetecting Event")
@@ -182,10 +182,6 @@ class Cato:
             i += 1
             if bool(flag) == False:
                 break
-        if random_event:
-            r = randint(0, 8)
-            print("\nRandomly detected event {}".format(r))
-            return r
         inf = self.n.inference()
         '''for i in range(len(self.st_matrix)):
             for j in range(len(self.st_matrix[i])):
@@ -235,14 +231,14 @@ class Cato:
     def az(self):
         return self.az_hist[self.buf]
 
-    def read_imu(self):
+    async def read_imu(self):
         ''' reads data off of the IMU into -> gx, gy, gz, ax, ay, az '''
         self.buf = (self.buf + 1) % Spec.num_samples
         
         dt = (sp.ticks_ms() - self.last_read) % 2**29 #ticks_ms overflow amount
         #print("dt = {}".format(dt))
         if(dt < Spec.imu_ms_delay):
-            time.sleep((Spec.imu_ms_delay - dt) / 1000)
+            await asyncio.sleep((Spec.imu_ms_delay - dt) / 1000)
         
         self.last_read = sp.ticks_ms()
         self.time_hist[self.buf] = self.last_read
@@ -272,7 +268,7 @@ class Cato:
         self.state = ST.KEYBOARD
         
     # Cato Mouse Actions
-    def shake_cursor(self):
+    async def shake_cursor(self):
         m = self.blue.mouse
         mv_size = 2
         num_wiggles = 1
@@ -291,15 +287,21 @@ class Cato:
         for w in range(num_wiggles):
             for move in moves:
                 self.blue.mouse.move(*move)
-                time.sleep(delay)
+                asyncio.sleep(delay)
 
     def long_pointer(self):
         self.move_mouse(200)     
 
-    def move_mouse(self, max_idle_cycles=50):
+    async def move_mouse(self, max_idle_cycles=50):
         '''
             move the mouse via bluetooth until sufficiently idle
         '''
+        # aio.create_task (...) mouse move as async function will internally have a while True ends with await statement
+        # while True:
+        #     # a bunch of indented
+        #     #filler
+        #     #await sleep
+        
         self.shake_cursor()
         print("MOVE MOUSE CALLED")
         t_start = time.monotonic()
@@ -369,7 +371,7 @@ class Cato:
             z += self.gz * Spec.imu_ms_delay / 1000
             print("{:5.2f}, {:5.2f}, {:5.2f}".format(x, y, z))
         
-    def scroll(self):
+    async def scroll(self):
         ''' scrolls the mouse until sufficient exit condition is reached '''
         print("Scrolling")
         x = 0.0
@@ -399,7 +401,7 @@ class Cato:
                 break
 
     #shift + scroll = lateral scroll on MOST applications
-    def scroll_lr(self):
+    async def scroll_lr(self):
         ''' shift + scroll = lateral scroll on MOST applications
             laterally scroll until exit condition
         '''
@@ -411,7 +413,7 @@ class Cato:
         #self.blue.k.release(Keycode.SHIFT)
         multiplier = -0.1
         while(True):
-            time.sleep(0.100)
+            asyncio.sleep(0.100)
             self.read_imu()
             self.blue.mouse.move(0, 0, int(multiplier * self.gy))
             if(self.gz > 30.0):
@@ -422,9 +424,11 @@ class Cato:
     def left_click(self):
         ''' docstring stub '''
         self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
+
     def double_click(self):
         self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
         self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
+
     def right_click(self):
         ''' docstring stub '''
         self.blue.mouse.click(self.blue.mouse.RIGHT_BUTTON)
@@ -433,25 +437,25 @@ class Cato:
         ''' docstring stub '''
         self.blue.mouse.click(self.blue.mouse.MIDDLE_BUTTON)
 
-    def left_click_drag(self):
+    async def left_click_drag(self):
         ''' docstring stub '''
         print("Left click")
         self.left_press()
         print("Drag")
-        self.move_mouse()
+        await self.move_mouse()
         self.left_release()
         print("Mouse released")
 
-    def right_click_drag(self):
+    async def right_click_drag(self):
         ''' docstring stub '''
         self.right_press()
-        self.move_mouse()
+        await self.move_mouse()
         self.right_release()
 
-    def middle_click_drag(self):
+    async def middle_click_drag(self):
         ''' docstring stub '''
         self.middle_press()
-        self.move_mouse()
+        await self.move_mouse()
         self.middle_release()
 
     def left_press(self):

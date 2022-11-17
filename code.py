@@ -42,21 +42,23 @@ if(print_boot_out == True):
             print('\t', line, end='')
         b.close()
 
-
-print("Initializing Cato - interrupt will cause error")
-try:
-    c = Cato.Cato(bt=True)
-    print("Initialization complete.")
-except KeyboardInterrupt:
-    print("\tinterrupted during initialization")
-    pass
-
-while True:
+async def main():
+    print("Initializing Cato - interrupt will cause error")
     try:
-        c.blue.battery_service.level = c.battery.get_percent()
-        c.dispatch_event( c.detect_event() )
-    except:
-        break
+        c = Cato.Cato( bt=True )
+        print("Initialization complete.")
+    except KeyboardInterrupt:
+        print("\tinterrupted during initialization")
+        pass
+
+    while True:
+        try:
+            await asyncio.sleep(0.1)
+            c.blue.battery_service.level = c.battery.get_percent()
+            c.move_mouse() #instead of moving mouse as method, have it be blocked on async when not in use
+            c.dispatch_event( c.detect_event() ) # dispatch event should always be running
+        except:
+            break
 
 # async this loop to be await async.sleep(
 # bat = battery.Bat()
@@ -69,6 +71,8 @@ while True:
 #             c.blue.battery_service.level = bat.get_percent()
 # except KeyboardInterrupt:
 #     print("\tinterrupted during gesture detection")
+
+asyncio.run( main() )
 
 print("\nPROGRAM COMPLETE.\n")
 
