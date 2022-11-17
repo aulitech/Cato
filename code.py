@@ -1,51 +1,58 @@
+# Code.py for Auli Cato, Driver
+# Finn Biggs - finn@auli.tech
+# 17-Nov-2022
+
 import board
+import sys
+
+from microcontroller import watchdog as w
+from watchdog import WatchDogMode
+import supervisor as sp
+import gc
 
 import io
 import analogio
 import digitalio
 import busio
+
 import asyncio
-
-import battery
-
-import sys
-#import json
-
 import time
+
+import Cato
+import battery
 import mode
 
-import supervisor as sp
-import Cato
+from math import sqrt
 
-import asyncio
 
-#from math import sqrt
+# Beginning code proper
+c = Cato.Cato( bt = True )
+w.timeout = 5 #seconds
+w.mode = WatchDogMode.RAISE
 
-#import os
-
-# print("\n")
-
-# #Wait for user to confirm readiness (calibration, readability)
-# while False:
-#     try:
-#         print("Waiting to begin (CtrC)")
-#         time.sleep(5)
-#     except KeyboardInterrupt:
-#             break
+ti = time.time()
+def my_time():
+    return time.time() - ti
 
 async def battery_process():
     # read the battery info
-    # STUB
-    asyncio.sleep(30)
+    while True:
+        c.blue.battery_service.level = c.battery.get_percent()
+        await asyncio.sleep(3)
 
 async def feed_dog():
     ''' feed the watchdog '''
-    asyncio.sleep(20)
+    while True:
+        w.feed()
+        await asyncio.sleep(3)
 
 async def loop():
     ''' docstring '''
     while True:
-        asyncio.sleep(2)
+        await c.move_mouse()
+        ev = await c.detect_event()
+        await c.dispatch_event(ev)
+        await asyncio.sleep(0)
 
 def print_boot_out():
     print("boot_out.txt: ")
@@ -55,34 +62,14 @@ def print_boot_out():
 
 async def main():
     # print_boot_out()
-    c = Cato( bt = True )
-
     tasks = []
     tasks.append( asyncio.create_task( battery_process() ) )
     tasks.append( asyncio.create_task( loop() ) )
     tasks.append( asyncio.create_task( feed_dog() ) )
+    for t in c.tasks:
+        tasks.append(t)
     await asyncio.gather( *tasks )
 
-# async def main():
-#     print("Initializing Cato - interrupt will cause error")
-#     try:
-#         c = Cato.Cato( bt=True )
-#         print("Initialization complete.")
-#     except KeyboardInterrupt:
-#         print("\tinterrupted during initialization")
-#         pass
-
-#     while True:
-#         try:
-#             await asyncio.sleep(0.1)
-#             c.blue.battery_service.level = c.battery.get_percent()
-#             c.move_mouse() #instead of moving mouse as method, have it be blocked on async when not in use
-#             c.dispatch_event( c.detect_event() ) # dispatch event should always be running
-#         except:
-#             break
-
-# asyncio.run( main() )
-
-# print("\nPROGRAM COMPLETE.\n")
+asyncio.run( main() )
 
 # mode.select_reboot_mode()

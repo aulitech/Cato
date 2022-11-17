@@ -6,6 +6,8 @@ Written by Finn Biggs finn@auli.tech
 '''
 import sys
 import board
+import microcontroller as mc
+
 import busio
 import os
 import io
@@ -29,6 +31,7 @@ import asyncio
 
 from neutonml import Neuton
 
+
 #helpers and enums
 
 class ST():
@@ -36,6 +39,8 @@ class ST():
     IDLE = 0
     MOUSE_BUTTONS = 1
     KEYBOARD = 2
+
+
 class EV():
     ''' enum events '''
     NONE = 0
@@ -49,36 +54,40 @@ class EV():
     SHAKE_NO = 8
 
 class Spec:
+    ''' Specifications '''
     freq = 100 
     imu_ms_delay = 1000.0 / freq
     g_dur = 0.75 # gesture duration (seconds)
     num_samples = int(freq * g_dur)
 
-#garbage = array.array('f', [1]*1000)
 neuton_outputs = array.array( "f", [0, 0, 0, 0, 0, 0, 0, 0] )
-#garbage2 = array.array('f', [2]*1000)
 
 class Cato:
     ''' Main Class of Cato Gesture Mouse '''
     # SETUP METHODS
     def __init__(self, bt = True):
-        with open("config.json", 'r') as f:
-            self.config = json.load(f)
-        #print(self.config)
+
+        try:    
+            with open("config.json", 'r') as f:
+                self.config = json.load(f)
+        except:
+            mc.reset()
+
         self.gx_trim, self.gy_trim, self.gz_trim = 0, 0, 0
         self.last_read = sp.ticks_ms()
 
         self.buf = 0
+
         self.battery = battery.Bat()
-        self.sensor, \
-            self.time_hist, \
-            self.gx_hist,        self.gy_hist,        self.gz_hist,        \
-            self.ax_hist,        self.ay_hist,        self.az_hist         \
-            = self._setup_imu() 
-        self.gx_trim, self.gy_trim, self.gz_trim = self.calibrate()
-        
-        self.blue = "."
-        #for data collection or non computer interface dev cycles, it is nice to disable BT
+
+        (   self.sensor, 
+            self.time_hist,
+            self.gx_hist,        self.gy_hist,        self.gz_hist,     
+            self.ax_hist,        self.ay_hist,        self.az_hist         
+        )   = self._setup_imu() 
+
+        self.gx_trim, self.gy_trim, self.gz_trim = asyncio.run(self.calibrate())
+
         if bt:
             import BluetoothControl
         else:
@@ -86,8 +95,8 @@ class Cato:
         
         self.blue = BluetoothControl.BluetoothControl()
         self.blue.connect_bluetooth()
+        
         self.state = ST.IDLE
-
         self.st_matrix = [
             #       ST.IDLE                     ST.MOUSE_BUTTONS            ST.KEYBOARD
                 [   self.move_mouse,            self.to_idle,               self.to_idle        ], #EV.UP           = 0
@@ -104,20 +113,16 @@ class Cato:
         self.garbage = array.array('f', [0]*1000)
 
         self.n = Neuton(outputs=neuton_outputs)
-        '''
-        for i in range(len(self.st_matrix)):
-            for j in range(len(self.st_matrix[i])):
-                print("{}, {}".format(i, j))
-                print(self.st_matrix[i][j].__name__)'''
+        self.tasks = []
+        self.tasks.append( asyncio.create_task( self.read_imu() ) )
 
-
-    async def _setup_imu(self):
+    def _setup_imu(self):
         ''' helper method -- encapsulate imu portion of init '''
         print("IMU setup")
         imupwr = digitalio.DigitalInOut(board.IMU_PWR)
         imupwr.direction = digitalio.Direction.OUTPUT
         imupwr.value = True
-        await asyncio.sleep(0.1)
+        time.sleep(0.1)
         imu_i2c = busio.I2C(board.IMU_SCL, board.IMU_SDA)
         sensor = LSM6DS3TRC(imu_i2c)
 
@@ -137,12 +142,12 @@ class Cato:
         print("    Done")
         return sensor, time_hist, gx, gy, gz, ax, ay, az
 
-    def calibrate(self):
+    async def calibrate(self):
         print("Calibrating")
         num_to_calibrate = 300
         x, y, z = 0, 0, 0
         for cycles in range(num_to_calibrate):
-            self.read_imu()
+            await self.read_imu()
             x += self.gx
             y += self.gy
             z += self.gz
@@ -158,12 +163,12 @@ class Cato:
             print("\tevent: {}\n\t\taction: {}".format(ev, self.st_matrix[ev][self.state].__name__))
 
     # State Control / Execution Utils
-    def detect_event(self):
+    async def detect_event(self):
         ''' calls to gesture detection libraries, controls flow of program '''
         #self.display_gesture_menu()
-        #print("\nDetecting Event")
-        self.hang_until_motion(loop_after = 2 * Spec.num_samples)
-        self.read_gesture()
+        print("\nDetecting Event")
+        await self.hang_until_motion(loop_after = 2 * Spec.num_samples)
+        await self.read_gesture()
         flag = True
         i = 1
         arr = array.array( 'f', [0]*6)
@@ -183,10 +188,6 @@ class Cato:
             if bool(flag) == False:
                 break
         inf = self.n.inference()
-        '''for i in range(len(self.st_matrix)):
-            for j in range(len(self.st_matrix[i])):
-                print("{}, {}".format(i, j))
-                print(self.st_matrix[i][j].__name__)'''
 
         confidence = max(neuton_outputs)
         #print("\tMax Confidence:  {}".format(confidence))
@@ -198,14 +199,17 @@ class Cato:
             ret_val = 8
         return ret_val
 
-    def dispatch_event(self, event):
+    async def dispatch_event(self, event):
 
         ''' sends event from detect_event to the state transition matrix '''
         print("Dispatch Event Called with event = {}".format(event))
         print("event: {}, state: {}".format(event, self.state))
         print(self.st_matrix[event][self.state].__name__)
-        self.st_matrix[event][self.state]()
-
+        try:
+            await self.st_matrix[event][self.state]()
+        except AttributeError:
+            self.st_matrix[event][self.state]()
+    
     # Sensor utils read_IMU, calibrate
     @property
     def gx(self):
@@ -250,7 +254,7 @@ class Cato:
         self.gx_hist[self.buf] -= self.gx_trim
         self.gy_hist[self.buf] -= self.gy_trim
         self.gz_hist[self.buf] -= self.gz_trim
-
+        #self.print_o_str()
 
     # Cato Actions
     # CircuitPython Docs: https://docs.circuitpython.org/projects/hid/en/latest/api.html#adafruit-hid-mouse-mouse '''
@@ -270,7 +274,7 @@ class Cato:
     # Cato Mouse Actions
     async def shake_cursor(self):
         m = self.blue.mouse
-        mv_size = 2
+        mv_size = 10
         num_wiggles = 1
         delay = 0.030
         orig_pos = [0, 0]
@@ -287,10 +291,10 @@ class Cato:
         for w in range(num_wiggles):
             for move in moves:
                 self.blue.mouse.move(*move)
-                asyncio.sleep(delay)
+                await asyncio.sleep(delay)
 
-    def long_pointer(self):
-        self.move_mouse(200)     
+    async def long_pointer(self):
+        await self.move_mouse(200)     
 
     async def move_mouse(self, max_idle_cycles=50):
         '''
@@ -302,7 +306,7 @@ class Cato:
         #     #filler
         #     #await sleep
         
-        self.shake_cursor()
+        await self.shake_cursor()
         print("MOVE MOUSE CALLED")
         t_start = time.monotonic()
         idle_count = 0
@@ -321,8 +325,8 @@ class Cato:
         t_idle_start = time.monotonic()
         while(idle_count < max_idle_cycles):
             cycle_count += 1
-            #time.sleep(sleep_time)
-            self.read_imu()
+            # time.sleep(sleep_time)
+            await self.read_imu()
             x_mvmt = self.gy
             y_mvmt = self.gz
             mag = sqrt(x_mvmt**2 + y_mvmt**2)
@@ -357,7 +361,8 @@ class Cato:
             #print("rate: %s, x: %f, y: %f" % (scale_str, x_amt, y_amt))
             #self.blue.mouse.move(int(self.gy), int(self.gz))
             self.blue.mouse.move(int(scale * mag * cos(ang)), int(scale * mag * sin(ang)), 0)
-        self.shake_cursor()
+            await asyncio.sleep(0)
+        await self.shake_cursor()
         #print( "    Time idled: {} s".format( time.monotonic() - t_idle_start) )
 
     def do_integration(self):
@@ -382,7 +387,7 @@ class Cato:
         scroll_interval = 250 # in ms
         interval_multiplier = 1
         while(True):
-            self.read_imu()
+            await self.read_imu()
 
             x += self.gx * Spec.imu_ms_delay / 1000
             y += self.gy * Spec.imu_ms_delay / 1000
@@ -414,80 +419,80 @@ class Cato:
         multiplier = -0.1
         while(True):
             asyncio.sleep(0.100)
-            self.read_imu()
+            await self.read_imu()
             self.blue.mouse.move(0, 0, int(multiplier * self.gy))
             if(self.gz > 30.0):
                 break
         self.blue.k.release(Keycode.SHIFT)
         #release shift
 
-    def left_click(self):
+    async def left_click(self):
         ''' docstring stub '''
         self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
 
-    def double_click(self):
+    async def double_click(self):
         self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
         self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
 
-    def right_click(self):
+    async def right_click(self):
         ''' docstring stub '''
         self.blue.mouse.click(self.blue.mouse.RIGHT_BUTTON)
 
-    def middle_click(self):
+    async def middle_click(self):
         ''' docstring stub '''
         self.blue.mouse.click(self.blue.mouse.MIDDLE_BUTTON)
 
     async def left_click_drag(self):
         ''' docstring stub '''
         print("Left click")
-        self.left_press()
+        await self.left_press()
         print("Drag")
         await self.move_mouse()
-        self.left_release()
+        await self.left_release()
         print("Mouse released")
 
     async def right_click_drag(self):
         ''' docstring stub '''
-        self.right_press()
+        await self.right_press()
         await self.move_mouse()
-        self.right_release()
+        await self.right_release()
 
     async def middle_click_drag(self):
         ''' docstring stub '''
-        self.middle_press()
+        await self.middle_press()
         await self.move_mouse()
-        self.middle_release()
+        await self.middle_release()
 
-    def left_press(self):
+    async def left_press(self):
         ''' docstring stub '''
         self.blue.mouse.press(self.blue.mouse.LEFT_BUTTON)
 
-    def left_release(self):
+    async def left_release(self):
         ''' docstring stub '''
         self.blue.mouse.release(self.blue.mouse.LEFT_BUTTON)
 
-    def right_press(self):
+    async def right_press(self):
         ''' docstring stub '''
         self.blue.mouse.press(self.blue.mouse.RIGHT_BUTTON)
 
-    def right_release(self):
+    async def right_release(self):
         ''' docstring stub '''
         self.blue.mouse.release(self.blue.mouse.RIGHT_BUTTON)
 
-    def middle_press(self):
+    async def middle_press(self):
         ''' docstring stub '''
         self.blue.mouse.press(self.blue.mouse.MIDDLE_BUTTON)
 
-    def middle_release(self):
+    async def middle_release(self):
         ''' docstring stub '''
         self.blue.mouse.release(self.blue.mouse.MIDDLE_BUTTON)
 
-    def all_release(self):
+    async def all_release(self):
         ''' docstring stub '''
         self.blue.mouse.release_all()
 
     # cato keyboard actions
-    def press_enter(self):
+    async def press_enter(self):
         ''' docstring stub '''
         self.blue.k.press(Keycode.ENTER)
         self.blue.k.release(Keycode.ENTER)
@@ -495,23 +500,20 @@ class Cato:
     # ToDo, the rest of the keyboard buttons
 
     # DATA COLLECTION TASK:
+    @property
     def o_str(self):
-        return "{},{},{},{},{},{},{}".format(self.last_read, self.ax, self.ay, self.az, self.gx, self.gy, self.gz)
+        return "{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f}".format(self.last_read, self.ax, self.ay, self.az, self.gx, self.gy, self.gz)
 
     def print_o_str(self):
-        print(self.ax, end=',')
-        print(self.ay, end=',')
-        print(self.az, end=',')
-        print(self.gx, end=',')
-        print(self.gy, end=',')
-        print(self.gz)
+        print(f"{self.o_str}")
 
-    def hang_until_motion(self, tr = 105, **kwargs):
+    async def hang_until_motion(self, tr = 105, **kwargs):
         """
             tr = threshold of motion to break loop
             kw_args:
                 loop_after number of cycles after which to call move mouse
         """
+        print("Waiting for Significant Motion")
         x_scale = 1.00
         y_scale = 1.00
         z_scale = 1.85
@@ -525,14 +527,14 @@ class Cato:
                 if wait_time > kwargs["loop_after"]:
                     self.move_mouse()
                     wait_time = 0
-            self.read_imu()
+            await self.read_imu()
             val = sqrt(x_scale * self.gx**2 + y_scale * self.gy**2 + z_scale * self.gz**2)
 
 
-    def read_gesture(self):
-        self.read_imu()
+    async def read_gesture(self):
+        await self.read_imu()
         for i in range(Spec.num_samples):
-            self.read_imu()
+            await self.read_imu()
     
     def collect_n_gestures(self, n=1):
         for file in os.listdir("/data"):
