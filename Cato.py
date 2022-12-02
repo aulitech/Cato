@@ -418,7 +418,7 @@ class Cato:
         #self.blue.k.release(Keycode.SHIFT)
         multiplier = -0.1
         while(True):
-            asyncio.sleep(0.100)
+            await asyncio.sleep(0.100)
             await self.read_imu()
             self.blue.mouse.move(0, 0, int(multiplier * self.gy))
             if(self.gz > 30.0):

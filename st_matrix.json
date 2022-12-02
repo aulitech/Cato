@@ -1,0 +1,58 @@
+{
+    "st_matrix" : {
+        "UP" : {
+            "IDLE"          : "",
+            "MOUSE_BUTTONS" : "",
+            "KEYBOARD"      : ""
+        },
+
+        "DOWN"      : {
+            "IDLE"          : "",
+            "MOUSE_BUTTONS" : "",
+            "KEYBOARD"      : ""
+        },
+
+        "RIGHT"     : {
+            "IDLE"          : "",
+            "MOUSE_BUTTONS" : "",
+            "KEYBOARD"      : ""
+        },
+
+        "LEFT"      : {
+            "IDLE"          : "",
+            "MOUSE_BUTTONS" : "",
+            "KEYBOARD"      : ""
+        },
+
+        "ROLL_R"    : {
+            "IDLE"          : "",
+            "MOUSE_BUTTONS" : "",
+            "KEYBOARD"      : ""
+        },
+
+        "ROLL_L"    : {
+            "IDLE"          : "",
+            "MOUSE_BUTTONS" : "",
+            "KEYBOARD"      : ""
+        },
+
+        "SHAKE_YES" : {
+            "IDLE"          : "",
+            "MOUSE_BUTTONS" : "",
+            "KEYBOARD"      : ""
+        },
+
+        "SHAKE_NO"  : {
+            "IDLE"          : "",
+            "MOUSE_BUTTONS" : "",
+            "KEYBOARD"      : ""
+        },
+        
+        "NONE" : {
+            "IDLE"          : "",
+            "MOUSE_BUTTONS" : "",
+            "KEYBOARD"      : ""
+        }
+    }
+
+}

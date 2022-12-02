@@ -37,7 +37,8 @@ def my_time():
 async def battery_process():
     # read the battery info
     while True:
-        c.blue.battery_service.level = c.battery.get_percent()
+        c.blue.battery_service.level = c.battery.level
+        print(f"Setting battery level to: {c.blue.battery_service.level}")
         await asyncio.sleep(3)
 
 async def feed_dog():
@@ -52,7 +53,7 @@ async def loop():
         await c.move_mouse()
         ev = await c.detect_event()
         await c.dispatch_event(ev)
-        await asyncio.sleep(0)
+        await asyncio.sleep(0.1)
 
 def print_boot_out():
     print("boot_out.txt: ")

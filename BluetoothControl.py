@@ -9,6 +9,8 @@ from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
 from adafruit_hid.keycode import Keycode as Keycode
 from adafruit_hid.mouse import Mouse
 
+import asyncio
+
 class Appearances:
     remote = 0x0180 #0x0180 to 0x01BF
     eyeglasses = 0x01C0 #0x01C0 to 0x01FF
@@ -36,13 +38,13 @@ class BluetoothControl:
         self.advertisement.appearance = Appearances.hid
         self.scan_response = Advertisement()
         self.ble = adafruit_ble.BLERadio()
-        #self.ble.name = "MY_BLUETOOTH_NAME"
-        #print("BLE NAME:", self.ble.name)
         if self.ble.connected:
             print("Woke up connected")
             for c in self.ble.connections:
                 c.disconnect()
+
         self.battery_service = adafruit_ble.services.standard.BatteryService()
+        
         self.k = Keyboard(self.hid.devices)
         self.kl = KeyboardLayoutUS(self.k)
         self.mouse = Mouse(self.hid.devices)
