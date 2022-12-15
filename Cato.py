@@ -167,12 +167,20 @@ class Cato:
         ''' calls to gesture detection libraries, controls flow of program '''
         #self.display_gesture_menu()
         print("\nDetecting Event")
-        await self.hang_until_motion(loop_after = 2 * Spec.num_samples)
+        if await self.hang_until_motion(loop_after = 4 * Spec.num_samples):
+            print("Motion!")
+            pass
+        else:
+            print("Waited and got no motion")
+            return
         await self.read_gesture()
+        print("Finished Reading Gesture")
         flag = True
         i = 1
         arr = array.array( 'f', [0]*6)
+        print("pre-read")
         while(True):
+            # await asyncio.sleep(0.001)
             b_pos = (i + self.buf) % Spec.num_samples
             arr[0] = self.ax_hist[b_pos]
             arr[1] = self.ay_hist[b_pos]
@@ -187,12 +195,13 @@ class Cato:
             i += 1
             if bool(flag) == False:
                 break
+        print("pre-inference")
         inf = self.n.inference()
-
+        print("post-inference")
         confidence = max(neuton_outputs)
-        #print("\tMax Confidence:  {}".format(confidence))
-        #print("\tPredicted Index: {}".format(inf))
-        #print("\tOutputs:         {}".format(outputs))
+        # print("\tMax Confidence:  {}".format(confidence))
+        # print("\tPredicted Index: {}".format(inf))
+        # print("\tOutputs:         {}".format(outputs))
         confidence_thresh = 0.80
         ret_val = inf
         if confidence < confidence_thresh:
@@ -300,18 +309,13 @@ class Cato:
         '''
             move the mouse via bluetooth until sufficiently idle
         '''
-        # aio.create_task (...) mouse move as async function will internally have a while True ends with await statement
-        # while True:
-        #     # a bunch of indented
-        #     #filler
-        #     #await sleep
         
         await self.shake_cursor()
-        print("MOVE MOUSE CALLED")
+        print("\nMOVE MOUSE CALLED")
         t_start = time.monotonic()
         idle_count = 0
         idle_thresh = 5.0
-        min_run_cycles = 2 * Spec.g_dur
+        min_run_cycles = 4 * Spec.g_dur
         cycle_count = 0
         MOUSE_TYPE = "ACCEL"
         slow_thresh = 20.0
@@ -349,8 +353,9 @@ class Cato:
                     #print("f")
                     scale = fast_scale
             #idle checking
-            if( cycle_count == min_run_cycles):
-                print("    minimum duration reached at {a} seconds".format( a = (time.monotonic() - t_start) ) )
+            # if( cycle_count == min_run_cycles):
+            #     print("    minimum duration reached at {a} seconds".format( a = (time.monotonic() - t_start) ) )
+            
             if( mag <= idle_thresh and cycle_count >= min_run_cycles): #only count idle if it's after minimum run length
                 #print("idle detected ({a}) max idle: {b}".format(a=idle_count, b=max_idle_cycles))
                 if (idle_count == 0):
@@ -364,6 +369,64 @@ class Cato:
             await asyncio.sleep(0)
         await self.shake_cursor()
         #print( "    Time idled: {} s".format( time.monotonic() - t_idle_start) )
+
+    async def joystick_move(self):
+        await asyncio.sleep(0.1)
+        pos = [0, 0] # x, y
+        idle_count = 0
+        idle_max = 200
+
+        while idle_count < idle_max:
+            await self.read_imu()
+            await asyncio.sleep(0.001)
+
+            scale = 0.02
+
+            pos[0] += scale * self.gy
+            pos[1] += 1.3 * scale * self.gz #1.3 is for extra vertical sensitivity
+            
+            print(pos)
+            #scale value for mouse movement at different levels
+            speed = {
+                "low" : 0.1,
+                "mid" : 0.2,
+                "max" : 0.3
+            }
+
+            #thresholds defining left(low) edge of movespeed regions
+            tr = { 
+                
+                "low" : 5,
+                "mid" : 10,
+                "max" : 15
+            }
+            
+            x_scale = 0
+            if abs(pos[0]) > tr["max"]:
+                x_scale = speed["max"]
+            elif tr["mid"] < abs(pos[0]) < tr["max"]:
+                x_scale = speed["mid"]
+            elif tr["low"] < abs(pos[0]) < tr["mid"]:
+                x_scale = speed["low"]
+            else:
+                pass
+
+            y_scale = 0
+            if abs(pos[1]) > tr["max"]:
+                y_scale = speed["max"]
+            elif tr["mid"] < abs(pos[1]) < tr["max"]:
+                y_scale = speed["mid"]
+            elif tr["low"] < abs(pos[1]) < tr["mid"]:
+                y_scale = speed["low"]
+            else:
+                pass
+
+            self.blue.mouse.move( int(x_scale * pos[0]), int(y_scale * pos[1]) )
+
+            if ( pos[0] <= tr["low"] and pos[1] <= tr["low"] ):
+                idle_count += 1
+            else:
+                idle_count = 0
 
     def do_integration(self):
         x = 0
@@ -521,14 +584,22 @@ class Cato:
 
         wait_time = 0
         val = sqrt(x_scale * self.gx**2 + y_scale * self.gy**2 + z_scale * self.gz**2)
+        indef_stated = False
         while(val < thresh):
-            if "loop_after" in kwargs:
+            await asyncio.sleep(0.005)
+            if "loop_after" in kwargs:     
                 wait_time += 1
                 if wait_time > kwargs["loop_after"]:
-                    self.move_mouse()
-                    wait_time = 0
+                    return False
+            else:
+                if not indef_stated:
+                    print("Indefinite wait for motion")
+                    indef_stated = True
             await self.read_imu()
             val = sqrt(x_scale * self.gx**2 + y_scale * self.gy**2 + z_scale * self.gz**2)
+        return True
+
+            
 
 
     async def read_gesture(self):

@@ -27,7 +27,7 @@ from math import sqrt
 
 # Beginning code proper
 c = Cato.Cato( bt = True )
-w.timeout = 5 #seconds
+w.timeout = 10 #seconds
 w.mode = WatchDogMode.RAISE
 
 ti = time.time()
@@ -36,10 +36,12 @@ def my_time():
 
 async def battery_process():
     # read the battery info
+    local_c = c
+    level = None
     while True:
-        c.blue.battery_service.level = c.battery.level
-        print(f"Setting battery level to: {c.blue.battery_service.level}")
-        await asyncio.sleep(3)
+        level = local_c.battery.level
+        local_c.blue.battery_service.level = level
+        await asyncio.sleep(30)
 
 async def feed_dog():
     ''' feed the watchdog '''
@@ -50,10 +52,20 @@ async def feed_dog():
 async def loop():
     ''' docstring '''
     while True:
+        # # await c.move_mouse()
+        # print("Joystick Motion")
+        # await c.joystick_move()
+        # ev = await c.detect_event()
+        # await c.dispatch_event(ev)
+        # await asyncio.sleep(0.1)
+        ev = Cato.EV.NONE
+        print("Moving Mouse")
         await c.move_mouse()
         ev = await c.detect_event()
-        await c.dispatch_event(ev)
+        if ev is not None:
+            await c.dispatch_event(ev)
         await asyncio.sleep(0.1)
+        gc.collect()
 
 def print_boot_out():
     print("boot_out.txt: ")
