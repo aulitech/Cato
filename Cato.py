@@ -199,6 +199,7 @@ class Cato:
         inf = self.n.inference()
         print("post-inference")
         confidence = max(neuton_outputs)
+        print( f"Diagnosis: {inf}, {dir(inf)}" )
         # print("\tMax Confidence:  {}".format(confidence))
         # print("\tPredicted Index: {}".format(inf))
         # print("\tOutputs:         {}".format(outputs))
