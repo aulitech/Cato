@@ -1,5 +1,7 @@
 import adafruit_ble
-from adafruit_ble.advertising import Advertisement
+
+from adafruit_ble.advertising import Advertisement, AdvertisingFlag, AdvertisingFlags
+
 from adafruit_ble.advertising.standard import ProvideServicesAdvertisement
 from adafruit_ble.services.standard.hid import HIDService
 from adafruit_ble.services.standard.device_info import DeviceInfoService
@@ -19,6 +21,7 @@ class Appearances:
 
 class BluetoothControl:
     def __init__(self):
+
         self.hid = HIDService()
 
         self.device_info = DeviceInfoService(
@@ -34,9 +37,18 @@ class BluetoothControl:
             service = None
         )
 
-        self.advertisement = ProvideServicesAdvertisement(self.hid)
+        self.advertisement = ProvideServicesAdvertisement( self.hid )
         self.advertisement.appearance = Appearances.hid
-        self.scan_response = Advertisement()
+        self.advertisement.short_name = "Cato"
+        # self.advertisement.flags.general_discovery = False
+        # self.advertisement.flags.limited_discovery = True
+        # self.advertisement.flags.general_discovery = AdvertisingFlag(1)
+
+        self.scan_response = Advertisement(  )
+        self.scan_response.short_name = "Cato2"
+        self.scan_response.appearance = Appearances.hid
+
+        
         self.ble = adafruit_ble.BLERadio()
         if self.ble.connected:
             print("Woke up connected")
@@ -50,7 +62,6 @@ class BluetoothControl:
         self.mouse = Mouse(self.hid.devices)
         
     def connect_bluetooth(self):
-        self.advertisement = ProvideServicesAdvertisement(self.hid)
         print("Waiting for BLE connection")
         self.ble.start_advertising(self.advertisement, self.scan_response)
         # multiple connections occur here

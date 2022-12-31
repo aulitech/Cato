@@ -52,12 +52,6 @@ async def feed_dog():
 async def loop():
     ''' docstring '''
     while True:
-        # # await c.move_mouse()
-        # print("Joystick Motion")
-        # await c.joystick_move()
-        # ev = await c.detect_event()
-        # await c.dispatch_event(ev)
-        # await asyncio.sleep(0.1)
         ev = Cato.EV.NONE
         print("Moving Mouse")
         await c.move_mouse()
