@@ -15,7 +15,7 @@ import json
 import time
 import digitalio
 
-from adafruit_lsm6ds.lsm6ds3trc import LSM6DS3TRC
+from imu import LSM6DS3TRC
 
 from adafruit_hid.keyboard import Keyboard
 from adafruit_hid.keycode import Keycode
@@ -73,6 +73,16 @@ class Cato:
         except:
             mc.reset()
 
+
+        #enumerate events
+        self.events = {
+            "imu"               : asyncio.Event(),
+            "move_mouse"        : asyncio.Event(),
+            "scroll"            : asyncio.Event(),
+            "hang_until_motion" : asyncio.Event()
+        }
+
+
         self.gx_trim, self.gy_trim, self.gz_trim = 0, 0, 0
         self.last_read = sp.ticks_ms()
 
@@ -86,7 +96,7 @@ class Cato:
             self.ax_hist,        self.ay_hist,        self.az_hist         
         )   = self._setup_imu() 
 
-        self.gx_trim, self.gy_trim, self.gz_trim = asyncio.run(self.calibrate())
+        self.gx_trim, self.gy_trim, self.gz_trim = asyncio.run( self.calibrate() )
 
         if bt:
             import BluetoothControl
@@ -110,11 +120,12 @@ class Cato:
                 [   self.noop,                  self.noop,                  self.noop           ]  #EV.NONE         = 8
         ]
 
-        self.garbage = array.array('f', [0]*1000)
-
         self.n = Neuton(outputs=neuton_outputs)
-        self.tasks = []
-        self.tasks.append( asyncio.create_task( self.read_imu() ) )
+        
+        self.tasks = [
+            asyncio.create_task( self.stream_imu() ),
+            asyncio.create_task( self.read_imu() )
+        ]
 
     def _setup_imu(self):
         ''' helper method -- encapsulate imu portion of init '''
@@ -142,12 +153,19 @@ class Cato:
         print("    Done")
         return sensor, time_hist, gx, gy, gz, ax, ay, az
 
+    async def stream_imu(self):
+        ''' filler method to stream raw data from the imu '''
+        while True:
+            self.events["imu"].set()
+            await asyncio.sleep(0.001)
+            print( f"{self.gx}, {self.gy}, {self.gz}" )
+
     async def calibrate(self):
         print("Calibrating")
-        num_to_calibrate = 300
+        num_to_calibrate = 200
         x, y, z = 0, 0, 0
         for cycles in range(num_to_calibrate):
-            await self.read_imu()
+            self.events["imu"].set()
             x += self.gx
             y += self.gy
             z += self.gz
@@ -247,24 +265,29 @@ class Cato:
 
     async def read_imu(self):
         ''' reads data off of the IMU into -> gx, gy, gz, ax, ay, az '''
-        self.buf = (self.buf + 1) % Spec.num_samples
-        
-        dt = (sp.ticks_ms() - self.last_read) % 2**29 #ticks_ms overflow amount
-        #print("dt = {}".format(dt))
-        if(dt < Spec.imu_ms_delay):
-            await asyncio.sleep((Spec.imu_ms_delay - dt) / 1000)
-        
-        self.last_read = sp.ticks_ms()
-        self.time_hist[self.buf] = self.last_read
+        while True:
+            await self.events["imu"].wait()
+            self.buf = (self.buf + 1) % Spec.num_samples
+            dt = (sp.ticks_ms() - self.last_read) % 2**29 #ticks_ms overflow amount
+            print("dt = {}".format(dt))
+            if(dt < Spec.imu_ms_delay):
+                await asyncio.sleep((Spec.imu_ms_delay - dt) / 1000)
+            
+            self.last_read = sp.ticks_ms()
+            self.time_hist[self.buf] = self.last_read
+            
+            rad_to_deg = 57.3 # 360 / 2PI
+            self.gx_hist[self.buf], self.gy_hist[self.buf], self.gz_hist[self.buf] = [(x * rad_to_deg) for x in self.sensor.gyro]
+            self.ax_hist[self.buf], self.ay_hist[self.buf], self.az_hist[self.buf] = self.sensor.acceleration
+            
+            self.gx_hist[self.buf] -= self.gx_trim
+            self.gy_hist[self.buf] -= self.gy_trim
+            self.gz_hist[self.buf] -= self.gz_trim
+            
+            self.events["imu"].clear()
 
-        rad_to_deg = 57.3 # 360 / 2PI
-        self.gx_hist[self.buf], self.gy_hist[self.buf], self.gz_hist[self.buf] = [(x * rad_to_deg) for x in self.sensor.gyro]
-        self.ax_hist[self.buf], self.ay_hist[self.buf], self.az_hist[self.buf] = self.sensor.acceleration
-        
-        self.gx_hist[self.buf] -= self.gx_trim
-        self.gy_hist[self.buf] -= self.gy_trim
-        self.gz_hist[self.buf] -= self.gz_trim
-        #self.print_o_str()
+            # print( sp.ticks_ms() )
+            #self.print_o_str()
 
     # Cato Actions
     # CircuitPython Docs: https://docs.circuitpython.org/projects/hid/en/latest/api.html#adafruit-hid-mouse-mouse '''
