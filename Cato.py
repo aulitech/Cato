@@ -14,6 +14,7 @@ import io
 import json
 import time
 import digitalio
+import countio
 
 from imu import LSM6DS3TRC
 
@@ -22,7 +23,7 @@ from adafruit_hid.keycode import Keycode
 from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
 from adafruit_hid.mouse import Mouse
 
-from math import sqrt, atan2, sin, cos, pow
+from math import sqrt, atan2, sin, cos, pow, pi
 import array
 import supervisor as sp
 import battery
@@ -30,7 +31,6 @@ import battery
 import asyncio
 
 from neutonml import Neuton
-
 
 #helpers and enums
 
@@ -53,50 +53,59 @@ class EV():
     SHAKE_YES = 7
     SHAKE_NO = 8
 
-class Spec:
-    ''' Specifications '''
-    freq = 100 
-    imu_ms_delay = 1000.0 / freq
-    g_dur = 0.75 # gesture duration (seconds)
-    num_samples = int(freq * g_dur)
-
 neuton_outputs = array.array( "f", [0, 0, 0, 0, 0, 0, 0, 0] )
 
 class Cato:
     ''' Main Class of Cato Gesture Mouse '''
-    # SETUP METHODS
-    def __init__(self, bt = True):
 
+    
+    def __init__(self, bt:bool = True, do_calib = True):
+        '''
+            ~ @param bt: True configures and connect to BLE, False provides dummy connection
+            ~ @param do_calib: True runs calibration, False disables for fast/lazy startup
+        '''
         try:    
             with open("config.json", 'r') as f:
                 self.config = json.load(f)
         except:
             mc.reset()
 
-
-        #enumerate events
-        self.events = {
-            "imu"               : asyncio.Event(),
+        self.events = {         # enumerate events for flow control
+            "imu_setup"         : asyncio.Event(), # indicates the imu has been config'd
+            "imu"               : asyncio.Event(), # indicates new data is available from the imu
+            "data_ready"        : asyncio.Event(), # indicates that gyro and sensor are ready to read from gx_hist, gy_hist, gz_hist
             "move_mouse"        : asyncio.Event(),
             "scroll"            : asyncio.Event(),
             "hang_until_motion" : asyncio.Event()
         }
 
+        #specification for operation
+        self.specs = {
+            "freq" : 104.0, # imu measurement frequency (hz)
+            "g_dur": 0.75   # gesture duration (s)
+        }
+        # number of samples in one neuton gesture
+        self.specs["num_samples"] = int(self.specs["freq"] * self.specs["g_dur"])
 
-        self.gx_trim, self.gy_trim, self.gz_trim = 0, 0, 0
-        self.last_read = sp.ticks_ms()
-
-        self.buf = 0
-
+        # battery managing container
         self.battery = battery.Bat()
 
-        (   self.sensor, 
-            self.time_hist,
-            self.gx_hist,        self.gy_hist,        self.gz_hist,     
-            self.ax_hist,        self.ay_hist,        self.az_hist         
-        )   = self._setup_imu() 
+        # initial buffer position
+        self.buf = 0
 
-        self.gx_trim, self.gy_trim, self.gz_trim = asyncio.run( self.calibrate() )
+        self.gx_hist    = [0] * (self.specs["num_samples"])
+        self.gy_hist    = [0] * (self.specs["num_samples"])
+        self.gz_hist    = [0] * (self.specs["num_samples"])
+        self.ax_hist    = [0] * (self.specs["num_samples"])
+        self.ay_hist    = [0] * (self.specs["num_samples"])
+        self.az_hist    = [0] * (self.specs["num_samples"])
+        self.time_hist  = [0] * (self.specs["num_samples"])
+
+        self.sensor = self.setup_imu() # TODO: containerize in imu class
+
+        self.gx_trim, self.gy_trim, self.gz_trim = 0, 0, 0
+        if do_calib:
+            asyncio.run( self.calibrate() )
 
         if bt:
             import BluetoothControl
@@ -104,77 +113,130 @@ class Cato:
             import DummyBT as BluetoothControl
         
         self.blue = BluetoothControl.BluetoothControl()
-        self.blue.connect_bluetooth()
+        self.blue.connect_bluetooth() # TODO: Refactor into reconnecting asyncio loop
         
         self.state = ST.IDLE
-        self.st_matrix = [
-            #       ST.IDLE                     ST.MOUSE_BUTTONS            ST.KEYBOARD
-                [   self.move_mouse,            self.to_idle,               self.to_idle        ], #EV.UP           = 0
-                [   self.left_click,            self.left_click,            self.press_enter    ], #EV.DOWN         = 1
-                [   self.scroll,                self.noop,                  self.noop           ], #EV.RIGHT        = 2
-                [   self.hang_until_motion,     self.noop,                  self.noop           ], #EV.LEFT         = 3
-                [   self.scroll_lr,             self.noop,                  self.noop           ], #EV.ROLL_R       = 4
-                [   self.scroll_lr,             self.noop,                  self.noop           ], #EV.ROLL_L       = 5
-                [   self.double_click,          self.noop,                  self.noop           ], #EV.SHAKE_YES    = 6
-                [   self.hang_until_motion,     self.noop,                  self.noop           ], #EV.SHAKE_NO     = 7
-                [   self.noop,                  self.noop,                  self.noop           ]  #EV.NONE         = 8
+        self.st_matrix = [ # TODO: Read this from CONFIG.JSON
+                #   ST.IDLE                     ST.MOUSE_BUTTONS            ST.KEYBOARD
+                [   self.move_mouse,            self.to_idle,               self.to_idle        ], # EV.UP           = 0
+                [   self.left_click,            self.left_click,            self.press_enter    ], # EV.DOWN         = 1
+                [   self.scroll,                self.noop,                  self.noop           ], # EV.RIGHT        = 2
+                [   self.hang_until_motion,     self.noop,                  self.noop           ], # EV.LEFT         = 3
+                [   self.scroll_lr,             self.noop,                  self.noop           ], # EV.ROLL_R       = 4
+                [   self.scroll_lr,             self.noop,                  self.noop           ], # EV.ROLL_L       = 5
+                [   self.double_click,          self.noop,                  self.noop           ], # EV.SHAKE_YES    = 6
+                [   self.hang_until_motion,     self.noop,                  self.noop           ], # EV.SHAKE_NO     = 7
+                [   self.noop,                  self.noop,                  self.noop           ]  # EV.NONE         = 8
         ]
 
         self.n = Neuton(outputs=neuton_outputs)
         
         self.tasks = [
             asyncio.create_task( self.stream_imu() ),
-            asyncio.create_task( self.read_imu() )
+            asyncio.create_task( self.read_imu() ),
+            asyncio.create_task( self.int_imu() )
         ]
 
-    def _setup_imu(self):
+    def setup_imu(self):
         ''' helper method -- encapsulate imu portion of init '''
-        print("IMU setup")
+        print("IMU setup ...")
+
+        # enable imu
         imupwr = digitalio.DigitalInOut(board.IMU_PWR)
         imupwr.direction = digitalio.Direction.OUTPUT
         imupwr.value = True
-        time.sleep(0.1)
+
+        time.sleep(0.1) # required delay on imu
+
         imu_i2c = busio.I2C(board.IMU_SCL, board.IMU_SDA)
         sensor = LSM6DS3TRC(imu_i2c)
-
-        gx = [0]*Spec.num_samples
-        gy = [0]*Spec.num_samples
-        gz = [0]*Spec.num_samples
-        ax = [0]*Spec.num_samples
-        ay = [0]*Spec.num_samples
-        az = [0]*Spec.num_samples
-
-        time_hist = [0]*Spec.num_samples
-
-        gx[self.buf], gy[self.buf], gz[self.buf] = sensor.gyro
-        ax[self.buf], ay[self.buf], az[self.buf] = sensor.acceleration
         
-        self.buf = (self.buf + 1) % Spec.num_samples
+        # config info at:
+        # https://cdn.sparkfun.com/assets/learn_tutorials/4/1/6/AN4650_DM00157511.pdf
+        # here, we set the GDA bit of the INT1_CTRL register to True, 
+        #   to push Data Ready (gyro) signal to INT1 pin for interrupt
+        sensor.int1_ctrl = 0x02
+
+        self.events["imu_setup"].set()
         print("    Done")
-        return sensor, time_hist, gx, gy, gz, ax, ay, az
-
-    async def stream_imu(self):
-        ''' filler method to stream raw data from the imu '''
+        return sensor
+    
+    async def read_imu(self):
+        ''' reads data off of the IMU into -> gx, gy, gz, ax, ay, az '''
+        #just once start the spin?
+        await self.events["imu_setup"].wait() # don't read until imu is set up
+        
+        self.events["imu"].set()
+        
+        print("Confirmed imu setup. Entering imu read loop.")
         while True:
-            self.events["imu"].set()
-            await asyncio.sleep(0.001)
-            print( f"{self.gx}, {self.gy}, {self.gz}" )
+            # hold until data ready
+            await self.events["imu"].wait()
 
-    async def calibrate(self):
-        print("Calibrating")
-        num_to_calibrate = 200
+            #iterate and record
+            self.buf = (self.buf + 1) % self.specs["num_samples"]
+            self.time_hist[self.buf] = sp.ticks_ms()
+
+            # read from IMU
+            self.gx_hist[self.buf], self.gy_hist[self.buf], self.gz_hist[self.buf] = self.sensor.gyro
+            self.ax_hist[self.buf], self.ay_hist[self.buf], self.az_hist[self.buf] = self.sensor.acceleration
+            
+            # conv to degrees
+            rad_to_deg = 360.0 / (2 * pi)
+            self.gx_hist[self.buf] *= rad_to_deg
+            self.gy_hist[self.buf] *= rad_to_deg
+            self.gz_hist[self.buf] *= rad_to_deg
+
+            # trim measurements based on calibration
+            self.gx_hist[self.buf] -= self.gx_trim
+            self.gy_hist[self.buf] -= self.gy_trim
+            self.gz_hist[self.buf] -= self.gz_trim
+            
+            # clear event for next read
+            # self.events["imu"].clear()
+
+            # present data to whoever wants to use it
+            #self.events["data_ready"].set()
+            await asyncio.sleep(0)
+            
+    async def int_imu(self):
+        """ interrupt on imu for gyro data ready """
+        with countio.Counter(   
+            board.IMU_INT1, 
+            edge = countio.Edge.RISE, 
+            pull = digitalio.Pull.DOWN 
+        ) as interrupt:
+            while True:
+                if interrupt.count > 0:
+                    interrupt.count = 0
+                    # print("interrupted!")
+                    self.events["imu"].set()
+                await asyncio.sleep(0)
+
+    async def calibrate(self, num = 200):
+        """ method to determine hardware drift of imu """ 
+        _f = self.specs["freq"]
+        print(f"Calibrating: {num / _f } (seconds)")
         x, y, z = 0, 0, 0
-        for cycles in range(num_to_calibrate):
+        for cycles in range(num):
+            # print(f"Calibration: {cycles+1} out of {num}")
             self.events["imu"].set()
             x += self.gx
             y += self.gy
             z += self.gz
-        x = x / num_to_calibrate
-        y = y / num_to_calibrate
-        z = z / num_to_calibrate
+        self.gx_trim = x / num
+        self.gy_trim = y / num
+        self.gz_trim = z / num
         print("    Done")
-        return x, y, z
-
+        
+    async def stream_imu(self):
+        self.events["imu"].set()
+        while True:
+            await self.events['imu'].wait()
+            print(f"{self.gx}, {self.gy}, {self.gz}")
+            self.events['imu'].clear()
+            await asyncio.sleep(0)
+    
     def display_gesture_menu(self):
         print("Available actions: ")
         for ev in range(len(self.st_matrix)):
@@ -185,7 +247,7 @@ class Cato:
         ''' calls to gesture detection libraries, controls flow of program '''
         #self.display_gesture_menu()
         print("\nDetecting Event")
-        if await self.hang_until_motion(loop_after = 4 * Spec.num_samples):
+        if await self.hang_until_motion(loop_after = 4 * self.specs["num_samples"]):
             print("Motion!")
             pass
         else:
@@ -199,7 +261,7 @@ class Cato:
         print("pre-read")
         while(True):
             # await asyncio.sleep(0.001)
-            b_pos = (i + self.buf) % Spec.num_samples
+            b_pos = (i + self.buf) % self.specs["num_samples"]
             arr[0] = self.ax_hist[b_pos]
             arr[1] = self.ay_hist[b_pos]
             arr[2] = self.az_hist[b_pos]
@@ -263,31 +325,7 @@ class Cato:
     def az(self):
         return self.az_hist[self.buf]
 
-    async def read_imu(self):
-        ''' reads data off of the IMU into -> gx, gy, gz, ax, ay, az '''
-        while True:
-            await self.events["imu"].wait()
-            self.buf = (self.buf + 1) % Spec.num_samples
-            dt = (sp.ticks_ms() - self.last_read) % 2**29 #ticks_ms overflow amount
-            print("dt = {}".format(dt))
-            if(dt < Spec.imu_ms_delay):
-                await asyncio.sleep((Spec.imu_ms_delay - dt) / 1000)
-            
-            self.last_read = sp.ticks_ms()
-            self.time_hist[self.buf] = self.last_read
-            
-            rad_to_deg = 57.3 # 360 / 2PI
-            self.gx_hist[self.buf], self.gy_hist[self.buf], self.gz_hist[self.buf] = [(x * rad_to_deg) for x in self.sensor.gyro]
-            self.ax_hist[self.buf], self.ay_hist[self.buf], self.az_hist[self.buf] = self.sensor.acceleration
-            
-            self.gx_hist[self.buf] -= self.gx_trim
-            self.gy_hist[self.buf] -= self.gy_trim
-            self.gz_hist[self.buf] -= self.gz_trim
-            
-            self.events["imu"].clear()
-
-            # print( sp.ticks_ms() )
-            #self.print_o_str()
+    
 
     # Cato Actions
     # CircuitPython Docs: https://docs.circuitpython.org/projects/hid/en/latest/api.html#adafruit-hid-mouse-mouse '''
@@ -334,7 +372,7 @@ class Cato:
             move the mouse via bluetooth until sufficiently idle
         '''
         
-        await self.shake_cursor()
+        # await self.shake_cursor()
         print("\nMOVE MOUSE CALLED")
         t_start = time.monotonic()
         idle_count = 0
@@ -628,7 +666,7 @@ class Cato:
 
     async def read_gesture(self):
         await self.read_imu()
-        for i in range(Spec.num_samples):
+        for i in range(self.specs["num_samples"]):
             await self.read_imu()
     
     def collect_n_gestures(self, n=1):
@@ -652,8 +690,8 @@ class Cato:
             with io.open(my_file, "w") as f:
                 temp = ""
                 print("{} opened".format(my_file))
-                for sample in range(Spec.num_samples):
-                    b_pos = (self.buf + sample + 1) % Spec.num_samples
+                for sample in range(self.specs["num_samples"]):
+                    b_pos = (self.buf + sample + 1) % self.specs["num_samples"]
                     temp = "%d,%f,%f,%f,%f,%f,%f" % (self.time_hist[b_pos],    
                                                     self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],
                                                     self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos])

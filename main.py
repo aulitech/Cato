@@ -27,7 +27,7 @@ from math import sqrt
 
 
 # Beginning code proper
-c = Cato.Cato( bt = True )
+c = Cato.Cato( bt = False, do_calib = False )
 w.timeout = 10 #seconds
 w.mode = WatchDogMode.RAISE
 
@@ -72,7 +72,7 @@ async def main():
     # print_boot_out()
     tasks = []
     tasks.append( asyncio.create_task( battery_process() ) )
-    tasks.append( asyncio.create_task( loop() ) )
+    # tasks.append( asyncio.create_task( loop() ) )
     tasks.append( asyncio.create_task( feed_dog() ) )
     for t in c.tasks:
         tasks.append(t)

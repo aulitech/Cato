@@ -29,6 +29,11 @@ class Keys:
     def release_all(self, button):
         pass
 
+class Bat:
+    def __init__(self):
+        self.level = 0
+
+
 class BluetoothControl:
     def __init__(self):
         self.hid = 0
@@ -39,7 +44,8 @@ class BluetoothControl:
 
         self.k = Keys()
         self.mouse = Mouse()
-        
+        self.battery_service = Bat()
+
     def connect_bluetooth(self):
         print("Dummy Connection")
         print("    Connected")
