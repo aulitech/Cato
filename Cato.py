@@ -57,8 +57,6 @@ neuton_outputs = array.array( "f", [0, 0, 0, 0, 0, 0, 0, 0] )
 
 class Cato:
     ''' Main Class of Cato Gesture Mouse '''
-
-    
     def __init__(self, bt:bool = True, do_calib = True):
         '''
             ~ @param bt: True configures and connect to BLE, False provides dummy connection
@@ -112,9 +110,7 @@ class Cato:
             import BluetoothControl
         else:
             import DummyBT as BluetoothControl
-        
         self.blue = BluetoothControl.BluetoothControl()
-        self.blue.connect_bluetooth() # TODO: Refactor into reconnecting asyncio loop
         
         self.state = ST.IDLE
         self.st_matrix = [ # TODO: Read this from CONFIG.JSON
@@ -133,11 +129,12 @@ class Cato:
         self.n = Neuton(outputs=neuton_outputs)
         
         self.tasks = [
-            # asyncio.create_task( self.stream_imu() ),
             asyncio.create_task( self.move_mouse() ),
             asyncio.create_task( self.read_imu() ),
             asyncio.create_task( self.int_imu() )
         ]
+        for t in self.blue.tasks:
+            self.tasks.append(t)
 
     def setup_imu(self):
         ''' helper method -- encapsulate imu portioof init '''
@@ -522,17 +519,6 @@ class Cato:
                 idle_count += 1
             else:
                 idle_count = 0
-
-    def do_integration(self):
-        x = 0
-        y = 0
-        z = 0
-        while(True):
-            self.read_imu()
-            x += self.gx * Spec.imu_ms_delay / 1000
-            y += self.gy * Spec.imu_ms_delay / 1000
-            z += self.gz * Spec.imu_ms_delay / 1000
-            print("{:5.2f}, {:5.2f}, {:5.2f}".format(x, y, z))
         
     async def scroll(self):
         ''' scrolls the mouse until sufficient exit condition is reached '''
@@ -547,9 +533,10 @@ class Cato:
         while(True):
             await self.read_imu()
 
-            x += self.gx * Spec.imu_ms_delay / 1000
-            y += self.gy * Spec.imu_ms_delay / 1000
-            z += self.gz * Spec.imu_ms_delay / 1000
+            dt = 1.0 / self.specs["freq"]
+            x += self.gx * dt
+            y += self.gy * dt
+            z += self.gz * dt
 
             interval_multiplier = 20 / abs(z)
             if abs(z) < 3:

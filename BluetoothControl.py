@@ -21,7 +21,6 @@ class Appearances:
 
 class BluetoothControl:
     def __init__(self):
-
         self.hid = HIDService()
 
         self.device_info = DeviceInfoService(
@@ -39,13 +38,13 @@ class BluetoothControl:
 
         self.advertisement = ProvideServicesAdvertisement( self.hid )
         self.advertisement.appearance = Appearances.hid
-        self.advertisement.short_name = "Cato"
+        self.advertisement.short_name = "Cato_advert_name"
         # self.advertisement.flags.general_discovery = False
         # self.advertisement.flags.limited_discovery = True
         # self.advertisement.flags.general_discovery = AdvertisingFlag(1)
 
         self.scan_response = Advertisement(  )
-        self.scan_response.short_name = "Cato2"
+        self.scan_response.short_name = "Cato_scan_resp_name"
         self.scan_response.appearance = Appearances.hid
 
         
@@ -60,16 +59,59 @@ class BluetoothControl:
         self.k = Keyboard(self.hid.devices)
         self.kl = KeyboardLayoutUS(self.k)
         self.mouse = Mouse(self.hid.devices)
+
+        self.ena_adv = asyncio.Event()
+        self.is_connected = asyncio.Event()
+        self.is_disconnected = asyncio.Event()
+
+        self.is_disconnected.set() #board starts without connection
+
+        self.tasks = [
+            asyncio.create_task( self.manage_connection() ),
+            asyncio.create_task( self.monitor_connections() ),
+            asyncio.create_task( self.reconnect() )
+        ]
+ 
+    async def manage_connection(self):
+        while True:
+            # wait for advertisement enable
+            await self.ena_adv.wait()
+            print("Starting BLE advertisement")
+            self.ble.start_advertising(self.advertisement, self.scan_response)
+            
+            # wait for a connection
+            await self.is_connected.wait()
+            self.ena_adv.clear()
+
+            await asyncio.sleep(1)
+            self.ble.stop_advertising()
+            print("\tNo longer advertising")
+    
+    async def reconnect(self):
+        while True:
+            await self.is_disconnected.wait()
+            self.ena_adv.set()
+            await asyncio.sleep(5) # rate limit the "start advertising"
+            self.ena_adv.clear()
+            await asyncio.sleep(0.5) # small advertising reset
         
-    def connect_bluetooth(self):
-        print("Waiting for BLE connection")
-        self.ble.start_advertising(self.advertisement, self.scan_response)
-        # multiple connections occur here
-        # device powers up -> how do we connect to multiple devices
-        # "conenction is triggered from far end" -> when we advertise, if there are 2 devices that know us, both will try to connect
-        while not self.ble.connected:
-            #we will need to increase granularity
-            pass
-        print("    Connected")
+    async def monitor_connections(self):
+        while True:
+            # Check connection
+            if self.ble.connected: # When connected
+                if not self.is_connected.is_set():
+                    print("\tBLE Connected")
+                    self.is_connected.set()
 
+                if self.is_disconnected.is_set():
+                    self.is_disconnected.clear()
+            
+            else: # When disconnected
 
+                if not self.is_disconnected.is_set():
+                    print("\tBLE Disconnected")
+                    self.is_disconnected.set()
+
+                if self.is_connected.is_set():
+                    self.is_connected.clear()
+            await asyncio.sleep(3)
