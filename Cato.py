@@ -571,73 +571,72 @@ class Cato:
         self.blue.k.release(Keycode.SHIFT)
         #release shift
 
-    async def left_click(self):
+    def left_click(self):
         ''' docstring stub '''
         self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
 
-    async def double_click(self):
+    def double_click(self):
         self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
         self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
 
-    async def right_click(self):
+    def right_click(self):
         ''' docstring stub '''
         self.blue.mouse.click(self.blue.mouse.RIGHT_BUTTON)
 
-    async def middle_click(self):
+    def middle_click(self):
         ''' docstring stub '''
         self.blue.mouse.click(self.blue.mouse.MIDDLE_BUTTON)
 
     async def left_click_drag(self):
         ''' docstring stub '''
         print("Left click")
-        await self.left_press()
+        self.left_press()
         print("Drag")
         await self.move_mouse()
-        await self.left_release()
-        print("Mouse released")
+        self.left_release()
 
     async def right_click_drag(self):
         ''' docstring stub '''
-        await self.right_press()
+        self.right_press()
         await self.move_mouse()
-        await self.right_release()
+        self.right_release()
 
     async def middle_click_drag(self):
         ''' docstring stub '''
-        await self.middle_press()
+        self.middle_press()
         await self.move_mouse()
-        await self.middle_release()
+        self.middle_release()
 
-    async def left_press(self):
+    def left_press(self):
         ''' docstring stub '''
         self.blue.mouse.press(self.blue.mouse.LEFT_BUTTON)
 
-    async def left_release(self):
+    def left_release(self):
         ''' docstring stub '''
         self.blue.mouse.release(self.blue.mouse.LEFT_BUTTON)
 
-    async def right_press(self):
+    def right_press(self):
         ''' docstring stub '''
         self.blue.mouse.press(self.blue.mouse.RIGHT_BUTTON)
 
-    async def right_release(self):
+    def right_release(self):
         ''' docstring stub '''
         self.blue.mouse.release(self.blue.mouse.RIGHT_BUTTON)
 
-    async def middle_press(self):
+    def middle_press(self):
         ''' docstring stub '''
         self.blue.mouse.press(self.blue.mouse.MIDDLE_BUTTON)
 
-    async def middle_release(self):
+    def middle_release(self):
         ''' docstring stub '''
         self.blue.mouse.release(self.blue.mouse.MIDDLE_BUTTON)
 
-    async def all_release(self):
+    def all_release(self):
         ''' docstring stub '''
         self.blue.mouse.release_all()
 
     # cato keyboard actions
-    async def press_enter(self):
+    def press_enter(self):
         ''' docstring stub '''
         self.blue.k.press(Keycode.ENTER)
         self.blue.k.release(Keycode.ENTER)
