@@ -25,9 +25,8 @@ import mode
 
 from math import sqrt
 
-
 # Beginning code proper
-c = Cato.Cato( bt = False, do_calib = False )
+c = Cato.Cato( bt = True, do_calib = True )
 w.timeout = 10 #seconds
 w.mode = WatchDogMode.RAISE
 
@@ -53,14 +52,13 @@ async def feed_dog():
 async def loop():
     ''' docstring '''
     while True:
-        ev = Cato.EV.NONE
-        print("Moving Mouse")
-        await c.move_mouse()
-        ev = await c.detect_event()
-        if ev is not None:
-            await c.dispatch_event(ev)
-        await asyncio.sleep(0.1)
-        gc.collect()
+        if not c.events["move_mouse"].is_set():
+            print('mouse not set')
+            await asyncio.sleep(3)
+            c._move_mouse()
+            print("Mouse has been set")
+            gc.collect()
+        await asyncio.sleep(0)
 
 def print_boot_out():
     print("boot_out.txt: ")
@@ -72,7 +70,7 @@ async def main():
     # print_boot_out()
     tasks = []
     tasks.append( asyncio.create_task( battery_process() ) )
-    # tasks.append( asyncio.create_task( loop() ) )
+    tasks.append( asyncio.create_task( loop() ) )
     tasks.append( asyncio.create_task( feed_dog() ) )
     for t in c.tasks:
         tasks.append(t)

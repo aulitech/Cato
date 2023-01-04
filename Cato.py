@@ -71,12 +71,13 @@ class Cato:
             mc.reset()
 
         self.events = {         # enumerate events for flow control
-            "imu_setup"         : asyncio.Event(), # indicates the imu has been config'd
-            "imu"               : asyncio.Event(), # indicates new data is available from the imu
-            "data_ready"        : asyncio.Event(), # indicates that gyro and sensor are ready to read from gx_hist, gy_hist, gz_hist
-            "move_mouse"        : asyncio.Event(),
-            "scroll"            : asyncio.Event(),
-            "hang_until_motion" : asyncio.Event()
+            "imu_setup"         : asyncio.Event(),  # indicates the imu has been config'd
+            "imu"               : asyncio.Event(),  # indicates new data is available from the imu
+            "data_ready"        : asyncio.Event(),  # indicates that gyro and sensor are ready to read from gx_hist, gy_hist, gz_hist
+            "move_mouse"        : asyncio.Event(),  # move the mouse
+            "scroll"            : asyncio.Event(),  # scroll the screen
+            "hang_until_motion" : asyncio.Event(),  # hang_until_motion
+            "stream_imu"        : asyncio.Event()   # stream data from the imu onto console -- useful for debugging
         }
 
         #specification for operation
@@ -118,7 +119,7 @@ class Cato:
         self.state = ST.IDLE
         self.st_matrix = [ # TODO: Read this from CONFIG.JSON
                 #   ST.IDLE                     ST.MOUSE_BUTTONS            ST.KEYBOARD
-                [   self.move_mouse,            self.to_idle,               self.to_idle        ], # EV.UP           = 0
+                [   self._move_mouse,           self.to_idle,               self.to_idle        ], # EV.UP           = 0
                 [   self.left_click,            self.left_click,            self.press_enter    ], # EV.DOWN         = 1
                 [   self.scroll,                self.noop,                  self.noop           ], # EV.RIGHT        = 2
                 [   self.hang_until_motion,     self.noop,                  self.noop           ], # EV.LEFT         = 3
@@ -132,13 +133,14 @@ class Cato:
         self.n = Neuton(outputs=neuton_outputs)
         
         self.tasks = [
-            asyncio.create_task( self.stream_imu() ),
+            # asyncio.create_task( self.stream_imu() ),
+            asyncio.create_task( self.move_mouse() ),
             asyncio.create_task( self.read_imu() ),
             asyncio.create_task( self.int_imu() )
         ]
 
     def setup_imu(self):
-        ''' helper method -- encapsulate imu portion of init '''
+        ''' helper method -- encapsulate imu portioof init '''
         print("IMU setup ...")
 
         # enable imu
@@ -166,12 +168,13 @@ class Cato:
         #just once start the spin?
         await self.events["imu_setup"].wait() # don't read until imu is set up
         
-        self.events["imu"].set()
+        self.sensor.gyro
         
-        print("Confirmed imu setup. Entering imu read loop.")
         while True:
             # hold until data ready
             await self.events["imu"].wait()
+
+            self.events['imu'].clear()
 
             #iterate and record
             self.buf = (self.buf + 1) % self.specs["num_samples"]
@@ -192,12 +195,10 @@ class Cato:
             self.gy_hist[self.buf] -= self.gy_trim
             self.gz_hist[self.buf] -= self.gz_trim
             
-            # clear event for next read
-            # self.events["imu"].clear()
+            self.events["data_ready"].set()
 
-            # present data to whoever wants to use it
-            #self.events["data_ready"].set()
-            await asyncio.sleep(0)
+            # print("- end of read_imu -")
+            
             
     async def int_imu(self):
         """ interrupt on imu for gyro data ready """
@@ -220,7 +221,7 @@ class Cato:
         x, y, z = 0, 0, 0
         for cycles in range(num):
             # print(f"Calibration: {cycles+1} out of {num}")
-            self.events["imu"].set()
+            # NEED CALL WAIT DATA READY   
             x += self.gx
             y += self.gy
             z += self.gz
@@ -230,12 +231,10 @@ class Cato:
         print("    Done")
         
     async def stream_imu(self):
-        self.events["imu"].set()
         while True:
-            await self.events['imu'].wait()
-            print(f"{self.gx}, {self.gy}, {self.gz}")
-            self.events['imu'].clear()
-            await asyncio.sleep(0)
+            await self.events['data_ready'].wait()
+            print(f"{self.time_hist[self.buf]}: {self.gx}, {self.gy}, {self.gz}")
+            self.events['data_ready'].clear()
     
     def display_gesture_menu(self):
         print("Available actions: ")
@@ -325,8 +324,6 @@ class Cato:
     def az(self):
         return self.az_hist[self.buf]
 
-    
-
     # Cato Actions
     # CircuitPython Docs: https://docs.circuitpython.org/projects/hid/en/latest/api.html#adafruit-hid-mouse-mouse '''
     def noop(self):
@@ -367,69 +364,105 @@ class Cato:
     async def long_pointer(self):
         await self.move_mouse(200)     
 
-    async def move_mouse(self, max_idle_cycles=50):
+
+    def translate(x_min, x_max, y_min, y_max, input):
+        if input < x_min:
+            return y_min
+        if input > x_max:
+            return y_max
+        
+        x_span = x_max - x_min
+        y_span = y_max - y_min
+
+        scaled = (y_span / x_span) * (input - x_min)
+        shifted = scaled + y_min
+        return shifted
+
+    def _move_mouse(self):
+        self.events["move_mouse"].set()
+
+    async def move_mouse(self, max_idle_cycles=50, mouse_type = "ACCEL"):
         '''
             move the mouse via bluetooth until sufficiently idle
         '''
+
+        idle_thresh = 5.0 # speed below which is considered idle
+        min_run_cycles = 4 * self.specs['num_samples']
         
-        # await self.shake_cursor()
-        print("\nMOVE MOUSE CALLED")
-        t_start = time.monotonic()
-        idle_count = 0
-        idle_thresh = 5.0
-        min_run_cycles = 4 * Spec.g_dur
-        cycle_count = 0
-        MOUSE_TYPE = "ACCEL"
+        #scale is "base" for acceleration - do adjustments here
+        scale = None # MUST set scale
+
+        """ TODO: have these values arise out of config """
+        # dps limits for slow vs mid vs fast movement        
         slow_thresh = 20.0
         fast_thresh = 240.0
 
-        #scale is "base" for acceleration - do adjustments here
-        scale = 1.0 #remain at 1.0 for linear
-
+        # scale amount for slow and fast movement, mid is linear translation between
         slow_scale = 0.2
         fast_scale = 3.0
-        t_idle_start = time.monotonic()
-        while(idle_count < max_idle_cycles):
-            cycle_count += 1
-            # time.sleep(sleep_time)
-            await self.read_imu()
+
+        # number of cycles currently idled (reset to 0 on motion)
+        idle_count = 0
+
+        # number of cycles run in total
+        cycle_count = 0
+        ti = sp.ticks_ms()
+        while True:
+            await self.events['data_ready'].wait() # at top of cycle, wait for an imu read
+            await self.events["move_mouse"].wait() # only execute when move_mouse is set
+
+            # remain frozen until mouse must move
+            # print(f"time: {sp.ticks_ms() - ti}")
+            self.events['data_ready'].clear()
+
+            if cycle_count == 0:
+                print("Mouse is live: ")
+
+            cycle_count += 1    # count cycles
+
+            # isolate x and y axes so they can be changed later with different orientations
             x_mvmt = self.gy
             y_mvmt = self.gz
+            
+            # calculate magnitude and angle for linear scaling
             mag = sqrt(x_mvmt**2 + y_mvmt**2)
             ang = atan2(y_mvmt, x_mvmt)
-            #print("mag: {mag}, ang: {ang}".format(mag = mag, ang = ang))
-            scale_str = "linear"
-            #control mouse scale / type
-            #print(mag)
-
-            if(MOUSE_TYPE == "LINEAR"):
-                scale = 1.0
-            if(MOUSE_TYPE == "ACCEL"):
-                if(mag <= slow_thresh):
-                    #print("s")
-                    scale = slow_scale
-                elif(mag > slow_thresh and mag <= fast_thresh):
-                    #print("m")
-                    scale = slow_scale + (fast_scale - slow_scale)/(fast_thresh - slow_thresh)*(mag - slow_thresh)
-                else:
-                    #print("f")
-                    scale = fast_scale
-            #idle checking
-            # if( cycle_count == min_run_cycles):
-            #     print("    minimum duration reached at {a} seconds".format( a = (time.monotonic() - t_start) ) )
             
-            if( mag <= idle_thresh and cycle_count >= min_run_cycles): #only count idle if it's after minimum run length
-                #print("idle detected ({a}) max idle: {b}".format(a=idle_count, b=max_idle_cycles))
-                if (idle_count == 0):
-                    t_idle_start = time.monotonic()
-                idle_count += 1
-            else:
-                idle_count = 0
-            #print("rate: %s, x: %f, y: %f" % (scale_str, x_amt, y_amt))
-            #self.blue.mouse.move(int(self.gy), int(self.gz))
-            self.blue.mouse.move(int(scale * mag * cos(ang)), int(scale * mag * sin(ang)), 0)
-            await asyncio.sleep(0)
-        await self.shake_cursor()
+            # pure linear mouse, move number of pixels equal to number of degrees rotation
+            if(mouse_type == "LINEAR"):
+                scale = 1.0
+
+            # mouse with dynamic acceleration for fine and coarse control
+            if(mouse_type == "ACCEL"):
+                scale = Cato.translate(slow_thresh, fast_thresh, slow_scale, fast_scale, mag)
+
+            # Begin idle checking -- only after minimum duration
+            if(cycle_count >= min_run_cycles ):
+                
+                if cycle_count == min_run_cycles:
+                    print(f"\tmin_duration_reached at: {cycle_count} cycles")
+                    print('\tnow watching for idle')
+    
+                if( mag <= idle_thresh ): # if too slow
+                    # if (idle_count == 0): # count time of idle to finish (design util)
+                        # print("\tidle detected, count begun")
+                    idle_count += 1
+
+                else:
+                    # print("\tactivity resumed: idle counter reset")
+                    idle_count = 0
+
+                if idle_count >= max_idle_cycles: # if sufficiently idle, clear move_mouse
+                    self.events['move_mouse'].clear()
+                    cycle_count = 0
+                    print("idle condition reached: EXIT MOVE MOUSE")
+            
+            # trig scaling of mouse x and y values
+            x = int( scale * mag * cos(ang) )
+            y = int( scale * mag * sin(ang) )
+
+            self.blue.mouse.move(x, y, 0)
+
         #print( "    Time idled: {} s".format( time.monotonic() - t_idle_start) )
 
     async def joystick_move(self):
