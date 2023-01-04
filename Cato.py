@@ -75,7 +75,10 @@ class Cato:
             "move_mouse"        : asyncio.Event(),  # move the mouse
             "scroll"            : asyncio.Event(),  # scroll the screen
             "hang_until_motion" : asyncio.Event(),  # hang_until_motion
-            "stream_imu"        : asyncio.Event()   # stream data from the imu onto console -- useful for debugging
+            "stream_imu"        : asyncio.Event(),  # stream data from the imu onto console -- useful for debugging
+            "detect_event"      : asyncio.Event(),  # triggers detection of Cato gesture
+            "gesture_ready"     : asyncio.Event(),   # triggers dispatch of prepared Cato gesture
+            "free"              : asyncio.Event()
         }
 
         #specification for operation
@@ -131,10 +134,14 @@ class Cato:
         self.tasks = [
             asyncio.create_task( self.move_mouse() ),
             asyncio.create_task( self.read_imu() ),
-            asyncio.create_task( self.int_imu() )
+            asyncio.create_task( self.int_imu() ),
+            asyncio.create_task( self.detect_event() ),
+            asyncio.create_task( self.dispatch_event() )
         ]
         for t in self.blue.tasks:
             self.tasks.append(t)
+        
+        self.gesture = EV.NONE
 
     def setup_imu(self):
         ''' helper method -- encapsulate imu portioof init '''
@@ -238,64 +245,84 @@ class Cato:
         for ev in range(len(self.st_matrix)):
             print("\tevent: {}\n\t\taction: {}".format(ev, self.st_matrix[ev][self.state].__name__))
 
+    def _detect_event(self):
+        self.events["detect_event"].set()
+        self.events['free'].clear()
+
     # State Control / Execution Utils
     async def detect_event(self):
-        ''' calls to gesture detection libraries, controls flow of program '''
-        #self.display_gesture_menu()
-        print("\nDetecting Event")
-        if await self.hang_until_motion(loop_after = 4 * self.specs["num_samples"]):
-            print("Motion!")
-            pass
-        else:
-            print("Waited and got no motion")
-            return
-        await self.read_gesture()
-        print("Finished Reading Gesture")
-        flag = True
-        i = 1
-        arr = array.array( 'f', [0]*6)
-        print("pre-read")
-        while(True):
-            # await asyncio.sleep(0.001)
-            b_pos = (i + self.buf) % self.specs["num_samples"]
-            arr[0] = self.ax_hist[b_pos]
-            arr[1] = self.ay_hist[b_pos]
-            arr[2] = self.az_hist[b_pos]
-            arr[3] = self.gx_hist[b_pos]
-            arr[4] = self.gy_hist[b_pos]
-            arr[5] = self.gz_hist[b_pos]
+        ''' calls to gesture detection libraries '''
+        while True:
+            await self.events["detect_event"].wait()
+            self.events["detect_event"].clear()
+            print("\nDetecting Event")
+            # prevent other imu functions while this operates
+            
+            self.events['free'].clear()
+            
+            # no motion -> EV.NONE
+            if await self.hang_until_motion(loop_after = 4 * self.specs["num_samples"]):
+                print("Motion!")
+            else:
+                print("Waited and got no motion")
+                self.events['gesture_ready'].set()
+                self.gesture = EV.NONE
+            
+            # method to trigger num_samples reads of imu to ensure only the FRESHEST data
+            await self.read_gesture()
 
-            #self.garbage = array.array('f', [0]*1000)
-            flag = self.n.set_inputs( arr )
-            #self.garbage = array.array('f', [0]*1000)
-            i += 1
-            if bool(flag) == False:
-                break
-        print("pre-inference")
-        inf = self.n.inference()
-        print("post-inference")
-        confidence = max(neuton_outputs)
-        print( f"Diagnosis: {inf}, {dir(inf)}" )
-        # print("\tMax Confidence:  {}".format(confidence))
-        # print("\tPredicted Index: {}".format(inf))
-        # print("\tOutputs:         {}".format(outputs))
-        confidence_thresh = 0.80
-        ret_val = inf
-        if confidence < confidence_thresh:
-            ret_val = 8
-        return ret_val
+            neuton_needs_more_data = True
+            arr = array.array( 'f', [0]*6)
 
-    async def dispatch_event(self, event):
+            i = 1 #buf pos tracker
+            
+            while(True):
+                # await asyncio.sleep(0.001)
+                b_pos = (i + self.buf) % self.specs["num_samples"]
+                arr[0] = self.ax_hist[b_pos]
+                arr[1] = self.ay_hist[b_pos]
+                arr[2] = self.az_hist[b_pos]
+                arr[3] = self.gx_hist[b_pos]
+                arr[4] = self.gy_hist[b_pos]
+                arr[5] = self.gz_hist[b_pos]
 
+                neuton_needs_more_data = self.n.set_inputs( arr )
+
+                i += 1
+                # runs until neuton doesn't need more data
+                if bool(neuton_needs_more_data) == False:
+                    break
+
+            inf = self.n.inference()
+            confidence = max(neuton_outputs)
+
+            print( f"Diagnosis: {inf}" )
+            print( f"\tOutputs:\t{neuton_outputs}")
+
+            confidence_thresh = 0.80
+            ret_val = inf
+            if confidence < confidence_thresh:
+                ret_val = EV.NONE
+            self.gesture = ret_val
+            self.events["gesture_ready"].set()
+
+    async def dispatch_event(self):
         ''' sends event from detect_event to the state transition matrix '''
-        print("Dispatch Event Called with event = {}".format(event))
-        print("event: {}, state: {}".format(event, self.state))
-        print(self.st_matrix[event][self.state].__name__)
-        try:
-            await self.st_matrix[event][self.state]()
-        except AttributeError:
-            self.st_matrix[event][self.state]()
-    
+        while True:
+            await self.events["gesture_ready"].wait()
+            self.events["gesture_ready"].clear()
+
+            print("Dispatch Event Called with event = {}".format(self.gesture))
+            print("event: {}, state: {}".format(self.gesture, self.state))
+            print(self.st_matrix[self.gesture][self.state].__name__)
+
+            try:
+                await self.st_matrix[self.gesture][self.state]()
+
+            except AttributeError: #handle non-async funcionts
+                self.st_matrix[self.gesture][self.state]()
+            self.events["free"].set()
+        
     # Sensor utils read_IMU, calibrate
     @property
     def gx(self):
@@ -377,6 +404,7 @@ class Cato:
 
     def _move_mouse(self):
         self.events["move_mouse"].set()
+        self.events['free'].clear()
 
     async def move_mouse(self, max_idle_cycles=50, mouse_type = "ACCEL"):
         '''
@@ -407,7 +435,7 @@ class Cato:
         while True:
             await self.events['data_ready'].wait() # at top of cycle, wait for an imu read
             await self.events["move_mouse"].wait() # only execute when move_mouse is set
-
+            self.events["free"].clear() # prevent other blocking routines from being called concurrently
             # remain frozen until mouse must move
             # print(f"time: {sp.ticks_ms() - ti}")
             self.events['data_ready'].clear()
@@ -451,6 +479,7 @@ class Cato:
 
                 if idle_count >= max_idle_cycles: # if sufficiently idle, clear move_mouse
                     self.events['move_mouse'].clear()
+                    self.events['free'].set() # allow control loop to run other blocking functions
                     cycle_count = 0
                     print("idle condition reached: EXIT MOVE MOUSE")
             
@@ -646,48 +675,58 @@ class Cato:
 
     # DATA COLLECTION TASK:
     @property
+    def last_read(self):
+        return self.time_hist[self.buf]
+    
+    @last_read.setter
+    def last_read(self, value):
+        self.time_hist[self.buf] = value
+
+    @property
     def o_str(self):
         return "{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f}".format(self.last_read, self.ax, self.ay, self.az, self.gx, self.gy, self.gz)
 
     def print_o_str(self):
         print(f"{self.o_str}")
 
-    async def hang_until_motion(self, tr = 105, **kwargs):
+    async def hang_until_motion(self, thresh = 105, *, loop_after = 0):
         """
-            tr = threshold of motion to break loop
-            kw_args:
-                loop_after number of cycles after which to call move mouse
+            thresh = threshold of motion to break loop
+            
+            kwarg: 
+                loop_after = number of cycles max before return False
         """
+
         print("Waiting for Significant Motion")
         x_scale = 1.00
         y_scale = 1.00
         z_scale = 1.85
-        thresh = tr
 
         wait_time = 0
         val = sqrt(x_scale * self.gx**2 + y_scale * self.gy**2 + z_scale * self.gz**2)
         indef_stated = False
         while(val < thresh):
-            await asyncio.sleep(0.005)
-            if "loop_after" in kwargs:     
+            await self.events["data_ready"].wait()
+            self.events["data_ready"].clear()
+            # print(f"{self.gx}, {self.gy}, {self.gz}")
+            if "loop_after" != 0:     
                 wait_time += 1
-                if wait_time > kwargs["loop_after"]:
+                if wait_time > loop_after:
                     return False
             else:
                 if not indef_stated:
                     print("Indefinite wait for motion")
                     indef_stated = True
-            await self.read_imu()
+            
             val = sqrt(x_scale * self.gx**2 + y_scale * self.gy**2 + z_scale * self.gz**2)
         return True
 
-            
-
 
     async def read_gesture(self):
-        await self.read_imu()
         for i in range(self.specs["num_samples"]):
-            await self.read_imu()
+            await self.events["data_ready"].wait()
+            self.events["data_ready"].clear()
+
     
     def collect_n_gestures(self, n=1):
         for file in os.listdir("/data"):

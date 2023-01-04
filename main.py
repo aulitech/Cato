@@ -52,14 +52,12 @@ async def feed_dog():
 async def loop():
     ''' docstring '''
     while True:
-        if not c.events["move_mouse"].is_set():
-            print('mouse not set')
-            await asyncio.sleep(3)
-            c._move_mouse()
-            print("Mouse has been set")
-            gc.collect()
-        await asyncio.sleep(0)
-
+        c._move_mouse()
+        await c.events["free"].wait()
+        c._detect_event()
+        await c.events['free'].wait()
+        gc.collect()
+        
 def print_boot_out():
     print("boot_out.txt: ")
     with io.open("boot_out.txt") as b: 
@@ -68,12 +66,14 @@ def print_boot_out():
 
 async def main():
     # print_boot_out()
+
     tasks = []
     tasks.append( asyncio.create_task( battery_process() ) )
     tasks.append( asyncio.create_task( loop() ) )
     tasks.append( asyncio.create_task( feed_dog() ) )
     for t in c.tasks:
         tasks.append(t)
+
     await asyncio.gather( *tasks )
 
 asyncio.run( main() )

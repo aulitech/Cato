@@ -17,15 +17,15 @@ class Bat:
     @property
     def raw_value(self):
         self.read_bat_ena.value = False
-        time.sleep(0.1)
+        time.sleep(0.12)
         temp = self.b_pin.value
         self.read_bat_ena.value = True
         return temp
 
     @property
     def level(self):
-        low = 0
-        high = 65535
+        low = 22000
+        high = 35535
         value = int( 100 * (self.raw_value - low) / (high - low) )
         # print(f"Raw value reads as: {self.raw_value}")
         # print(f"Scaled value reads as: {value}")
