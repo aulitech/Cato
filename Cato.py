@@ -129,8 +129,8 @@ class Cato:
                 [   self.left_click,            self.left_click,            self.press_enter    ], # EV.DOWN         = 1
                 [   self._scroll,               self.noop,                  self.noop           ], # EV.RIGHT        = 2
                 [   self._wait_for_motion,      self.noop,                  self.noop           ], # EV.LEFT         = 3
-                [   self.scroll_lr,             self.noop,                  self.noop           ], # EV.ROLL_R       = 4
-                [   self.scroll_lr,             self.noop,                  self.noop           ], # EV.ROLL_L       = 5
+                [   self._scroll_lr,             self.noop,                  self.noop           ], # EV.ROLL_R       = 4
+                [   self._scroll_lr,             self.noop,                  self.noop           ], # EV.ROLL_L       = 5
                 [   self.double_click,          self.noop,                  self.noop           ], # EV.SHAKE_YES    = 6
                 [   self._wait_for_motion,       self.noop,                  self.noop           ], # EV.SHAKE_NO     = 7
                 [   self.noop,                  self.noop,                  self.noop           ]  # EV.NONE         = 8
@@ -161,6 +161,7 @@ class Cato:
             asyncio.create_task( self.detect_event() ),
             asyncio.create_task( self.idle_checking() ),
             asyncio.create_task( self.scroll() ),
+            asyncio.create_task( self.scroll_lr() ),
             asyncio.create_task( self.collect_garbage() )
         ]
 
@@ -314,7 +315,7 @@ class Cato:
         while True:
             
             print("DMM: awaiting default_move_mouse")
-            await self.events.default_move_mouse.wait() # should be set by detect_event
+            await self.events.default_move_mouse.wait() #await permission to start
             self.events.default_move_mouse.clear()
             
             print("DMM: recieved & cleared default_move_mouse")
@@ -325,17 +326,24 @@ class Cato:
             print('DMM: awaiting mouse_done')
             await self.events.mouse_done.wait()
             self.events.mouse_done.clear()
+            print("DMM: recieved & cleared mouse_done")
 
             print('DMM: ATTEMPTING TO COLLCET GARBAGE')
-            self.events.collect_garbage.set()
-            await self.events.collect_garbage_done.wait()
-            self.events.collect_garbage_done.clear()
+            self._collect_garbage()
             print("DMM: GARBAGE COLLECTED")
 
-            print("DMM: recieved & cleared mouse_done")
             print("DMM: detect_event set")
             self.events.detect_event.set()
-
+    
+    async def _collect_garbage(self):
+        mem()
+        print("_collect_garbage: setting")
+        self.events.collect_garbage.set()
+        print("_collect_garbage: awaiting done signal")
+        await self.events.collect_garbage_done.wait()
+        self.events.collect_garbage_done.clear()
+        print("_collect_garbage: done")
+        mem()
 
     async def detect_event(self):
         ''' calls to gesture detection libraries '''
@@ -603,13 +611,14 @@ class Cato:
         
         z = 0.0 #value to integrate to manage scroll
         dt = 1.0 / self.specs["freq"]
-        scale = 0.2 # slow down kids
+        scale = 1.0 # slow down kids
 
         while True:
             await self.events.scroll.wait() # block if not set
-
-            await self.events.data_ready.wait() #read_imu
-            self.events.data_ready.clear()
+            slow_down = 10
+            for i in range(slow_down):
+                await self.events.data_ready.wait() #read_imu
+                self.events.data_ready.clear()
             
             z += (-1) * scale * self.gz * dt
 
@@ -624,13 +633,48 @@ class Cato:
                 if hall_pass is not None:
                     print("\tSCROLL: Scroll_done set & hall_pass set")
                     hall_pass.set()
-        
+    
+    async def _scroll_lr(self, hall_pass: asyncio.Event = None):
+        self.blue.k.press(Keycode.LEFT_SHIFT)
+        self.events.scroll_lr.set()
+        await self.events.scroll_lr_done.wait()
+        self.events.scroll_lr_done.clear()
+        if hall_pass is not None:
+            hall_pass.set()
+        self.blue.k.release(Keycode.LEFT_SHIFT)
+
     #shift + scroll = lateral scroll on MOST applications
     async def scroll_lr(self, hall_pass: asyncio.Event = None):
         ''' shift + scroll = lateral scroll on MOST applications
             laterally scroll until exit condition
         '''
-        #TODO REWRITE SCROLL_LR using scroll
+        ''' scrolls the mouse until sufficient exit condition is reached '''
+        
+        y = 0.0 #value to integrate to manage scroll
+        dt = 1.0 / self.specs["freq"]
+        scale = 1.0 # slow down kids
+
+        while True:
+            # Fprint(".")
+            await self.events.scroll_lr.wait() # block if not set
+            slow_down = 4
+            for i in range(slow_down):
+                await self.events.data_ready.wait() #read_imu
+                self.events.data_ready.clear()
+            
+            y += (-1) * scale * self.gy * dt
+
+            # print(f"z: {z}")
+            self.blue.mouse.move(0, 0, int(y))
+
+            if( abs(self.gy) > 40.0 ):
+                print("\tScroll Broken")
+                y = 0.0
+                self.events.scroll_lr_done.set()
+                self.events.scroll_lr.clear()
+                if hall_pass is not None:
+                    print("\tSCROLL_LR: Scroll_done set & hall_pass set")
+                    hall_pass.set()
 
     async def left_click(self, hall_pass: asyncio.Event = None): # "Does the send wait for acknowledgement"
         # determine if async or not

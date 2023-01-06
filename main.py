@@ -26,7 +26,7 @@ import mode
 from math import sqrt
 
 # Beginning code proper
-c = Cato.Cato( bt = True, do_calib = True )
+c = Cato.Cato( bt = True, do_calib = False )
 w.timeout = 10 #seconds
 w.mode = WatchDogMode.RAISE
 
