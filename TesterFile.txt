@@ -1,2 +1,0 @@
-this is filler text
-Hi there, I'm validating multi-person github capabilities

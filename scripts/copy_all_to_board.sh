@@ -74,6 +74,7 @@ echo "BEGINNING UPLOAD PROCESS"
         echo "        LIB FOLDER NOT FOUND -- CREATING LIB FOLDER"
         mkdir "$auli_cato_loc/lib"
     fi
+
     for dir in lib/**
     do
         dir=$dir
@@ -83,19 +84,14 @@ echo "BEGINNING UPLOAD PROCESS"
     done
     echo "    DONE WITH LIBS"
 
-    echo "    COPYING \"LOOSE\" FILES"
-    for thing in $(dir ./* -a)
+    echo "    COPYING WHITELISTED FILES"
+
+    WHITELIST="./scripts/whitelist.txt"
+    while read -r line
     do
-        f="$thing"
-        #echo "        DECIDING ABOUT ${f}"
-        if test -f "$f"; then
-            echo "        COPYING ${f}"
-            cp "$f" "$auli_cato_loc"
-            echo "            DONE"
-        fi
-    done
-    echo "        COPYING .env"
-    cp .env "$auli_cato_loc"
-    echo "            DONE"
-    echo "    DONE WITH .PY FILES"
-    echo "UPLOAD COMPLETE"
+        line=${line:0:-1}
+        echo "    Copying $line to $auli_cato_loc"
+        cp $line $auli_cato_loc
+    done < "$WHITELIST"
+
+    rm -f "$auli_cato_loc/code.py"
