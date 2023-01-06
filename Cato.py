@@ -165,7 +165,7 @@ class Cato:
             asyncio.create_task( self.collect_garbage() )
         ]
 
-        self.sensor = self.setup_imu() # TODO: containerize in imu class
+        self.sensor = self.setup_imu()
         if do_calib:
             self.tasks.append( asyncio.create_task( self.calibrate() ) )
         else:
@@ -360,8 +360,8 @@ class Cato:
             self.events.wait_for_motion.set()
             await self.events.wait_for_motion_done.wait()
             self.events.wait_for_motion_done.clear()
+            print("D_EV: recieved&cleared wait_for_motion_done")
 
-            print("D_EV: recieved&cleared wait_for_motion")
             motion_detected = self.events.sig_motion.is_set()
             
             if motion_detected:
@@ -400,15 +400,13 @@ class Cato:
                 print("D_EV: wait_for_motion returned False")
                 gesture = EV.NONE
             
+            self._collect_garbage()
+            
             mem()
-            print(f"\tgesture   = {gesture}")
-            print(f"\tstate     = {self.state}")
             target_fn = self.st_matrix[gesture][self.state]
-            print(f"D_EV: calling method {target_fn.__name__}")
-            try: # regular fn
-                await asyncio.create_task( target_fn(self.hall_pass) )
-            except TypeError:
-                print(f"{target_fn.__name__}function was not async")
+            print(f"target_fn: {target_fn.__name__}")
+
+            await target_fn( self.hall_pass )
             
             mem()
 
@@ -585,7 +583,7 @@ class Cato:
             # trig scaling of mouse x and y values
             x = int( scale * mag * cos(ang) )
             y = int( scale * mag * sin(ang) )
-
+            # print(".")
             self.blue.mouse.move(x, y, 0)
 
         #print( "    Time idled: {} s".format( time.monotonic() - t_idle_start) )
@@ -667,7 +665,7 @@ class Cato:
             # print(f"z: {z}")
             self.blue.mouse.move(0, 0, int(y))
 
-            if( abs(self.gy) > 40.0 ):
+            if( abs(self.gz) > 40.0 ):
                 print("\tScroll Broken")
                 y = 0.0
                 self.events.scroll_lr_done.set()
@@ -789,14 +787,14 @@ class Cato:
     def o_str(self):
         return "{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f}".format(self.last_read, self.ax, self.ay, self.az, self.gx, self.gy, self.gz)
 
-    def print_o_str(self):
-        print(f"{self.o_str}")
-
     async def _wait_for_motion(self, hall_pass: asyncio.Event = None):
+        print("1")
         self.events.wait_for_motion.set()
         await self.events.wait_for_motion_done.wait()
+        print("2")
         if hall_pass is not None:
             hall_pass.set()
+        print("3")
     
     async def wait_for_motion(self, thresh = 105, *, num = -1, hall_pass: asyncio.Event = None):
         """
@@ -844,43 +842,43 @@ class Cato:
                     hall_pass.set()
                     print("WAIT: hall_pass set")
                     
-    # NEEDS REWRITE
-    def collect_n_gestures(self, n=1):
-        for file in os.listdir("/data"):
-            try:
-                print("removing existing copy of {}".format(file))
-                os.remove("data/{}".format(file))
-            except:
-                print("could not remove {}".format(file))
-        for i in range(n):
-            my_file = "data/data{:02}.txt".format(i)
-            print("Ready to read into: {}".format(my_file))
-            print("    Waiting for motion")
-            self.wait_for_motion()
-            print("Capturing")
-            self.read_gesture()
-            print("Done")
-            my_string = ""
-            chunks = 0
-            chunksize = 10
-            with io.open(my_file, "w") as f:
-                temp = ""
-                print("{} opened".format(my_file))
-                for sample in range(self.specs["num_samples"]):
-                    b_pos = (self.buf + sample + 1) % self.specs["num_samples"]
-                    temp = "%d,%f,%f,%f,%f,%f,%f" % (self.time_hist[b_pos],    
-                                                    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],
-                                                    self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos])
-                    chunks += 1
-                    print(temp, file = f)
-                    if chunks % chunksize == 0:
-                        print('', file=f, flush=True, end='')
-                    # f.write("%d,%f,%f,%f,%f,%f,%f\r\n" % (self.time_hist[b_pos],    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],  \
-                    #    self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos]) )
-                #f.write(my_string)
-                #print(my_string)
-                f.close()
-            print("{} written".format(my_file))
+    # # NEEDS REWRITE
+    # def collect_n_gestures(self, n=1):
+    #     for file in os.listdir("/data"):
+    #         try:
+    #             print("removing existing copy of {}".format(file))
+    #             os.remove("data/{}".format(file))
+    #         except:
+    #             print("could not remove {}".format(file))
+    #     for i in range(n):
+    #         my_file = "data/data{:02}.txt".format(i)
+    #         print("Ready to read into: {}".format(my_file))
+    #         print("    Waiting for motion")
+    #         self.wait_for_motion()
+    #         print("Capturing")
+    #         self.read_gesture()
+    #         print("Done")
+    #         my_string = ""
+    #         chunks = 0
+    #         chunksize = 10
+    #         with io.open(my_file, "w") as f:
+    #             temp = ""
+    #             print("{} opened".format(my_file))
+    #             for sample in range(self.specs["num_samples"]):
+    #                 b_pos = (self.buf + sample + 1) % self.specs["num_samples"]
+    #                 temp = "%d,%f,%f,%f,%f,%f,%f" % (self.time_hist[b_pos],    
+    #                                                 self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],
+    #                                                 self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos])
+    #                 chunks += 1
+    #                 print(temp, file = f)
+    #                 if chunks % chunksize == 0:
+    #                     print('', file=f, flush=True, end='')
+    #                 # f.write("%d,%f,%f,%f,%f,%f,%f\r\n" % (self.time_hist[b_pos],    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],  \
+    #                 #    self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos]) )
+    #             #f.write(my_string)
+    #             #print(my_string)
+    #             f.close()
+    #         print("{} written".format(my_file))
 
     async def collect_garbage(self):
         while True:
