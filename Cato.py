@@ -30,6 +30,8 @@ import battery
 
 import asyncio
 
+import gc
+
 from neutonml import Neuton
 
 #helpers and enums
@@ -41,23 +43,53 @@ class ST():
     KEYBOARD = 2
 
 
-class EV():
+class EV(): #these are actually gestures
     ''' enum events '''
-    NONE = 0
-    UP = 1
-    DOWN = 2
-    RIGHT = 3
-    LEFT = 4
-    ROLL_R = 5
-    ROLL_L = 6
-    SHAKE_YES = 7
-    SHAKE_NO = 8
+    UP = 0
+    DOWN = 1
+    RIGHT = 2
+    LEFT = 3
+    ROLL_R = 4
+    ROLL_L = 5
+    SHAKE_YES = 6
+    SHAKE_NO = 7
+    NONE = 8
+
+class Events:
+    def __init__(self):
+        self.imu_setup              = asyncio.Event()   # indicates the imu has been config'd
+        self.imu                    = asyncio.Event()   # indicates new data is available from the imu
+        self.data_ready             = asyncio.Event()   # indicates that gyro and sensor are ready to read from gx_hist, gy_hist, gz_hist
+        self.calibration_done       = asyncio.Event()   # indicates that calibration has been completed, blocks default_move_mouse
+        self.default_move_mouse     = asyncio.Event()   # standard move mouse, but sets detect event after
+        self.move_mouse             = asyncio.Event()   # move the mouse
+        self.mouse_done             = asyncio.Event()   # indicates mouse movement has finished
+        self.scroll                 = asyncio.Event()   # scroll the screen
+        self.scroll_done            = asyncio.Event()   # indicates scroll has finished
+        self.scroll_lr              = asyncio.Event()   # scroll left to right
+        self.scroll_lr_done         = asyncio.Event()   # indicates that scroll_lr has completed
+        self.wait_for_motion        = asyncio.Event()   # wait_for_motion
+        self.wait_for_motion_done   = asyncio.Event()   # wait-for-motion exit indicator
+        self.sig_motion             = asyncio.Event()   # indicates that there has been significant motion during wait_for_motion's window
+        self.stream_imu             = asyncio.Event()   # stream data from the imu onto console -- useful for debugging
+        self.detect_event           = asyncio.Event()   # triggers detection of Cato gesture
+        self.idle                   = asyncio.Event()   # triggered when no events change for some time
+        self.collect_garbage        = asyncio.Event()   # triggers collection of garbage
+        self.collect_garbage_done   = asyncio.Event()   # indicates garbage collection finished
+
+    def print_status(self):
+        pass
+
 
 neuton_outputs = array.array( "f", [0, 0, 0, 0, 0, 0, 0, 0] )
+
+def mem():
+    print(f"MEM FREE: {gc.mem_free()}")
 
 class Cato:
     ''' Main Class of Cato Gesture Mouse '''
     def __init__(self, bt:bool = True, do_calib = True):
+        mem()
         '''
             ~ @param bt: True configures and connect to BLE, False provides dummy connection
             ~ @param do_calib: True runs calibration, False disables for fast/lazy startup
@@ -68,46 +100,21 @@ class Cato:
         except:
             mc.reset()
 
-        self.events = {         # enumerate events for flow control
-            "imu_setup"         : asyncio.Event(),  # indicates the imu has been config'd
-            "imu"               : asyncio.Event(),  # indicates new data is available from the imu
-            "data_ready"        : asyncio.Event(),  # indicates that gyro and sensor are ready to read from gx_hist, gy_hist, gz_hist
-            "move_mouse"        : asyncio.Event(),  # move the mouse
-            "scroll"            : asyncio.Event(),  # scroll the screen
-            "hang_until_motion" : asyncio.Event(),  # hang_until_motion
-            "stream_imu"        : asyncio.Event(),  # stream data from the imu onto console -- useful for debugging
-            "detect_event"      : asyncio.Event(),  # triggers detection of Cato gesture
-            "gesture_ready"     : asyncio.Event(),   # triggers dispatch of prepared Cato gesture
-            "free"              : asyncio.Event()
-        }
 
         #specification for operation
         self.specs = {
             "freq" : 104.0, # imu measurement frequency (hz)
             "g_dur": 0.75   # gesture duration (s)
         }
+
+        self.hall_pass = asyncio.Event() # separate event to be passed to functions when we must ensure they finish
+
         # number of samples in one neuton gesture
         self.specs["num_samples"] = int(self.specs["freq"] * self.specs["g_dur"])
 
         # battery managing container
         self.battery = battery.Bat()
 
-        # initial buffer position
-        self.buf = 0
-
-        self.gx_hist    = [0] * (self.specs["num_samples"])
-        self.gy_hist    = [0] * (self.specs["num_samples"])
-        self.gz_hist    = [0] * (self.specs["num_samples"])
-        self.ax_hist    = [0] * (self.specs["num_samples"])
-        self.ay_hist    = [0] * (self.specs["num_samples"])
-        self.az_hist    = [0] * (self.specs["num_samples"])
-        self.time_hist  = [0] * (self.specs["num_samples"])
-
-        self.sensor = self.setup_imu() # TODO: containerize in imu class
-
-        self.gx_trim, self.gy_trim, self.gz_trim = 0, 0, 0
-        if do_calib:
-            asyncio.run( self.calibrate() )
 
         if bt:
             import BluetoothControl
@@ -120,28 +127,58 @@ class Cato:
                 #   ST.IDLE                     ST.MOUSE_BUTTONS            ST.KEYBOARD
                 [   self._move_mouse,           self.to_idle,               self.to_idle        ], # EV.UP           = 0
                 [   self.left_click,            self.left_click,            self.press_enter    ], # EV.DOWN         = 1
-                [   self.scroll,                self.noop,                  self.noop           ], # EV.RIGHT        = 2
-                [   self.hang_until_motion,     self.noop,                  self.noop           ], # EV.LEFT         = 3
+                [   self._scroll,               self.noop,                  self.noop           ], # EV.RIGHT        = 2
+                [   self._wait_for_motion,      self.noop,                  self.noop           ], # EV.LEFT         = 3
                 [   self.scroll_lr,             self.noop,                  self.noop           ], # EV.ROLL_R       = 4
                 [   self.scroll_lr,             self.noop,                  self.noop           ], # EV.ROLL_L       = 5
                 [   self.double_click,          self.noop,                  self.noop           ], # EV.SHAKE_YES    = 6
-                [   self.hang_until_motion,     self.noop,                  self.noop           ], # EV.SHAKE_NO     = 7
+                [   self._wait_for_motion,       self.noop,                  self.noop           ], # EV.SHAKE_NO     = 7
                 [   self.noop,                  self.noop,                  self.noop           ]  # EV.NONE         = 8
         ]
+        # initial buffer position
+        self.buf = 0
 
-        self.n = Neuton(outputs=neuton_outputs)
-        
+        self.gx_hist    = [0] * (self.specs["num_samples"])
+        self.gy_hist    = [0] * (self.specs["num_samples"])
+        self.gz_hist    = [0] * (self.specs["num_samples"])
+        self.ax_hist    = [0] * (self.specs["num_samples"])
+        self.ay_hist    = [0] * (self.specs["num_samples"])
+        self.az_hist    = [0] * (self.specs["num_samples"])
+        self.time_hist  = [0] * (self.specs["num_samples"])
+
+
+        self.gx_trim, self.gy_trim, self.gz_trim = 0, 0, 0
+
+        self.events = Events()
+
+        # blocking functions enabled by events
         self.tasks = [
+            asyncio.create_task( self.wait_for_motion() ),
+            asyncio.create_task( self.default_move_mouse() ),
             asyncio.create_task( self.move_mouse() ),
             asyncio.create_task( self.read_imu() ),
             asyncio.create_task( self.int_imu() ),
             asyncio.create_task( self.detect_event() ),
-            asyncio.create_task( self.dispatch_event() )
+            asyncio.create_task( self.idle_checking() ),
+            asyncio.create_task( self.scroll() ),
+            asyncio.create_task( self.collect_garbage() )
         ]
+
+        self.sensor = self.setup_imu() # TODO: containerize in imu class
+        if do_calib:
+            self.tasks.append( asyncio.create_task( self.calibrate() ) )
+        else:
+            self.events.calibration_done.set()
+
+        self.n = Neuton(outputs=neuton_outputs)
+        
         for t in self.blue.tasks:
             self.tasks.append(t)
         
         self.gesture = EV.NONE
+        print(self.events)
+
+        mem()
 
     def setup_imu(self):
         ''' helper method -- encapsulate imu portioof init '''
@@ -163,22 +200,22 @@ class Cato:
         #   to push Data Ready (gyro) signal to INT1 pin for interrupt
         sensor.int1_ctrl = 0x02
 
-        self.events["imu_setup"].set()
+        self.events.imu_setup.set()
         print("    Done")
         return sensor
     
     async def read_imu(self):
         ''' reads data off of the IMU into -> gx, gy, gz, ax, ay, az '''
         #just once start the spin?
-        await self.events["imu_setup"].wait() # don't read until imu is set up
+        await self.events.imu_setup.wait() # don't read until imu is set up
         
-        self.sensor.gyro
+        self.sensor.gyro # clears data
         
         while True:
             # hold until data ready
-            await self.events["imu"].wait()
-
-            self.events['imu'].clear()
+            # print("awaiting imu")
+            await self.events.imu.wait()
+            self.events.imu.clear()
 
             #iterate and record
             self.buf = (self.buf + 1) % self.specs["num_samples"]
@@ -199,11 +236,11 @@ class Cato:
             self.gy_hist[self.buf] -= self.gy_trim
             self.gz_hist[self.buf] -= self.gz_trim
             
-            self.events["data_ready"].set()
+            self.events.data_ready.set()
 
             # print("- end of read_imu -")
-            
-            
+
+
     async def int_imu(self):
         """ interrupt on imu for gyro data ready """
         with countio.Counter(   
@@ -215,30 +252,32 @@ class Cato:
                 if interrupt.count > 0:
                     interrupt.count = 0
                     # print("interrupted!")
-                    self.events["imu"].set()
+                    self.events.imu.set()
                 await asyncio.sleep(0)
 
-    async def calibrate(self, num = 200):
+    async def calibrate(self, num = 50):
         """ method to determine hardware drift of imu """ 
         _f = self.specs["freq"]
-        print(f"Calibrating: {num / _f } (seconds)")
+        print(f"CALIBRATE: ESTIMATE 2 SECONDS")
         x, y, z = 0, 0, 0
         for cycles in range(num):
-            # print(f"Calibration: {cycles+1} out of {num}")
-            # NEED CALL WAIT DATA READY   
+            await self.events.data_ready.wait()
+            self.events.data_ready.clear()
+
             x += self.gx
             y += self.gy
             z += self.gz
         self.gx_trim = x / num
         self.gy_trim = y / num
         self.gz_trim = z / num
-        print("    Done")
+        print("CALIBRATION: COMPLTED")
+        self.events.calibration_done.set()
         
     async def stream_imu(self):
         while True:
-            await self.events['data_ready'].wait()
+            await self.events.data_ready.wait()
             print(f"{self.time_hist[self.buf]}: {self.gx}, {self.gy}, {self.gz}")
-            self.events['data_ready'].clear()
+            self.events.data_ready.clear()
     
     def display_gesture_menu(self):
         print("Available actions: ")
@@ -246,83 +285,134 @@ class Cato:
             print("\tevent: {}\n\t\taction: {}".format(ev, self.st_matrix[ev][self.state].__name__))
 
     def _detect_event(self):
-        self.events["detect_event"].set()
-        self.events['free'].clear()
+        self.events.detect_event.set()
+
+    async def _move_mouse(self, hall_pass: asyncio.Event = None):
+        print('_move_mouse: move_mouse set')
+        self.events.move_mouse.set()
+
+        print("_move_mouse: awaiting mouse_done")
+        await self.events.mouse_done.wait()
+        self.events.mouse_done.clear()
+
+        print("_move_mouse: recieved mouse_done")
+        print("_move_mouse: hall_pass set")
+        if hall_pass is not None:
+            hall_pass.set()
 
     # State Control / Execution Utils
+
+    async def default_move_mouse(self):
+        ''' 
+            controls basic flow into and out of mouse move
+            should maybe be renamed
+        '''
+        print('DMM: awaiting calibration confirm')
+        await self.events.calibration_done.wait()
+        print("DMM: recieved calibration complete signal")
+
+        while True:
+            
+            print("DMM: awaiting default_move_mouse")
+            await self.events.default_move_mouse.wait() # should be set by detect_event
+            self.events.default_move_mouse.clear()
+            
+            print("DMM: recieved & cleared default_move_mouse")
+
+            self.events.move_mouse.set()
+            print("DMM: set move_mouse")
+
+            print('DMM: awaiting mouse_done')
+            await self.events.mouse_done.wait()
+            self.events.mouse_done.clear()
+
+            print('DMM: ATTEMPTING TO COLLCET GARBAGE')
+            self.events.collect_garbage.set()
+            await self.events.collect_garbage_done.wait()
+            self.events.collect_garbage_done.clear()
+            print("DMM: GARBAGE COLLECTED")
+
+            print("DMM: recieved & cleared mouse_done")
+            print("DMM: detect_event set")
+            self.events.detect_event.set()
+
+
     async def detect_event(self):
         ''' calls to gesture detection libraries '''
         while True:
-            await self.events["detect_event"].wait()
-            self.events["detect_event"].clear()
-            print("\nDetecting Event")
-            # prevent other imu functions while this operates
+            gesture = EV.NONE
+            print("D_EV: awaiting detect_event")
+            await self.events.detect_event.wait()
+            self.events.detect_event.clear()
+            print("D_EV: recieved & cleared detect_event")
+            print("D_EV: wait_for_motion")
+
+            await self.shake_cursor()
+
+            self.events.wait_for_motion.set()
+            await self.events.wait_for_motion_done.wait()
+            self.events.wait_for_motion_done.clear()
+
+            print("D_EV: recieved&cleared wait_for_motion")
+            motion_detected = self.events.sig_motion.is_set()
             
-            self.events['free'].clear()
-            
-            # no motion -> EV.NONE
-            if await self.hang_until_motion(loop_after = 4 * self.specs["num_samples"]):
-                print("Motion!")
+            if motion_detected:
+                print("D_EV: wait_for_motion returned True")
+                #read_imu enough times
+                for i in range(self.specs['freq']):
+                    await self.events.data_ready.wait()
+                    self.events.data_ready.clear()
+
+                neuton_needs_more_data = True
+                arr = array.array( 'f', [0]*6)
+                
+                i = 1 #buf pos tracker
+                while(True):
+                    b_pos = (i + self.buf) % self.specs["num_samples"]
+                    arr[0] = self.ax_hist[b_pos]
+                    arr[1] = self.ay_hist[b_pos]
+                    arr[2] = self.az_hist[b_pos]
+                    arr[3] = self.gx_hist[b_pos]
+                    arr[4] = self.gy_hist[b_pos]
+                    arr[5] = self.gz_hist[b_pos]
+                    neuton_needs_more_data = self.n.set_inputs( arr )
+                    i += 1
+                    # runs until neuton doesn't need more data
+                    if bool(neuton_needs_more_data) == False:
+                        break
+
+                gesture = self.n.inference()
+                confidence = max(neuton_outputs)
+
+                confidence_thresh = 0.80
+                if confidence < confidence_thresh:
+                    gesture = EV.NONE
+
             else:
-                print("Waited and got no motion")
-                self.events['gesture_ready'].set()
-                self.gesture = EV.NONE
+                print("D_EV: wait_for_motion returned False")
+                gesture = EV.NONE
             
-            # method to trigger num_samples reads of imu to ensure only the FRESHEST data
-            await self.read_gesture()
-
-            neuton_needs_more_data = True
-            arr = array.array( 'f', [0]*6)
-
-            i = 1 #buf pos tracker
+            mem()
+            print(f"\tgesture   = {gesture}")
+            print(f"\tstate     = {self.state}")
+            target_fn = self.st_matrix[gesture][self.state]
+            print(f"D_EV: calling method {target_fn.__name__}")
+            try: # regular fn
+                await asyncio.create_task( target_fn(self.hall_pass) )
+            except TypeError:
+                print(f"{target_fn.__name__}function was not async")
             
-            while(True):
-                # await asyncio.sleep(0.001)
-                b_pos = (i + self.buf) % self.specs["num_samples"]
-                arr[0] = self.ax_hist[b_pos]
-                arr[1] = self.ay_hist[b_pos]
-                arr[2] = self.az_hist[b_pos]
-                arr[3] = self.gx_hist[b_pos]
-                arr[4] = self.gy_hist[b_pos]
-                arr[5] = self.gz_hist[b_pos]
+            mem()
 
-                neuton_needs_more_data = self.n.set_inputs( arr )
+            print(f"D_EV: awaiting hall_pass to be set by target function")
+            await self.hall_pass.wait()
+            self.hall_pass.clear()
+            
+            print("D_EV: hall_pass recieved & cleared")
+            print("D_EV: default_move_mouse set")
+            self.events.default_move_mouse.set()
 
-                i += 1
-                # runs until neuton doesn't need more data
-                if bool(neuton_needs_more_data) == False:
-                    break
 
-            inf = self.n.inference()
-            confidence = max(neuton_outputs)
-
-            print( f"Diagnosis: {inf}" )
-            print( f"\tOutputs:\t{neuton_outputs}")
-
-            confidence_thresh = 0.80
-            ret_val = inf
-            if confidence < confidence_thresh:
-                ret_val = EV.NONE
-            self.gesture = ret_val
-            self.events["gesture_ready"].set()
-
-    async def dispatch_event(self):
-        ''' sends event from detect_event to the state transition matrix '''
-        while True:
-            await self.events["gesture_ready"].wait()
-            self.events["gesture_ready"].clear()
-
-            print("Dispatch Event Called with event = {}".format(self.gesture))
-            print("event: {}, state: {}".format(self.gesture, self.state))
-            print(self.st_matrix[self.gesture][self.state].__name__)
-
-            try:
-                await self.st_matrix[self.gesture][self.state]()
-
-            except AttributeError: #handle non-async funcionts
-                self.st_matrix[self.gesture][self.state]()
-            self.events["free"].set()
-        
     # Sensor utils read_IMU, calibrate
     @property
     def gx(self):
@@ -350,26 +440,32 @@ class Cato:
 
     # Cato Actions
     # CircuitPython Docs: https://docs.circuitpython.org/projects/hid/en/latest/api.html#adafruit-hid-mouse-mouse '''
-    def noop(self):
+    async def noop(self, hall_pass: asyncio.Event = None):
         ''' no operation '''
         print("nooping")
+        if hall_pass is not None:
+            hall_pass.set()
     
-    def to_idle(self):
+    async def to_idle(self, hall_pass: asyncio.Event = None):
         self.state = ST.IDLE
+        if hall_pass is not None:
+            hall_pass.set()
     
-    def to_mouse_buttons(self):
+    async def to_mouse_buttons(self, hall_pass: asyncio.Event = None):
         self.state = ST.MOUSE_BUTTONS
+        if hall_pass is not None:
+            hall_pass.set()
     
-    def to_keyboard(self):
+    async def to_keyboard(self, hall_pass: asyncio.Event = None):
         self.state = ST.KEYBOARD
+        if hall_pass is not None:
+            hall_pass.set()
         
     # Cato Mouse Actions
-    async def shake_cursor(self):
+    async def shake_cursor(self, hall_pass: asyncio.Event = None):
         m = self.blue.mouse
         mv_size = 10
-        num_wiggles = 1
-        delay = 0.030
-        orig_pos = [0, 0]
+        num_wiggles = 2
         moves = [
             (-mv_size,      0,          0),
             (0,             mv_size,    0),
@@ -380,14 +476,10 @@ class Cato:
             (mv_size,       -mv_size,   0)
         ]
 
-        for w in range(num_wiggles):
+        for wiggle in range(num_wiggles):
             for move in moves:
+                await asyncio.sleep(0.03)
                 self.blue.mouse.move(*move)
-                await asyncio.sleep(delay)
-
-    async def long_pointer(self):
-        await self.move_mouse(200)     
-
 
     def translate(x_min, x_max, y_min, y_max, input):
         if input < x_min:
@@ -402,17 +494,13 @@ class Cato:
         shifted = scaled + y_min
         return shifted
 
-    def _move_mouse(self):
-        self.events["move_mouse"].set()
-        self.events['free'].clear()
-
-    async def move_mouse(self, max_idle_cycles=50, mouse_type = "ACCEL"):
+    async def move_mouse(self, max_idle_cycles=150, mouse_type = "ACCEL", hall_pass: asyncio.Event = None):
         '''
             move the mouse via bluetooth until sufficiently idle
         '''
 
         idle_thresh = 5.0 # speed below which is considered idle
-        min_run_cycles = 4 * self.specs['num_samples']
+        min_run_cycles = 1 * self.specs['num_samples']
         
         #scale is "base" for acceleration - do adjustments here
         scale = None # MUST set scale
@@ -433,12 +521,11 @@ class Cato:
         cycle_count = 0
         ti = sp.ticks_ms()
         while True:
-            await self.events['data_ready'].wait() # at top of cycle, wait for an imu read
-            await self.events["move_mouse"].wait() # only execute when move_mouse is set
-            self.events["free"].clear() # prevent other blocking routines from being called concurrently
-            # remain frozen until mouse must move
-            # print(f"time: {sp.ticks_ms() - ti}")
-            self.events['data_ready'].clear()
+            # print(".")
+            await self.events.move_mouse.wait() # only execute when move_mouse is set
+            
+            await self.events.data_ready.wait() # at top of cycle, wait for an imu read
+            self.events.data_ready.clear()
 
             if cycle_count == 0:
                 print("Mouse is live: ")
@@ -478,10 +565,14 @@ class Cato:
                     idle_count = 0
 
                 if idle_count >= max_idle_cycles: # if sufficiently idle, clear move_mouse
-                    self.events['move_mouse'].clear()
-                    self.events['free'].set() # allow control loop to run other blocking functions
+                    self.events.move_mouse.clear()
+                    self.events.mouse_done.set()
                     cycle_count = 0
-                    print("idle condition reached: EXIT MOVE MOUSE")
+                    print("\tidled: exiting")
+                    try:
+                        hall_pass.set()
+                    except:
+                        pass
             
             # trig scaling of mouse x and y values
             x = int( scale * mag * cos(ang) )
@@ -491,185 +582,161 @@ class Cato:
 
         #print( "    Time idled: {} s".format( time.monotonic() - t_idle_start) )
 
-    async def joystick_move(self):
-        await asyncio.sleep(0.1)
-        pos = [0, 0] # x, y
-        idle_count = 0
-        idle_max = 200
-
-        while idle_count < idle_max:
-            await self.read_imu()
-            await asyncio.sleep(0.001)
-
-            scale = 0.02
-
-            pos[0] += scale * self.gy
-            pos[1] += 1.3 * scale * self.gz #1.3 is for extra vertical sensitivity
-            
-            print(pos)
-            #scale value for mouse movement at different levels
-            speed = {
-                "low" : 0.1,
-                "mid" : 0.2,
-                "max" : 0.3
-            }
-
-            #thresholds defining left(low) edge of movespeed regions
-            tr = { 
-                
-                "low" : 5,
-                "mid" : 10,
-                "max" : 15
-            }
-            
-            x_scale = 0
-            if abs(pos[0]) > tr["max"]:
-                x_scale = speed["max"]
-            elif tr["mid"] < abs(pos[0]) < tr["max"]:
-                x_scale = speed["mid"]
-            elif tr["low"] < abs(pos[0]) < tr["mid"]:
-                x_scale = speed["low"]
-            else:
-                pass
-
-            y_scale = 0
-            if abs(pos[1]) > tr["max"]:
-                y_scale = speed["max"]
-            elif tr["mid"] < abs(pos[1]) < tr["max"]:
-                y_scale = speed["mid"]
-            elif tr["low"] < abs(pos[1]) < tr["mid"]:
-                y_scale = speed["low"]
-            else:
-                pass
-
-            self.blue.mouse.move( int(x_scale * pos[0]), int(y_scale * pos[1]) )
-
-            if ( pos[0] <= tr["low"] and pos[1] <= tr["low"] ):
-                idle_count += 1
-            else:
-                idle_count = 0
+    async def idle_checking(self):
+        # TODO
+        pass
+    
+    async def _scroll(self, hall_pass: asyncio.Event = None):
+        print("_SCROLL: set scroll")
+        self.events.scroll.set()
+        print("_SCROLL: awaiting scroll_done")
         
-    async def scroll(self):
+        await self.events.scroll_done.wait()
+        self.events.scroll_done.clear()
+        print("_SCROLL: recieve and clear scroll_done ")
+
+        if hall_pass is not None:
+            hall_pass.set()
+
+    async def scroll(self, hall_pass: asyncio.Event = None):
         ''' scrolls the mouse until sufficient exit condition is reached '''
-        print("Scrolling")
-        x = 0.0
-        y = 0.0
-        z = 0.0
-        multiplier = 0.1
-        t_last_scrolled = sp.ticks_ms()
-        scroll_interval = 250 # in ms
-        interval_multiplier = 1
-        while(True):
-            await self.read_imu()
+        
+        z = 0.0 #value to integrate to manage scroll
+        dt = 1.0 / self.specs["freq"]
+        scale = 0.2 # slow down kids
 
-            dt = 1.0 / self.specs["freq"]
-            x += self.gx * dt
-            y += self.gy * dt
-            z += self.gz * dt
+        while True:
+            await self.events.scroll.wait() # block if not set
 
-            interval_multiplier = 20 / abs(z)
-            if abs(z) < 3:
-                interval_multiplier = 100000
+            await self.events.data_ready.wait() #read_imu
+            self.events.data_ready.clear()
+            
+            z += (-1) * scale * self.gz * dt
 
-            if(sp.ticks_ms() - t_last_scrolled >= interval_multiplier * scroll_interval):
-                t_last_scrolled = sp.ticks_ms()
-                self.blue.mouse.move(0, 0, -1 if z > 0 else 1)
+            # print(f"z: {z}")
+            self.blue.mouse.move(0, 0, int(z))
 
-            if(self.gy > 30.0):
+            if( abs(self.gy) > 30.0 ):
                 print("\tScroll Broken")
-                break
-
+                z = 0.0
+                self.events.scroll_done.set()
+                self.events.scroll.clear()
+                if hall_pass is not None:
+                    print("\tSCROLL: Scroll_done set & hall_pass set")
+                    hall_pass.set()
+        
     #shift + scroll = lateral scroll on MOST applications
-    async def scroll_lr(self):
+    async def scroll_lr(self, hall_pass: asyncio.Event = None):
         ''' shift + scroll = lateral scroll on MOST applications
             laterally scroll until exit condition
         '''
-        print("Scrolling LR")
-        #press shift
-        ''' scrolls the mouse until sufficient exit condition is reached '''
-        print("Press Shift")
-        self.blue.k.press(Keycode.SHIFT)
-        #self.blue.k.release(Keycode.SHIFT)
-        multiplier = -0.1
-        while(True):
-            await asyncio.sleep(0.100)
-            await self.read_imu()
-            self.blue.mouse.move(0, 0, int(multiplier * self.gy))
-            if(self.gz > 30.0):
-                break
-        self.blue.k.release(Keycode.SHIFT)
-        #release shift
+        #TODO REWRITE SCROLL_LR using scroll
 
-    async def left_click(self):
+    async def left_click(self, hall_pass: asyncio.Event = None): # "Does the send wait for acknowledgement"
+        # determine if async or not
+        # can have BLE writes w/wo ack -- send and pray vs confirm
+        # time the routine uS ok, mS bad
         ''' docstring stub '''
         self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
+        if hall_pass is not None:
+            hall_pass.set()
 
-    async def double_click(self):
+    async def double_click(self, hall_pass: asyncio.Event = None):
         self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
         self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
+        if hall_pass is not None:
+            hall_pass.set()
 
-    async def right_click(self):
+
+    async def right_click(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         self.blue.mouse.click(self.blue.mouse.RIGHT_BUTTON)
+        if hall_pass is not None:
+            hall_pass.set()
 
-    async def middle_click(self):
+    async def middle_click(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         self.blue.mouse.click(self.blue.mouse.MIDDLE_BUTTON)
+        if hall_pass is not None:
+            hall_pass.set()
 
-    async def left_click_drag(self):
+    async def left_click_drag(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         print("Left click")
         await self.left_press()
         print("Drag")
-        await self.move_mouse()
+        self._move_mouse()
         await self.left_release()
         print("Mouse released")
+        if hall_pass is not None:
+            hall_pass.set()
 
-    async def right_click_drag(self):
+    async def right_click_drag(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         await self.right_press()
         await self.move_mouse()
         await self.right_release()
+        if hall_pass is not None:
+            hall_pass.set()
 
-    async def middle_click_drag(self):
+    async def middle_click_drag(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         await self.middle_press()
         await self.move_mouse()
         await self.middle_release()
+        if hall_pass is not None:
+            hall_pass.set()
 
-    async def left_press(self):
+
+    def left_press(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         self.blue.mouse.press(self.blue.mouse.LEFT_BUTTON)
+        if hall_pass is not None:
+            hall_pass.set()
 
-    async def left_release(self):
+    def left_release(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         self.blue.mouse.release(self.blue.mouse.LEFT_BUTTON)
+        if hall_pass is not None:
+            hall_pass.set()
 
-    async def right_press(self):
+    async def right_press(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         self.blue.mouse.press(self.blue.mouse.RIGHT_BUTTON)
+        if hall_pass is not None:
+            hall_pass.set()
 
-    async def right_release(self):
+    async def right_release(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         self.blue.mouse.release(self.blue.mouse.RIGHT_BUTTON)
+        if hall_pass is not None:
+            hall_pass.set()
 
-    async def middle_press(self):
+    async def middle_press(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         self.blue.mouse.press(self.blue.mouse.MIDDLE_BUTTON)
+        if hall_pass is not None:
+            hall_pass.set()
 
-    async def middle_release(self):
+    async def middle_release(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         self.blue.mouse.release(self.blue.mouse.MIDDLE_BUTTON)
+        if hall_pass is not None:
+            hall_pass.set()
 
-    async def all_release(self):
+    async def all_release(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         self.blue.mouse.release_all()
-
+        if hall_pass is not None:
+            hall_pass.set()
+        
     # cato keyboard actions
-    async def press_enter(self):
+    async def press_enter(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         self.blue.k.press(Keycode.ENTER)
         self.blue.k.release(Keycode.ENTER)
+        if hall_pass is not None:
+            hall_pass.set()
 
     # ToDo, the rest of the keyboard buttons
 
@@ -689,45 +756,59 @@ class Cato:
     def print_o_str(self):
         print(f"{self.o_str}")
 
-    async def hang_until_motion(self, thresh = 105, *, loop_after = 0):
-        """
-            thresh = threshold of motion to break loop
-            
-            kwarg: 
-                loop_after = number of cycles max before return False
-        """
-
-        print("Waiting for Significant Motion")
-        x_scale = 1.00
-        y_scale = 1.00
-        z_scale = 1.85
-
-        wait_time = 0
-        val = sqrt(x_scale * self.gx**2 + y_scale * self.gy**2 + z_scale * self.gz**2)
-        indef_stated = False
-        while(val < thresh):
-            await self.events["data_ready"].wait()
-            self.events["data_ready"].clear()
-            # print(f"{self.gx}, {self.gy}, {self.gz}")
-            if "loop_after" != 0:     
-                wait_time += 1
-                if wait_time > loop_after:
-                    return False
-            else:
-                if not indef_stated:
-                    print("Indefinite wait for motion")
-                    indef_stated = True
-            
-            val = sqrt(x_scale * self.gx**2 + y_scale * self.gy**2 + z_scale * self.gz**2)
-        return True
-
-
-    async def read_gesture(self):
-        for i in range(self.specs["num_samples"]):
-            await self.events["data_ready"].wait()
-            self.events["data_ready"].clear()
-
+    async def _wait_for_motion(self, hall_pass: asyncio.Event = None):
+        self.events.wait_for_motion.set()
+        await self.events.wait_for_motion_done.wait()
+        if hall_pass is not None:
+            hall_pass.set()
     
+    async def wait_for_motion(self, thresh = 105, *, num = -1, hall_pass: asyncio.Event = None):
+        """
+            thresh      = threshold of motion to break loop             \n
+            num         = number of cycles max before return False      \n
+                -1          = indefinite wait for motion                \n
+                Positive Int= breaks after num loops
+        """
+        cycles = 0 # count number of waited cycles
+        while True:
+            await self.events.wait_for_motion.wait()
+
+            await self.events.data_ready.wait()
+            self.events.data_ready.clear()
+
+            cycles += 1
+
+            val = self.gx ** 2 + self.gy ** 2 + self.gz ** 2
+            
+            # BREAK CONDN 1: SIGNIFICANT MOTION
+            if val > thresh:
+                print('WAIT: clear wait_for_motion')
+                self.events.wait_for_motion.clear()
+                
+                print("WAIT: set sig_motion")
+                self.events.sig_motion.set()
+            
+            #Break CONDN 2: TIMEOUT
+            if num != -1:
+                if cycles > num:
+                    self.events.wait_for_motion.clear()
+                    print("WAIT: clear wait_for_motion")
+                    
+                    self.events.sig_motion.clear()
+                    print("WAIT: clear sig_motion")
+
+            # exiting cleanup
+            if not self.events.wait_for_motion.is_set():
+                self.events.wait_for_motion_done.set()
+                print("WAIT: clear wait_for_motion")
+                print("WAIT: set wait_for_motion_done")
+                cycles = 0
+
+                if hall_pass is not None:
+                    hall_pass.set()
+                    print("WAIT: hall_pass set")
+                    
+    # NEEDS REWRITE
     def collect_n_gestures(self, n=1):
         for file in os.listdir("/data"):
             try:
@@ -739,7 +820,7 @@ class Cato:
             my_file = "data/data{:02}.txt".format(i)
             print("Ready to read into: {}".format(my_file))
             print("    Waiting for motion")
-            self.hang_until_motion()
+            self.wait_for_motion()
             print("Capturing")
             self.read_gesture()
             print("Done")
@@ -758,9 +839,21 @@ class Cato:
                     print(temp, file = f)
                     if chunks % chunksize == 0:
                         print('', file=f, flush=True, end='')
-                    #f.write("%d,%f,%f,%f,%f,%f,%f\r\n" % (self.time_hist[b_pos],    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],  \
-                    #                                                            self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos]) )
+                    # f.write("%d,%f,%f,%f,%f,%f,%f\r\n" % (self.time_hist[b_pos],    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],  \
+                    #    self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos]) )
                 #f.write(my_string)
                 #print(my_string)
                 f.close()
             print("{} written".format(my_file))
+
+    async def collect_garbage(self):
+        while True:
+            print("COLLECT_GARBAGE: awaiting collect_garbage")
+            await self.events.collect_garbage.wait()
+            self.events.collect_garbage.clear()
+            print("COLLECT_GARBAGE: recieved and cleared collect_garbage")
+            
+            gc.collect()
+            print("COLLECT_GARBAGE: collected garbage and SET garbage_done")
+            self.events.collect_garbage_done.set()
+            

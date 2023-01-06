@@ -20,14 +20,17 @@ class Bat:
         time.sleep(0.12)
         temp = self.b_pin.value
         self.read_bat_ena.value = True
+        print(f"Battery: Raw Value = {temp}")
         return temp
 
     @property
     def level(self):
-        low = 22000
-        high = 35535
+        low = 26000
+        high = 28600
         value = int( 100 * (self.raw_value - low) / (high - low) )
-        # print(f"Raw value reads as: {self.raw_value}")
-        # print(f"Scaled value reads as: {value}")
+        if value > 100:
+            value = 100
+        if value < 0:
+            value = 0
         return value
  

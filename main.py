@@ -49,15 +49,6 @@ async def feed_dog():
         w.feed()
         await asyncio.sleep(3)
 
-async def loop():
-    ''' docstring '''
-    while True:
-        c._move_mouse()
-        await c.events["free"].wait()
-        c._detect_event()
-        await c.events['free'].wait()
-        gc.collect()
-        
 def print_boot_out():
     print("boot_out.txt: ")
     with io.open("boot_out.txt") as b: 
@@ -66,16 +57,15 @@ def print_boot_out():
 
 async def main():
     # print_boot_out()
-
     tasks = []
     tasks.append( asyncio.create_task( battery_process() ) )
-    tasks.append( asyncio.create_task( loop() ) )
     tasks.append( asyncio.create_task( feed_dog() ) )
     for t in c.tasks:
-        tasks.append(t)
-
+         tasks.append(t)
+    print("MAIN: setting default_move_mouse")
+    c.events.default_move_mouse.set() 
     await asyncio.gather( *tasks )
 
-asyncio.run( main() )
+asyncio.run( main() ) # True -> Debug
 
 # mode.select_reboot_mode()
