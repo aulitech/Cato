@@ -676,7 +676,6 @@ class Cato:
                     print("\tSCROLL_LR: Scroll_done set & hall_pass set")
                     hall_pass.set()
 
-    def left_click(self):
     async def left_click(self, hall_pass: asyncio.Event = None): # "Does the send wait for acknowledgement"
         # determine if async or not
         # can have BLE writes w/wo ack -- send and pray vs confirm
@@ -686,14 +685,12 @@ class Cato:
         if hall_pass is not None:
             hall_pass.set()
 
-    def double_click(self):
     async def double_click(self, hall_pass: asyncio.Event = None):
         self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
         self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
         if hall_pass is not None:
             hall_pass.set()
 
-    def right_click(self):
 
     async def right_click(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
@@ -701,7 +698,6 @@ class Cato:
         if hall_pass is not None:
             hall_pass.set()
 
-    def middle_click(self):
     async def middle_click(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         self.blue.mouse.click(self.blue.mouse.MIDDLE_BUTTON)
@@ -728,51 +724,50 @@ class Cato:
         await self.move_mouse()
         self.middle_release()
 
-    def left_press(self):
+    async def left_press(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         self.blue.mouse.press(self.blue.mouse.LEFT_BUTTON)
         if hall_pass is not None:
             hall_pass.set()
 
-    def left_release(self):
-    def left_release(self, hall_pass: asyncio.Event = None):
+    async def left_release(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         self.blue.mouse.release(self.blue.mouse.LEFT_BUTTON)
         if hall_pass is not None:
             hall_pass.set()
 
-    def right_press(self):
+    async def right_press(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         self.blue.mouse.press(self.blue.mouse.RIGHT_BUTTON)
         if hall_pass is not None:
             hall_pass.set()
 
-    def right_release(self):
+    async def right_release(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         self.blue.mouse.release(self.blue.mouse.RIGHT_BUTTON)
         if hall_pass is not None:
             hall_pass.set()
 
-    def middle_press(self):
+    async def middle_press(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         self.blue.mouse.press(self.blue.mouse.MIDDLE_BUTTON)
         if hall_pass is not None:
             hall_pass.set()
 
-    def middle_release(self):
+    async def middle_release(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         self.blue.mouse.release(self.blue.mouse.MIDDLE_BUTTON)
         if hall_pass is not None:
             hall_pass.set()
 
-    def all_release(self):
+    async def all_release(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         self.blue.mouse.release_all()
         if hall_pass is not None:
             hall_pass.set()
         
     # cato keyboard actions
-    def press_enter(self):
+    async def press_enter(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         self.blue.k.press(Keycode.ENTER)
         self.blue.k.release(Keycode.ENTER)
