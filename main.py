@@ -1,3 +1,4 @@
+
 # Code.py for Auli Cato, Driver
 # Finn Biggs - finn@auli.tech
 # 17-Nov-2022
@@ -24,9 +25,8 @@ import mode
 
 from math import sqrt
 
-
 # Beginning code proper
-c = Cato.Cato( bt = True )
+c = Cato.Cato( bt = True, do_calib = False )
 w.timeout = 10 #seconds
 w.mode = WatchDogMode.RAISE
 
@@ -49,24 +49,6 @@ async def feed_dog():
         w.feed()
         await asyncio.sleep(3)
 
-async def loop():
-    ''' docstring '''
-    while True:
-        # # await c.move_mouse()
-        # print("Joystick Motion")
-        # await c.joystick_move()
-        # ev = await c.detect_event()
-        # await c.dispatch_event(ev)
-        # await asyncio.sleep(0.1)
-        ev = Cato.EV.NONE
-        print("Moving Mouse")
-        await c.move_mouse()
-        ev = await c.detect_event()
-        if ev is not None:
-            await c.dispatch_event(ev)
-        await asyncio.sleep(0.1)
-        gc.collect()
-
 def print_boot_out():
     print("boot_out.txt: ")
     with io.open("boot_out.txt") as b: 
@@ -77,12 +59,13 @@ async def main():
     # print_boot_out()
     tasks = []
     tasks.append( asyncio.create_task( battery_process() ) )
-    tasks.append( asyncio.create_task( loop() ) )
     tasks.append( asyncio.create_task( feed_dog() ) )
     for t in c.tasks:
-        tasks.append(t)
+         tasks.append(t)
+    print("MAIN: setting default_move_mouse")
+    c.events.default_move_mouse.set() 
     await asyncio.gather( *tasks )
 
-asyncio.run( main() )
+asyncio.run( main() ) # True -> Debug
 
 # mode.select_reboot_mode()

@@ -1,5 +1,7 @@
 import adafruit_ble
-from adafruit_ble.advertising import Advertisement
+
+from adafruit_ble.advertising import Advertisement, AdvertisingFlag, AdvertisingFlags
+
 from adafruit_ble.advertising.standard import ProvideServicesAdvertisement
 from adafruit_ble.services.standard.hid import HIDService
 from adafruit_ble.services.standard.device_info import DeviceInfoService
@@ -34,9 +36,18 @@ class BluetoothControl:
             service = None
         )
 
-        self.advertisement = ProvideServicesAdvertisement(self.hid)
+        self.advertisement = ProvideServicesAdvertisement( self.hid )
         self.advertisement.appearance = Appearances.hid
-        self.scan_response = Advertisement()
+        self.advertisement.short_name = "Cato_advert_name"
+        # self.advertisement.flags.general_discovery = False
+        # self.advertisement.flags.limited_discovery = True
+        # self.advertisement.flags.general_discovery = AdvertisingFlag(1)
+
+        self.scan_response = Advertisement(  )
+        self.scan_response.short_name = "Cato_scan_resp_name"
+        self.scan_response.appearance = Appearances.hid
+
+        
         self.ble = adafruit_ble.BLERadio()
         if self.ble.connected:
             print("Woke up connected")
@@ -48,17 +59,59 @@ class BluetoothControl:
         self.k = Keyboard(self.hid.devices)
         self.kl = KeyboardLayoutUS(self.k)
         self.mouse = Mouse(self.hid.devices)
+
+        self.ena_adv = asyncio.Event()
+        self.is_connected = asyncio.Event()
+        self.is_disconnected = asyncio.Event()
+
+        self.is_disconnected.set() #board starts without connection
+
+        self.tasks = [
+            asyncio.create_task( self.manage_connection() ),
+            asyncio.create_task( self.monitor_connections() ),
+            asyncio.create_task( self.reconnect() )
+        ]
+ 
+    async def manage_connection(self):
+        while True:
+            # wait for advertisement enable
+            await self.ena_adv.wait()
+            print("BLE_MANAGE: Starting BLE advertisement")
+            self.ble.start_advertising(self.advertisement, self.scan_response)
+            
+            # wait for a connection
+            await self.is_connected.wait()
+            self.ena_adv.clear()
+
+            await asyncio.sleep(1)
+            self.ble.stop_advertising()
+            print("BLE_MANAGE: No longer advertising")
+    
+    async def reconnect(self):
+        while True:
+            await self.is_disconnected.wait()
+            self.ena_adv.set()
+            await asyncio.sleep(5) # rate limit the "start advertising"
+            self.ena_adv.clear()
+            await asyncio.sleep(0.5) # small advertising reset
         
-    def connect_bluetooth(self):
-        self.advertisement = ProvideServicesAdvertisement(self.hid)
-        print("Waiting for BLE connection")
-        self.ble.start_advertising(self.advertisement, self.scan_response)
-        # multiple connections occur here
-        # device powers up -> how do we connect to multiple devices
-        # "conenction is triggered from far end" -> when we advertise, if there are 2 devices that know us, both will try to connect
-        while not self.ble.connected:
-            #we will need to increase granularity
-            pass
-        print("    Connected")
+    async def monitor_connections(self):
+        while True:
+            # Check connection
+            if self.ble.connected: # When connected
+                if not self.is_connected.is_set():
+                    print("BLE_MONITOR: BLE Connected")
+                    self.is_connected.set()
 
+                if self.is_disconnected.is_set():
+                    self.is_disconnected.clear()
+            
+            else: # When disconnected
 
+                if not self.is_disconnected.is_set():
+                    print("BLE_MONITOR: BLE Disconnected")
+                    self.is_disconnected.set()
+
+                if self.is_connected.is_set():
+                    self.is_connected.clear()
+            await asyncio.sleep(3)
