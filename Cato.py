@@ -318,18 +318,15 @@ class Cato:
             await self.events.default_move_mouse.wait() #await permission to start
             self.events.default_move_mouse.clear()
             
-            print("DMM: recieved & cleared default_move_mouse")
-
+            # print("DMM: recieved & cleared default_move_mouse")
+            print("DMM: mouse set, waiting for finish")
             self.events.move_mouse.set()
-            print("DMM: set move_mouse")
-
-            print('DMM: awaiting mouse_done')
             await self.events.mouse_done.wait()
             self.events.mouse_done.clear()
-            print("DMM: recieved & cleared mouse_done")
+            print("DMM: mouse finished and flag cleared")
 
             print('DMM: ATTEMPTING TO COLLCET GARBAGE')
-            self._collect_garbage()
+            await self._collect_garbage()
             print("DMM: GARBAGE COLLECTED")
 
             print("DMM: detect_event set")
@@ -342,7 +339,7 @@ class Cato:
         print("_collect_garbage: awaiting done signal")
         await self.events.collect_garbage_done.wait()
         self.events.collect_garbage_done.clear()
-        print("_collect_garbage: done")
+        print("_collect_garbage: done signal cleared, exiting")
         mem()
 
     async def detect_event(self):
@@ -360,12 +357,13 @@ class Cato:
             self.events.wait_for_motion.set()
             await self.events.wait_for_motion_done.wait()
             self.events.wait_for_motion_done.clear()
-            print("D_EV: recieved&cleared wait_for_motion_done")
+            print("D_EV: recieved & cleared wait_for_motion_done")
 
             motion_detected = self.events.sig_motion.is_set()
             
             if motion_detected:
-                print("D_EV: wait_for_motion returned True")
+                print("D_EV: wait_for_motion found motion")
+                self.events.sig_motion.clear()
                 #read_imu enough times
                 for i in range(self.specs['freq']):
                     await self.events.data_ready.wait()
@@ -397,7 +395,7 @@ class Cato:
                     gesture = EV.NONE
 
             else:
-                print("D_EV: wait_for_motion returned False")
+                print("D_EV: wait_for_motion timed out")
                 gesture = EV.NONE
             
             self._collect_garbage()
@@ -413,8 +411,8 @@ class Cato:
             print(f"D_EV: awaiting hall_pass to be set by target function")
             await self.hall_pass.wait()
             self.hall_pass.clear()
-            
             print("D_EV: hall_pass recieved & cleared")
+            
             print("D_EV: default_move_mouse set")
             self.events.default_move_mouse.set()
 
@@ -500,7 +498,7 @@ class Cato:
         shifted = scaled + y_min
         return shifted
 
-    async def move_mouse(self, max_idle_cycles=150, mouse_type = "ACCEL", hall_pass: asyncio.Event = None):
+    async def move_mouse(self, max_idle_cycles=80, mouse_type = "ACCEL", hall_pass: asyncio.Event = None):
         '''
             move the mouse via bluetooth until sufficiently idle
         '''
