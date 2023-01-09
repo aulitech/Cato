@@ -159,7 +159,6 @@ class Cato:
             asyncio.create_task( self.read_imu() ),
             asyncio.create_task( self.int_imu() ),
             asyncio.create_task( self.detect_event() ),
-            asyncio.create_task( self.idle_checking() ),
             asyncio.create_task( self.scroll() ),
             asyncio.create_task( self.scroll_lr() ),
             asyncio.create_task( self.collect_garbage() )
@@ -317,8 +316,8 @@ class Cato:
             print("DMM: awaiting default_move_mouse")
             await self.events.default_move_mouse.wait() #await permission to start
             self.events.default_move_mouse.clear()
+            print("DMM: recieved & cleared default_move_mouse")
             
-            # print("DMM: recieved & cleared default_move_mouse")
             print("DMM: mouse set, waiting for finish")
             self.events.move_mouse.set()
             await self.events.mouse_done.wait()
@@ -398,7 +397,9 @@ class Cato:
                 print("D_EV: wait_for_motion timed out")
                 gesture = EV.NONE
             
-            self._collect_garbage()
+            print('D_EV: ATTEMPTING TO COLLCET GARBAGE')
+            await self._collect_garbage()
+            print("D_EV: GARBAGE COLLECTED")
             
             mem()
             target_fn = self.st_matrix[gesture][self.state]
@@ -411,7 +412,11 @@ class Cato:
             print(f"D_EV: awaiting hall_pass to be set by target function")
             await self.hall_pass.wait()
             self.hall_pass.clear()
+
+            
             print("D_EV: hall_pass recieved & cleared")
+
+            await self._collect_garbage()
             
             print("D_EV: default_move_mouse set")
             self.events.default_move_mouse.set()
@@ -827,12 +832,11 @@ class Cato:
                     print("WAIT: clear wait_for_motion")
                     
                     self.events.sig_motion.clear()
-                    print("WAIT: clear sig_motion")
+                    print("WAIT: timeout -> clear sig_motion")
 
             # exiting cleanup
             if not self.events.wait_for_motion.is_set():
                 self.events.wait_for_motion_done.set()
-                print("WAIT: clear wait_for_motion")
                 print("WAIT: set wait_for_motion_done")
                 cycles = 0
 
