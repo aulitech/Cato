@@ -13,4 +13,4 @@ jobs:
                 echo "test.txt missing!";
              fi
       - run: pwd
-      - run: ls
+      - run: echo $ls
