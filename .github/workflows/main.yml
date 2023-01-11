@@ -8,7 +8,7 @@ jobs:
     steps:
       - run: if test -f "test.txt"
              then
-                echo "success!"
+                echo "test.txt found!"
              else
-                raise error "file missing"
+                echo "test.txt missing!"
              fi
