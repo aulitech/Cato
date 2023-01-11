@@ -1,9 +1,9 @@
 name: PrintOnPullToMain
 run-name: ${{ github.actor }} is pulling 
-on: [push]
-#  pull_request:
+on:
+  pull_request:
 jobs:
-  CheckForPull:
+  CheckForFiles:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -11,7 +11,5 @@ jobs:
              then
                 echo "test.txt found!";
              else
-                echo "test.txt missing!";
+                rais error "test.txt missing!";
              fi
-      - run: pwd
-      - run: ls -l
