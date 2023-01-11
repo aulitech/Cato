@@ -1,9 +1,7 @@
 name: PrintOnPullToMain
 run-name: ${{ github.actor }} is pulling 
 on:
- 	pull_request:
-    branches:
-     - 'main'
+  pull_request
 jobs:
   CheckForPull:
     runs-on: ubuntu-latest
