@@ -1,0 +1,16 @@
+name: PrintOnPullToMain
+run-name: ${{ github.actor }} is pulling 
+on:
+ 	pull_request:
+    branches:
+     - 'main'
+jobs:
+  CheckForPull:
+    runs-on: ubuntu-latest
+    steps:
+      - run: if test -f "test.txt"
+             then
+                echo "success!"
+             else
+                raise error "file missing"
+             fi
