@@ -12,3 +12,4 @@ jobs:
              else
                 echo "test.txt missing!"
              fi
+      - run: echo pwd
