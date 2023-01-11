@@ -6,9 +6,9 @@ jobs:
   CheckForPull:
     runs-on: ubuntu-latest
     steps:
-      - run: if test -f "test.txt"
+      - run: if test -f "test.txt";
              then
-                echo "test.txt found!"
+                echo "test.txt found!";
              else
-                echo "test.txt missing!"
+                echo "test.txt missing!";
              fi
