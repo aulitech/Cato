@@ -6,6 +6,7 @@ jobs:
   CheckForPull:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
       - run: if test -f "test.txt";
              then
                 echo "test.txt found!";
