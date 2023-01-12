@@ -1,5 +1,5 @@
 name: PrintOnPullToMain
-run-name: ${{ github.event_name }} by ${{ github.actor }} in ${{ github.repository }}
+run-name: ${{ github.event_name }} by ${{ github.actor }} in ${{ github.event_path }}
 on:
   pull_request:
     branches:
