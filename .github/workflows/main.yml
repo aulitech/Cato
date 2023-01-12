@@ -1,16 +1,18 @@
 name: PrintOnPullToMain
-run-name: ${{ github.actor }} is pulling 
+run-name: ${{ github.event_name }} by ${{ github.actor }} in ${{ github.repository }}
 on:
   pull_request:
+    branches:
+     - 'main'
 jobs:
   CheckForFiles:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: if test -f "test.txt";
+      - run: if test -f "testwf.txt";
              then
-                echo "test.txt found!";
+                echo "testwf.txt found!";
              else
-                echo "test.txt missing!";
+                echo "testwf.txt missing!";
                 exit 123;
              fi
