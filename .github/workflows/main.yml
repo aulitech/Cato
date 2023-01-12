@@ -11,5 +11,6 @@ jobs:
              then
                 echo "test.txt found!";
              else
-                rais error "test.txt missing!";
+                echo "test.txt missing!";
+                exit 123;
              fi
