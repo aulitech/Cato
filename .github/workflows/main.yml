@@ -1,5 +1,5 @@
 name: PrintOnPullToMain
-run-name: ${{ github.event_name }} by ${{ github.actor }} in ${{ github.ref }}
+run-name: ${{ github.event_name }} by ${{ github.actor }} in ${{ github.ref_name }}; ${{ github.workflow_ref }}; ${{ github.path }}
 on:
   pull_request:
 jobs:
