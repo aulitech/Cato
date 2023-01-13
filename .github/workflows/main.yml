@@ -1,4 +1,4 @@
-name: PrintOnPullToMain
+name: CheckForTestFile
 run-name: ${{ github.event_name }} by ${{ github.actor }} in ${{ github.repository }}
 on:
   pull_request:
