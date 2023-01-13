@@ -1,18 +1,24 @@
-name: PrintOnPullToMain
+name: StabilityCheck
 run-name: ${{ github.event_name }} by ${{ github.actor }} in ${{ github.repository }}
 on:
   pull_request:
     branches:
      - 'main'
 jobs:
-  CheckForFiles:
+  CheckFiles:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - run: if test -f "testwf.txt";
-             then
-                echo "testwf.txt found!";
-             else
-                echo "testwf.txt missing!";
-                exit 123;
-             fi
+     - uses: actions/checkout@v3
+     - run: if test -f "testwf.txt";
+            then
+              echo "testwf.txt found!";
+            else
+              echo "testwf.txt missing!";
+              exit 123;
+            fi
+  RunTests:
+    runs-on: ubuntu-latest
+    steps:
+     - uses: actions/checkout@v3
+     - run: cd ./Tests;
+            python3 testscript.py
