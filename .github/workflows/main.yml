@@ -1,7 +1,6 @@
 name: StabilityCheck
 run-name: ${{ github.event_name }} by ${{ github.actor }} in ${{ github.repository }}
 on:
-  push:
   pull_request:
     branches:
      - 'main'
