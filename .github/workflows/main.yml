@@ -22,5 +22,5 @@ jobs:
     steps:
      - uses: actions/checkout@v3
      - run: cd ./Tests;
-            pwd
-     - run: pwd
+            pwd;
+            python3 TestScript.py
