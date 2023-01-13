@@ -6,7 +6,7 @@ on:
     branches:
      - 'main'
 jobs:
-  CheckForFiles:
+  CheckFiles:
     runs-on: ubuntu-latest
     steps:
      - uses: actions/checkout@v3
@@ -22,5 +22,4 @@ jobs:
     steps:
      - uses: actions/checkout@v3
      - run: cd ./Tests;
-            pwd;
-            python3 TestScript.py
+            python3 testscript.py
