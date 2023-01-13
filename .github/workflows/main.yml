@@ -1,6 +1,7 @@
 name: PrintOnPullToMain
 run-name: ${{ github.event_name }} by ${{ github.actor }} in ${{ github.repository }}
 on:
+  push:
   pull_request:
     branches:
      - 'main'
@@ -8,11 +9,13 @@ jobs:
   CheckForFiles:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - run: if test -f "testwf.txt";
-             then
-                echo "testwf.txt found!";
-             else
-                echo "testwf.txt missing!";
-                exit 123;
-             fi
+     - uses: actions/checkout@v3
+     - run: if test -f "testwf.txt";
+            then
+              echo "testwf.txt found!";
+            else
+              echo "testwf.txt missing!";
+              exit 123;
+            fi
+     - run: cd ./Tests
+     - run: pwd
