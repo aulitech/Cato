@@ -20,5 +20,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
      - uses: actions/checkout@v3
-     - run: cd ./Tests;
+     - run: cd ./tests;
             python3 testscript.py
