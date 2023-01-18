@@ -3,9 +3,13 @@ import time
 import analogio
 import digitalio
 import asyncio
-
+import json
 class Bat:
     def __init__(self):
+        with open('battery_levels.json', 'r') as f:
+            x = json.load(f)
+            self.low = x['low']
+            self.high = x['high']
         self.b_pin = analogio.AnalogIn(board.VBATT)
         
         self.read_bat_ena = digitalio.DigitalInOut( board.READ_BATT_ENABLE )
@@ -25,9 +29,7 @@ class Bat:
 
     @property
     def level(self):
-        low = 22000
-        high = 28600
-        value = int( 100 * (self.raw_value - low) / (high - low) )
+        value = int( 100 * (self.raw_value - self.low) / (self.high - self.low) )
         if value > 100:
             value = 100
         if value < 0:

@@ -521,7 +521,8 @@ class Cato:
         min_run_cycles = settings['min_run_cycles']
         
         #scale is "base" for acceleration - do adjustments here
-        scale = None # MUST set scale
+        scale = 1.0
+        usr_scale = settings['scale'] #user multiplier
 
         """ TODO: have these values arise out of config """
         # dps limits for slow vs mid vs fast movement        
@@ -557,9 +558,10 @@ class Cato:
             mag = sqrt(x_mvmt**2 + y_mvmt**2)
             ang = atan2(y_mvmt, x_mvmt)
             
+
             # pure linear mouse, move number of pixels equal to number of degrees rotation
             if(mouse_type == "LINEAR"):
-                scale = 1.0
+                pass
 
             # mouse with dynamic acceleration for fine and coarse control
             if(mouse_type == "ACCEL"):
@@ -591,6 +593,7 @@ class Cato:
                     except:
                         pass
             
+            mag = mag * usr_scale
             # trig scaling of mouse x and y values
             x = int( scale * mag * cos(ang) )
             y = int( scale * mag * sin(ang) )
