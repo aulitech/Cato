@@ -20,71 +20,82 @@ import microcontroller as mc
 
 # False -> Writable for CircuitPython
 # True  -> Writable for Computer
-# at time of boot, decide whether we're in 
 
-storage.remount("/", False)
+class CHMOD:
+    COMP    = True  #board computer writable
+    BOARD   = False #board self writable
+    USR_DEF = mc.nvm[0] # board to user defined
+    def to_board():
+        storage.remount("/", CHMOD.BOARD)
 
-os.sync()
+    def to_comp():
+        storage.remount("/", CHMOD.COMP)
 
-new_name = "auli_cato"
-m = storage.getmount("/")
-m.label = new_name
-config = {
-    "device" : {
-        "name": "Cato",
-        "activated":"",
-        "lastused": "",
-        "lastboot": "",
-        "firmwareVersion":"",
-        "computer_write_enabled_on_boot":mc.nvm[0]
-    },
-    "connections" :  [
-        {
-            "name":"",
-            "ble": "", 
-            "calibration":"" 
-        },
-        {
-            "name":"",
-            "ble":"",
-            "calibration":""
-        }
-    ]
-}
+def rename_usb_mnt(name = "auli_cato"):
+    m = storage.getmount("/")
+    m.label = name
 
-print("Attempting to read config.json")
-try: 
-    with open("config.json", "r") as j:
-        print("Read File Successfully.")
-except OSError:
-    print("File does not exist.")
+def check_config():
+    config_exists = True
+    try: 
+        with open("config.json", "r") as j:
+            print("Config exists")
+    except OSError:
+        config_exists = False
+        print("Config does not exist.")
+    return config_exists
+
+def write_default_config():
+    
+    config = {}
+    st_mat = None
+
     try:
-        with open("config.json", "x") as j:
-            print("config.json created")
-            j.close()
-            try:
-                with open("config.json", "w") as j:
-                    j.write(json.dumps(config))
-                    j.close()
-            except:
-                print("config file write error")
+        with open("config.json", 'r') as cfg:
+            config = json.load(cfg)
+    except OSError:
+        print("config doesn't exist - creating file")
+        with open("config.json", 'x') as cfg:
+            print("Created New (Empty) config.json")
+    
+    print("Attempting to open st_matrix")
+    with open("st_matrix.json", 'r') as st:
+        st_mat = json.load(st)
+        
+
+    config['st_matrix'] = st_mat
+
+    with open("config.json", "w") as f:
+        print('config')
+        json.dump(config, f)
+
+def refresh_data_folder():
+    try:
+        os.rmdir("/data")
+        print("/data deleted")
     except:
-        print("config file creation Error")
+        print("Error removing /data")
 
-os.sync()
-
-try:
-    os.rmdir("/data")
-    print("/data deleted")
-except:
-    print("Error removing /data")
-try:
-    os.mkdir("/data")
-    print("/data created")
-except:
-    print("Did not make new data directory")
+    try:
+        os.mkdir("/data")
+        print("/data created")
+    except:
+        print("Did not make new data directory")
 
 print("Board is computer writable: {}".format(True if mc.nvm[0] else False))
 
-storage.remount("/", mc.nvm[0])
-os.sync()
+
+def main():
+    CHMOD.to_board() # remounts storage as board writable
+    rename_usb_mnt() # renames usb
+
+    has_config = check_config()
+    print(f"Checking config: {has_config}")
+    
+    write_default_config()
+    
+    storage.remount("/", mc.nvm[0])
+    os.sync()
+
+if __name__ == "__main__":
+    main()

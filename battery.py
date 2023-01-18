@@ -25,7 +25,7 @@ class Bat:
 
     @property
     def level(self):
-        low = 26000
+        low = 22000
         high = 28600
         value = int( 100 * (self.raw_value - low) / (high - low) )
         if value > 100:

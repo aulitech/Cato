@@ -7,3 +7,6 @@ DummyBT.py
 imu.py
 main.py
 mode.py
+./config/st_matrix.json
+./config/operation_mode.json
+./config/mouse_settings.json

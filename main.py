@@ -64,6 +64,7 @@ async def main():
          tasks.append(t)
     print("MAIN: setting default_move_mouse")
     c.events.default_move_mouse.set() 
+    await asyncio.sleep(1)
     await asyncio.gather( *tasks )
 
 asyncio.run( main() ) # True -> Debug

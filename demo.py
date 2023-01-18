@@ -1,26 +1,24 @@
-import asyncio
+import json
 
-async def loop_on_timer(ev):
-    while True:
-        print("looped on timer")
-        await asyncio.sleep(3)
-        ev.set()
-
-async def loop_on_event(ev):
-    while True:
-        print("awaiting")
-        await ev.wait()
-        print("got my event")
-        ev.clear()
-
-async def main():
-    ev = asyncio.Event()
-
-    tasks = [
-        asyncio.create_task( loop_on_timer(ev) ),
-        asyncio.create_task( loop_on_event(ev) )
-    ]
-
-    asyncio.gather( *tasks )
-
-asyncio.run( main() )
+my_dict = {
+    "Fruits" : {
+        "Apple" : {
+            "Taste" : "Sweet",
+            "Cost"  : 3.99
+        },
+        "Lemon" : {
+            "Taste" : "Sour",
+            "Cost"  : 1.99
+        }
+    },
+    "Veggies" : {
+        "Carrot" : {
+            "Taste" : "Crunchy",
+            "Cost"  : 2.00
+        },
+        "Eggplant" : {
+            "Taste" : "Squishy",
+            "Cost"  : 0.50
+        }
+    }
+}

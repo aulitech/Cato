@@ -80,7 +80,6 @@ class Events:
     def print_status(self):
         pass
 
-
 neuton_outputs = array.array( "f", [0, 0, 0, 0, 0, 0, 0, 0] )
 
 def mem():
@@ -94,11 +93,11 @@ class Cato:
             ~ @param bt: True configures and connect to BLE, False provides dummy connection
             ~ @param do_calib: True runs calibration, False disables for fast/lazy startup
         '''
-        try:    
-            with open("config.json", 'r') as f:
-                self.config = json.load(f)
-        except:
-            mc.reset()
+        # try:    
+        #     with open("config.json", 'r') as f:
+        #         self.config = json.load(f)
+        # except:
+        #     mc.reset()
 
 
         #specification for operation
@@ -123,18 +122,25 @@ class Cato:
         self.blue = BluetoothControl.BluetoothControl()
         
         self.state = ST.IDLE
-        self.st_matrix = [ # TODO: Read this from CONFIG.JSON
-                #   ST.IDLE                     ST.MOUSE_BUTTONS            ST.KEYBOARD
-                [   self._move_mouse,           self.to_idle,               self.to_idle        ], # EV.UP           = 0
-                [   self.left_click,            self.left_click,            self.press_enter    ], # EV.DOWN         = 1
-                [   self._scroll,               self.noop,                  self.noop           ], # EV.RIGHT        = 2
-                [   self._wait_for_motion,      self.noop,                  self.noop           ], # EV.LEFT         = 3
-                [   self._scroll_lr,             self.noop,                  self.noop           ], # EV.ROLL_R       = 4
-                [   self._scroll_lr,             self.noop,                  self.noop           ], # EV.ROLL_L       = 5
-                [   self.double_click,          self.noop,                  self.noop           ], # EV.SHAKE_YES    = 6
-                [   self._wait_for_motion,       self.noop,                  self.noop           ], # EV.SHAKE_NO     = 7
-                [   self.noop,                  self.noop,                  self.noop           ]  # EV.NONE         = 8
-        ]
+
+        # Set up state matrix control
+        self.name_mat = []
+        with open("st_matrix.json", "r") as f:
+            self.name_mat = json.load(f)
+        self.st_matrix = []
+        for row in self.name_mat:
+            tmp_row = []
+            for entry in row:
+                cmd = f"self.{entry}"
+                tmp_row.append(eval(cmd, {"self":self}))
+            self.st_matrix.append(tmp_row)
+        
+        # Set up mouse_settings
+        self.mouse_settings = []
+        with open("mouse_settings.json", "r") as f:
+            self.mouse_settings = json.load(f)
+        
+        
         # initial buffer position
         self.buf = 0
 
@@ -154,10 +160,10 @@ class Cato:
         # blocking functions enabled by events
         self.tasks = [
             asyncio.create_task( self.wait_for_motion() ),
-            asyncio.create_task( self.default_move_mouse() ),
+            asyncio.create_task( self.default_move_mouse() ), # control loop
             asyncio.create_task( self.move_mouse() ),
             asyncio.create_task( self.read_imu() ),
-            asyncio.create_task( self.int_imu() ),
+            asyncio.create_task( self.int_imu() ),  # interrupt imu, beneath the hood for reading imu
             asyncio.create_task( self.detect_event() ),
             asyncio.create_task( self.scroll() ),
             asyncio.create_task( self.scroll_lr() ),
@@ -176,7 +182,7 @@ class Cato:
             self.tasks.append(t)
         
         self.gesture = EV.NONE
-        print(self.events)
+        # print(self.events)
 
         mem()
 
@@ -270,7 +276,7 @@ class Cato:
         self.gx_trim = x / num
         self.gy_trim = y / num
         self.gz_trim = z / num
-        print("CALIBRATION: COMPLTED")
+        print("CALIBRATION: COMPLETED")
         self.events.calibration_done.set()
         
     async def stream_imu(self):
@@ -364,7 +370,7 @@ class Cato:
                 print("D_EV: wait_for_motion found motion")
                 self.events.sig_motion.clear()
                 #read_imu enough times
-                for i in range(self.specs['freq']):
+                for i in range( 76 ):
                     await self.events.data_ready.wait()
                     self.events.data_ready.clear()
 
@@ -507,28 +513,30 @@ class Cato:
         '''
             move the mouse via bluetooth until sufficiently idle
         '''
-
-        idle_thresh = 5.0 # speed below which is considered idle
-        min_run_cycles = 1 * self.specs['num_samples']
+        settings = {}
+        with open("mouse_settings.json", 'r') as f:
+            settings = json.load(f)
+        
+        idle_thresh = settings['idle_thresh'] # speed below which is considered idle  
+        min_run_cycles = settings['min_run_cycles']
         
         #scale is "base" for acceleration - do adjustments here
         scale = None # MUST set scale
 
         """ TODO: have these values arise out of config """
         # dps limits for slow vs mid vs fast movement        
-        slow_thresh = 20.0
-        fast_thresh = 240.0
+        slow_thresh = settings['slow_thresh']
+        fast_thresh = settings['fast_thresh']
 
         # scale amount for slow and fast movement, mid is linear translation between
-        slow_scale = 0.2
-        fast_scale = 3.0
+        slow_scale = settings['slow_scale']
+        fast_scale = settings['fast_scale']
 
         # number of cycles currently idled (reset to 0 on motion)
         idle_count = 0
 
         # number of cycles run in total
         cycle_count = 0
-        ti = sp.ticks_ms()
         while True:
             # print(".")
             await self.events.move_mouse.wait() # only execute when move_mouse is set
@@ -844,43 +852,58 @@ class Cato:
                     hall_pass.set()
                     print("WAIT: hall_pass set")
                     
-    # # NEEDS REWRITE
-    # def collect_n_gestures(self, n=1):
-    #     for file in os.listdir("/data"):
-    #         try:
-    #             print("removing existing copy of {}".format(file))
-    #             os.remove("data/{}".format(file))
-    #         except:
-    #             print("could not remove {}".format(file))
-    #     for i in range(n):
-    #         my_file = "data/data{:02}.txt".format(i)
-    #         print("Ready to read into: {}".format(my_file))
-    #         print("    Waiting for motion")
-    #         self.wait_for_motion()
-    #         print("Capturing")
-    #         self.read_gesture()
-    #         print("Done")
-    #         my_string = ""
-    #         chunks = 0
-    #         chunksize = 10
-    #         with io.open(my_file, "w") as f:
-    #             temp = ""
-    #             print("{} opened".format(my_file))
-    #             for sample in range(self.specs["num_samples"]):
-    #                 b_pos = (self.buf + sample + 1) % self.specs["num_samples"]
-    #                 temp = "%d,%f,%f,%f,%f,%f,%f" % (self.time_hist[b_pos],    
-    #                                                 self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],
-    #                                                 self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos])
-    #                 chunks += 1
-    #                 print(temp, file = f)
-    #                 if chunks % chunksize == 0:
-    #                     print('', file=f, flush=True, end='')
-    #                 # f.write("%d,%f,%f,%f,%f,%f,%f\r\n" % (self.time_hist[b_pos],    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],  \
-    #                 #    self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos]) )
-    #             #f.write(my_string)
-    #             #print(my_string)
-    #             f.close()
-    #         print("{} written".format(my_file))
+    # NEEDS REWRITE
+    def collect_n_gestures(self, n=1):
+        """
+        while True:
+            await (SOME SIGNAL THAT IT"S TIME TO COLLECT DATA):
+            clear that signal
+
+            await significant motion (method self.events.wait_for_motion.set())
+            wait for motion detection to break
+            clera the signal that motion detection happened
+
+            read the correct number of samples
+
+            write them to the board
+
+        """
+
+        # for file in os.listdir("/data"):
+        #     try:
+        #         print("removing existing copy of {}".format(file))
+        #         os.remove("data/{}".format(file))
+        #     except:
+        #         print("could not remove {}".format(file))
+        for i in range(n):
+            my_file = "data/data{:02}.txt".format(i)
+            print("Ready to read into: {}".format(my_file))
+            print("    Waiting for motion")
+            self.wait_for_motion() # await motion, when triggered, do capture
+            print("Capturing")
+            self.read_gesture() # reads one full buffer into the history
+            print("Done")
+            my_string = ""
+            chunks = 0
+            chunksize = 10
+            with io.open(my_file, "w") as f:
+                temp = ""
+                print("{} opened".format(my_file))
+                for sample in range(self.specs["num_samples"]):
+                    b_pos = (self.buf + sample + 1) % self.specs["num_samples"]
+                    temp = "%d,%f,%f,%f,%f,%f,%f" % (self.time_hist[b_pos],    
+                                                    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],
+                                                    self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos])
+                    chunks += 1
+                    print(temp, file = f)
+                    if chunks % chunksize == 0:
+                        print('', file=f, flush=True, end='')
+                    # f.write("%d,%f,%f,%f,%f,%f,%f\r\n" % (self.time_hist[b_pos],    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],  \
+                    #    self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos]) )
+                #f.write(my_string)
+                #print(my_string)
+                f.close()
+            print("{} written".format(my_file))
 
     async def collect_garbage(self):
         while True:
