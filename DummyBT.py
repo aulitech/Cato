@@ -1,3 +1,4 @@
+import asyncio
 class Button:
 
     def press(self):
@@ -36,6 +37,11 @@ class Bat:
 
 class BluetoothControl:
     def __init__(self):
+        self.tasks = [
+            asyncio.create_task( self.manage_connection() ),
+            asyncio.create_task( self.monitor_connections() ),
+            asyncio.create_task( self.reconnect() )
+        ]
         self.hid = 0
         self.device_info = 0
         self.advertisement = 0
@@ -45,6 +51,18 @@ class BluetoothControl:
         self.k = Keys()
         self.mouse = Mouse()
         self.battery_service = Bat()
+
+    async def manage_connection(self):
+        while True:
+            await asyncio.sleep(0)
+    
+    async def monitor_connections(self):
+        while True:
+            await asyncio.sleep(0)
+    
+    async def reconnect(self):
+        while True:
+            await asyncio.sleep(0)
 
     def connect_bluetooth(self):
         print("Dummy Connection")

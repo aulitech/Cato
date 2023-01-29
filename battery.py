@@ -21,10 +21,9 @@ class Bat:
     @property
     def raw_value(self):
         self.read_bat_ena.value = False
-        time.sleep(0.12)
         temp = self.b_pin.value
-        self.read_bat_ena.value = True
         print(f"Battery: Raw Value = {temp}")
+        self.read_bat_ena.value = True
         return temp
 
     @property

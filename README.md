@@ -34,21 +34,6 @@ It detects rolling (left ear -> left shoulder; right ear -> right shoulder)
 
 It detects "Yes" and "No"
 
-Those gestures are mapped as:
-
-    self.st_matrix = [
-        #       ST.IDLE                     ST.MOUSE_BUTTONS            ST.KEYBOARD
-            [   self.move_mouse,            self.to_idle,               self.to_idle        ], #EV.UP           = 0            
-            [   self.left_click,            self.left_click,            self.press_enter    ], #EV.DOWN         = 1            
-            [   self.scroll,                self.noop,                  self.noop           ], #EV.RIGHT        = 2            
-            [   self.hang_until_motion,     self.noop,                  self.noop           ], #EV.LEFT         = 3            
-            [   self.scroll_lr,             self.noop,                  self.noop           ], #EV.ROLL_R       = 4            
-            [   self.scroll_lr,             self.noop,                  self.noop           ], #EV.ROLL_L       = 5            
-            [   self.double_click,          self.noop,                  self.noop           ], #EV.SHAKE_YES    = 6            
-            [   self.hang_until_motion,     self.noop,                  self.noop           ], #EV.SHAKE_NO     = 7            
-            [   self.noop,                  self.noop,                  self.noop           ]  #EV.NONE         = 8   
-    ]
-
 ## Mode 2: Mouse Movement
 
     Cato moves the cursor on screen until the user idles the cursor for a moment
@@ -56,3 +41,38 @@ Those gestures are mapped as:
     It then gently jiggles the cursor to indicate completion of mouse movement
 
     It then re-enters gesture detection mode
+
+# Settings Guide
+
+## Mouse Settings
+
+    "idle_thresh"   : Slower than this number means mouse is detecting idle (default 5.0)
+    "min_run_cycles": Number of samples to run before starting idle-checking (default 30.0)
+    "scale"         : Base number - change this to increase mouse speed by flat multiplier (default 1.0)
+    "slow_thresh"   : User speed floor. Above this, mouse accelerates (default 20.0)
+    "fast_thresh"   : User speed ceiling. Motion faster than this no longer accelerates. (default 240.0)
+    "slow_scale"    : Cursor speed floor. (default 0.2)
+    "fast_scale"    : Cursor speed ceiling. (default 3.0)
+
+## State Matrix
+
+    | GESTURE       | IDLE              | MOUSE (Coming soon!)  | KEYBOARD MODE (Coming soon!)  |
+    | -----------   | -----------       | -----------           | -----------                   |
+    | Up            | Left Click        | -----------           | -----------                   |
+    | Down          | Move Mouse        | -----------           | -----------                   |
+    | Right         | Scroll            | -----------           | -----------                   |
+    | Left          | Wait for Motion   | -----------           | -----------                   |
+    | Roll Right    | Scroll Left/Right | -----------           | -----------                   |
+    | Roll Left     | Scroll Left/Right | -----------           | -----------                   |
+    | Nod Yes       | Double Click      | -----------           | -----------                   |
+    | Shake No      | No Operation      | -----------           | -----------                   |
+
+## Operation Mode
+
+    Select mode of operation:
+
+    Gesture Collection
+
+    Standard operation
+
+    TV Mode (coming soon)

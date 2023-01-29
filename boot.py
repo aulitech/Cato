@@ -45,31 +45,35 @@ def check_config():
         print("Config does not exist.")
     return config_exists
 
-def write_default_config():
+# def write_default_config():
     
-    config = {}
-    st_mat = None
+#     config = {}
+#     st_mat = None
 
-    try:
-        with open("config.json", 'r') as cfg:
-            config = json.load(cfg)
-    except OSError:
-        print("config doesn't exist - creating file")
-        with open("config.json", 'x') as cfg:
-            print("Created New (Empty) config.json")
+#     try:
+#         with open("config.json", 'r') as cfg:
+#             config = json.load(cfg)
+#     except OSError:
+#         print("config doesn't exist - creating file")
+#         with open("config.json", 'x') as cfg:
+#             print("Created New (Empty) config.json")
     
-    print("Attempting to open st_matrix")
-    with open("st_matrix.json", 'r') as st:
-        st_mat = json.load(st)
+#     print("Attempting to open st_matrix")
+#     with open("st_matrix.json", 'r') as st:
+#         st_mat = json.load(st)
         
 
-    config['st_matrix'] = st_mat
+#     config['st_matrix'] = st_mat
 
-    with open("config.json", "w") as f:
-        print('config')
-        json.dump(config, f)
+#     with open("config.json", "w") as f:
+#         print('config')
+#         json.dump(config, f)
 
 def refresh_data_folder():
+    # data_001, data 002, ...
+
+    # get existign data num
+    num = 1
     try:
         os.rmdir("/data")
         print("/data deleted")
@@ -92,7 +96,7 @@ def main():
     has_config = check_config()
     print(f"Checking config: {has_config}")
     
-    write_default_config()
+    # write_default_config()
     
     storage.remount("/", mc.nvm[0])
     os.sync()
