@@ -6,10 +6,10 @@ import asyncio
 import json
 class Bat:
     def __init__(self):
-        with open('battery_levels.json', 'r') as f:
+        with open('config.json', 'r') as f:
             x = json.load(f)
-            self.low = x['low']
-            self.high = x['high']
+            self.low = x['battery']['low']
+            self.high = x['battery']['high']
         self.b_pin = analogio.AnalogIn(board.VBATT)
         
         self.read_bat_ena = digitalio.DigitalInOut( board.READ_BATT_ENABLE )
