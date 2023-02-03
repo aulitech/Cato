@@ -73,12 +73,14 @@ class BluetoothControl:
         }
  
     async def manage_connection(self):
+        #print("+ manage_connection")
         while True:
             # wait for advertisement enable
             await self.ena_adv.wait()
             print("BLE_MANAGE: Starting BLE advertisement")
             self.ble.start_advertising(self.advertisement, self.scan_response)
             
+            #print(": manage_connection -> is_connected.wait()")
             # wait for a connection
             await self.is_connected.wait()
             self.ena_adv.clear()
@@ -88,6 +90,7 @@ class BluetoothControl:
             print("BLE_MANAGE: No longer advertising")
     
     async def reconnect(self):
+        #print("+ reconnect")
         while True:
             await self.is_disconnected.wait()
             self.ena_adv.set()
@@ -96,6 +99,7 @@ class BluetoothControl:
             await asyncio.sleep(0.5) # small advertising reset
         
     async def monitor_connections(self):
+        #print("+ monitor_connections")
         while True:
             # Check connection
             if self.ble.connected: # When connected

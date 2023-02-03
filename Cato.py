@@ -69,6 +69,7 @@ class Events:
     stream_imu              = asyncio.Event()   # stream data from the imu onto console -- useful for debugging
     detect_event            = asyncio.Event()   # triggers detection of Cato gesture
     idle                    = asyncio.Event()   # triggered when no events change for some time
+    collect_gestures        = asyncio.Event()   #working on it
 
 
 neuton_outputs = array.array( "f", [0, 0, 0, 0, 0, 0, 0, 0] )
@@ -131,13 +132,29 @@ class Cato:
 
         self.imu = LSM6DS3TRC()
 
+        print("mc.nvm[0] = ",mc.nvm[0]," ")
+        if(self.config["operation_mode"] == "CollGest")&(bool(mc.nvm[0])):  ###prob want to replace >=20 w more robust boolDict of selfwrite modes
+            print("BOOTING SELF-WRITABLE")
+            mc.nvm[0] = 0       #switch bit to boot board self writable
+            print("mc.nvm[0] = ",bool(mc.nvm[0])," ")
+            time.sleep(1)       ##this is here just so print statements finish
+            mc.reset()
+        print("-- past writable check")
+
         # blocking functions enabled by events
-        self.tasks = {
-            "wait_for_motion"   : self.wait_for_motion(),
-            "move_mouse"        : self.move_mouse(),
-            "detect_event"      : self.detect_event(),
-            "scroll"            : self.scroll()
-        }
+        if(self.config["operation_mode"] == "standard"):
+            self.tasks = {
+                "wait_for_motion"   : self.wait_for_motion(),
+                "move_mouse"        : self.move_mouse(),
+                "detect_event"      : self.detect_event(),
+                "scroll"            : self.scroll()
+            }
+        elif(self.config["operation_mode"] == "CollGest"):
+            self.tasks = {
+                "wait_for_motion"   : self.wait_for_motion(),
+                "collect_gestures"  : self.collect_gestures()
+                #"scroll"            : self.scroll()
+            }
         self.tasks.update(self.imu.tasks)
         self.tasks.update(self.blue.tasks)
         
@@ -601,55 +618,62 @@ class Cato:
 
                     
     # NEEDS REWRITE
-    def collect_n_gestures(self, n=1):
-        """
-        while True:
-            await (SOME SIGNAL THAT IT"S TIME TO COLLECT DATA):
-            clear that signal
+    async def collect_gestures(self, logName = "log.txt", n = 2, winSize = 76):
+        await self.events.collect_gestures.wait()
+        for gestID in range(5):
+            while(n > 0):
+                n -= 1
+                print("Collecting Gestures")
+                hist = []
+                maxGest = list
+                maxAbs = float
 
-            await significant motion (method self.events.wait_for_motion.set())
-            wait for motion detection to break
-            clera the signal that motion detection happened
+                # gather data from imu for 5sec
+                loadtimer = asyncio.Event()
+                c = 0
+                start = int
+                counter = int
+                while(not loadtimer.is_set()):    ##could check max acc as it's read to cut mem by 1/4 (would require splitting maxGest into pre/post queues)
+                    await self.imu.wait()
+                    hist.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz, gestID))
+                    if(c == 0):
+                        print(",\t".join(str(v) for v in hist[len(hist)-1]))
+                    c = (c+1)%32
 
-            read the correct number of samples
+                    if(len(hist) == winSize):
+                        maxGest = hist.copy()
+                        maxAbs = maxGest[int(winSize/2)]
+                        maxAbs = maxAbs[0]**2 + maxAbs[1]**2+maxAbs[2]**2
+                        print("Perform Gesture: ",gestID)
+                        asyncio.create_task(self.countN(loadtimer, 5))
+                        start = time.time()
+                        counter = -1
+                        
+                    elif(len(hist) > winSize):
+                        hist.pop(0)
+                        currMid = hist[int(winSize/2)]                    
+                        currAbs = currMid[3]**2 + currMid[4]**2 + currMid[5]**2
+                        if(currAbs > maxAbs):
+                            maxAbs = currAbs
+                            maxGest = hist.copy()
+                        
+                        if(counter < round(time.time() -start)):
+                            counter = round(time.time()-start)
+                            print(counter,": ",time.time()-start)
 
-            write them to the board
+                # record data
+                with open(logName,"w") as log:       ##swap to append for final
+                    print("Writing to ",logName)
+                    while(len(maxGest) > 0):
+                        d = maxGest.pop(0)
+                        log.write(",".join(str(v) for v in d))
+                        log.write("\n")
 
-        """
-
-        # for file in os.listdir("/data"):
-        #     try:
-        #         print("removing existing copy of {}".format(file))
-        #         os.remove("data/{}".format(file))
-        #     except:
-        #         print("could not remove {}".format(file))
-        for i in range(n):
-            my_file = "data/data{:02}.txt".format(i)
-            print("Ready to read into: {}".format(my_file))
-            print("    Waiting for motion")
-            self.wait_for_motion() # await motion, when triggered, do capture
-            print("Capturing")
-            self.read_gesture() # reads one full buffer into the history
-            print("Done")
-            my_string = ""
-            chunks = 0
-            chunksize = 10
-            with io.open(my_file, "w") as f:
-                temp = ""
-                print("{} opened".format(my_file))
-                for sample in range(self.specs["num_samples"]):
-                    b_pos = (self.buf + sample + 1) % self.specs["num_samples"]
-                    temp = "%d,%f,%f,%f,%f,%f,%f" % (self.time_hist[b_pos],    
-                                                    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],
-                                                    self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos])
-                    chunks += 1
-                    print(temp, file = f)
-                    if chunks % chunksize == 0:
-                        print('', file=f, flush=True, end='')
-                    # f.write("%d,%f,%f,%f,%f,%f,%f\r\n" % (self.time_hist[b_pos],    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],  \
-                    #    self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos]) )
-                #f.write(my_string)
-                #print(my_string)
-                f.close()
-            print("{} written".format(my_file))
-
+        #print("Gesture Collection Completed")
+        mc.nvm[0] = True
+        raise Exception("Gesture Collection Completed")
+    
+    async def countN(self, ev, n):
+        #print("+ countN")
+        await asyncio.sleep(n)
+        ev.set()
