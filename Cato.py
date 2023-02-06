@@ -616,53 +616,59 @@ class Cato:
                 if hall_pass is not None:
                     hall_pass.set()
 
-                    
-    # NEEDS REWRITE
+
     async def collect_gestures(self, logName = "log.txt", n = 2, winSize = 76):
         await self.events.collect_gestures.wait()
+        print("Collecting Gestures")
+        gesttimer = asyncio.Event()
         for gestID in range(5):
             while(n > 0):
+                
                 n -= 1
-                print("Collecting Gestures")
                 hist = []
                 maxGest = list
                 maxAbs = float
 
                 # gather data from imu for 5sec
-                loadtimer = asyncio.Event()
                 c = 0
-                start = int
+                start = 0
                 counter = int
-                while(not loadtimer.is_set()):    ##could check max acc as it's read to cut mem by 1/4 (would require splitting maxGest into pre/post queues)
-                    await self.imu.wait()
-                    hist.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz, gestID))
-                    if(c == 0):
-                        print(",\t".join(str(v) for v in hist[len(hist)-1]))
-                    c = (c+1)%32
+                with open("collgest_event_log.txt",'w') as inter:
+                    inter.write("Reading Data")
+                    while(not gesttimer.is_set()):#|(time.time()-start < 2):    ##could check max acc as it's read to cut mem by 1/4 (would require splitting maxGest into pre/post queues)
+                        await self.imu.wait()
+                        hist.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz, gestID))
+                        if(c == 0):
+                            print(",\t".join(str(v) for v in hist[len(hist)-1]))
+                        c = (c+1)%32
 
-                    if(len(hist) == winSize):
-                        maxGest = hist.copy()
-                        maxAbs = maxGest[int(winSize/2)]
-                        maxAbs = maxAbs[0]**2 + maxAbs[1]**2+maxAbs[2]**2
-                        print("Perform Gesture: ",gestID)
-                        asyncio.create_task(self.countN(loadtimer, 5))
-                        start = time.time()
-                        counter = -1
-                        
-                    elif(len(hist) > winSize):
-                        hist.pop(0)
-                        currMid = hist[int(winSize/2)]                    
-                        currAbs = currMid[3]**2 + currMid[4]**2 + currMid[5]**2
-                        if(currAbs > maxAbs):
-                            maxAbs = currAbs
+                        if(len(hist) == winSize):
                             maxGest = hist.copy()
-                        
-                        if(counter < round(time.time() -start)):
-                            counter = round(time.time()-start)
-                            print(counter,": ",time.time()-start)
+                            maxAbs = maxGest[int(winSize/2)]
+                            maxAbs = maxAbs[0]**2 + maxAbs[1]**2+maxAbs[2]**2
+                            print("Perform Gesture: ",gestID)
+                            inter.write("Timer Started")
+                            asyncio.create_task(self.countN(gesttimer, 5))
+                            start = time.time()
+                            counter = -1
+                            
+                        elif(len(hist) > winSize):
+                            hist.pop(0)
+                            currMid = hist[int(winSize/2)]                    
+                            currAbs = currMid[3]**2 + currMid[4]**2 + currMid[5]**2
+                            if(currAbs > maxAbs):
+                                inter.write("New Max Read")
+                                maxAbs = currAbs
+                                maxGest = hist.copy()
+                            
+                            if(counter < round(time.time() -start)):
+                                counter = round(time.time()-start)
+                                print(counter,": ",time.time()-start)
+                    gesttimer.clear()
 
+                    inter.write("Logging Max")
                 # record data
-                with open(logName,"w") as log:       ##swap to append for final
+                with open(logName,"w") as log:       ##swap to append for final?
                     print("Writing to ",logName)
                     while(len(maxGest) > 0):
                         d = maxGest.pop(0)
