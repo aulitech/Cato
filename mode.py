@@ -11,22 +11,22 @@ def countdown(timer = boot_timer):
 
 def to_computer_writable():
     mc.nvm[0] = True
-    print("\nMicrocontroller.nvm[0] -> True")
-    print("Rebooting into computer writable mode in {} seconds. For self-writable hit CtrC again".format(boot_timer))
-    try:
-        countdown()
-    except KeyboardInterrupt:
-        return
+    # print("\nMicrocontroller.nvm[0] -> True")
+    # print("Rebooting into computer writable mode in {} seconds. For self-writable hit CtrC again".format(boot_timer))
+    # try:
+    #     countdown()
+    # except KeyboardInterrupt:
+    #     return
     mc.reset()
 
 def to_self_writable():
     mc.nvm[0] = False
-    print("\nMicrocontroller.nvm[0] -> False")
-    print("Rebooting into self writable mode in {} seconds. For computer-writable hit CtrC again".format(boot_timer))
-    try:
-        countdown()
-    except KeyboardInterrupt:
-        return
+    # print("\nMicrocontroller.nvm[0] -> False")
+    # print("Rebooting into self writable mode in {} seconds. For computer-writable hit CtrC again".format(boot_timer))
+    # try:
+    #     countdown()
+    # except KeyboardInterrupt:
+    #     return
     mc.reset()
 
 def select_reboot_mode():

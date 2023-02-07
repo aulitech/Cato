@@ -49,13 +49,15 @@ def my_time():
 
 #         c.imupwr.value = True
 #         c.events.imu_ena.set()
+def mem( loc = "" ):
+    print(f"Free Memory at {loc}: \n\t{gc.mem_free()}")
 
 async def feed_dog():
     ''' feed the watchdog '''
     print("feed dog -- top")
     while True:
         w.feed()
-        print("dog")
+        # print("dog")
         await asyncio.sleep(8)
 
 def print_boot_out():
@@ -69,13 +71,18 @@ def print_boot_out():
 async def control_loop(c : Cato.Cato):
     """Control loop for Cato standard operation"""
     # await self.events.calibration_done.wait()
-    await c.imu.calibrate(100)
+    # await c.imu.calibrate(100)
     while True:
         print("control -- top")
+        print(gc.mem_free())
         await c.events.control_loop.wait() #await permission to start
         c.events.control_loop.clear()
-        
+        print("control loop -- running move_mouse")
+        print(gc.mem_free())
+
         await c.block_on( c._move_mouse )
+        print("control loop -- move_mouse finished")
+        print(gc.mem_free())
         c.events.detect_event.set()
 
 async def main():
@@ -87,16 +94,14 @@ async def main():
         "control_loop"  : control_loop( c ),
     }
     tasks.update(c.tasks)
-    print( tasks.keys() )
+    # print( tasks.keys() )
 
     c.imu.imu_enable.set()
-    await asyncio.sleep(2)
-    print(gc.mem_free())
+    await asyncio.sleep(0.5)
+    # print(gc.mem_free())
     
     #decide op_mode here?
     c.events.control_loop.set()
-
-    # print([thing for thing in tasks.values()])
     await asyncio.gather( *tasks.values() )
 
 print("Running Main: ")

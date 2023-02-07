@@ -4,12 +4,15 @@ import analogio
 import digitalio
 import asyncio
 import json
-class Bat:
+
+from CircularBuffer import CircBuf
+class Battery:
     def __init__(self):
         with open('config.json', 'r') as f:
             x = json.load(f)
             self.low = x['battery']['low']
             self.high = x['battery']['high']
+        
         self.b_pin = analogio.AnalogIn(board.VBATT)
         
         self.read_bat_ena = digitalio.DigitalInOut( board.READ_BATT_ENABLE )
@@ -17,14 +20,20 @@ class Bat:
         self.read_bat_ena.value = True
 
         self.charge_st = digitalio.DigitalInOut( board.CHARGE_STATUS )
+
+        self.bat_hist = CircBuf(10, [])
+
     
     @property
     def raw_value(self):
         self.read_bat_ena.value = False
+        time.sleep(0.1)
         temp = self.b_pin.value
+        self.bat_hist.append(temp)
         print(f"Battery: Raw Value = {temp}")
         self.read_bat_ena.value = True
-        return temp
+        time.sleep(0.1)
+        return self.bat_hist.avg
 
     @property
     def level(self):
