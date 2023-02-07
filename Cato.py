@@ -133,7 +133,7 @@ class Cato:
         self.imu = LSM6DS3TRC()
 
         print("mc.nvm[0] = ",mc.nvm[0]," ")
-        if(self.config["operation_mode"] == "CollGest")&(bool(mc.nvm[0])):  ###prob want to replace >=20 w more robust boolDict of selfwrite modes
+        if(self.config["operation_mode"] >=20)&(bool(mc.nvm[0])):  ###prob want to replace >=20 w more robust boolDict of selfwrite modes
             print("BOOTING SELF-WRITABLE")
             mc.nvm[0] = 0       #switch bit to boot board self writable
             print("mc.nvm[0] = ",bool(mc.nvm[0])," ")
@@ -142,14 +142,14 @@ class Cato:
         print("-- past writable check")
 
         # blocking functions enabled by events
-        if(self.config["operation_mode"] == "standard"):
+        if(self.config["operation_mode"] == 0):
             self.tasks = {
                 "wait_for_motion"   : self.wait_for_motion(),
                 "move_mouse"        : self.move_mouse(),
                 "detect_event"      : self.detect_event(),
                 "scroll"            : self.scroll()
             }
-        elif(self.config["operation_mode"] == "CollGest"):
+        elif(self.config["operation_mode"] >=20):
             self.tasks = {
                 "wait_for_motion"   : self.wait_for_motion(),
                 "collect_gestures"  : self.collect_gestures()
@@ -620,7 +620,9 @@ class Cato:
     async def collect_gestures(self, logName = "log.txt", n = 2, winSize = 76):
         await self.events.collect_gestures.wait()
         print("Collecting Gestures")
-        gesttimer = asyncio.Event()
+        self.blue.k.press(Keycode.H,Keycode.E,Keycode.Y)
+        self.blue.k.release_all()
+        gest_timer = asyncio.Event()
         for gestID in range(5):
             while(n > 0):
                 
@@ -635,12 +637,12 @@ class Cato:
                 counter = int
                 with open("collgest_event_log.txt",'w') as inter:
                     inter.write("Reading Data")
-                    while(not gesttimer.is_set()):#|(time.time()-start < 2):    ##could check max acc as it's read to cut mem by 1/4 (would require splitting maxGest into pre/post queues)
+                    while(not gest_timer.is_set()):#|(time.time()-start < 2):
                         await self.imu.wait()
                         hist.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz, gestID))
-                        if(c == 0):
-                            print(",\t".join(str(v) for v in hist[len(hist)-1]))
-                        c = (c+1)%32
+                        # if(c == 0):
+                        #     print(",\t".join(str(v) for v in hist[len(hist)-1]))
+                        # c = (c+1)%32
 
                         if(len(hist) == winSize):
                             maxGest = hist.copy()
@@ -648,10 +650,11 @@ class Cato:
                             maxAbs = maxAbs[0]**2 + maxAbs[1]**2+maxAbs[2]**2
                             print("Perform Gesture: ",gestID)
                             inter.write("Timer Started")
-                            asyncio.create_task(self.countN(gesttimer, 5))
+                            asyncio.create_task(self.countN(gest_timer, 5))  # Timer starts here
                             start = time.time()
                             counter = -1
-                            
+                        
+                        ##could check max acc as it's read to cut mem by 1/4 (would require splitting maxGest into pre/post queues)
                         elif(len(hist) > winSize):
                             hist.pop(0)
                             currMid = hist[int(winSize/2)]                    
@@ -660,24 +663,50 @@ class Cato:
                                 inter.write("New Max Read")
                                 maxAbs = currAbs
                                 maxGest = hist.copy()
-                            
-                            if(counter < round(time.time() -start)):
-                                counter = round(time.time()-start)
-                                print(counter,": ",time.time()-start)
-                    gesttimer.clear()
 
+                            # if(counter < round(time.time() -start)):
+                            #     counter = round(time.time()-start)
+                            #     print(counter,": ",time.time()-start)
+                    gest_timer.clear()
+                    self.bluType("Hello World 123")
                     inter.write("Logging Max")
+                    
                 # record data
                 with open(logName,"w") as log:       ##swap to append for final?
-                    print("Writing to ",logName)
+                    print("Writing to",logName)
                     while(len(maxGest) > 0):
                         d = maxGest.pop(0)
                         log.write(",".join(str(v) for v in d))
                         log.write("\n")
 
-        #print("Gesture Collection Completed")
+        print("Gesture Collection Completed")
+        self.bluType("Hello World 123")
+
+        asyncio.create_task(self.countN(gest_timer, 10))
+        await gest_timer.wait()
         mc.nvm[0] = True
-        raise Exception("Gesture Collection Completed")
+        #raise Exception("Gesture Collection Completed")
+    
+
+    def bluType(self, str):
+        print("+ bluType")
+        for c in str:
+            if(ord(c) >= 97):
+                c = ord(c) - 93
+            elif(ord(c) >= 65):
+                self.blue.k.press(225)  #LShift
+                c = ord(c) - 61
+            elif(c == ' '):
+                c = 44
+            elif(c == '0'):
+                c = 39
+            else:
+                c = int(c) + 29
+            self.blue.k.press(c)
+            self.blue.k.release_all()
+        print("- bluType")
+            
+
     
     async def countN(self, ev, n):
         #print("+ countN")
