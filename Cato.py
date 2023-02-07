@@ -618,10 +618,9 @@ class Cato:
 
 
     async def collect_gestures(self, logName = "log.txt", n = 2, winSize = 76):
+        await self.blue.is_connected.wait()
         await self.events.collect_gestures.wait()
         print("Collecting Gestures")
-        self.blue.k.press(Keycode.H,Keycode.E,Keycode.Y)
-        self.blue.k.release_all()
         gest_timer = asyncio.Event()
         for gestID in range(5):
             while(n > 0):
@@ -635,8 +634,8 @@ class Cato:
                 c = 0
                 start = 0
                 counter = int
-                with open("collgest_event_log.txt",'w') as inter:
-                    inter.write("Reading Data")
+                with open("collgest_event_log.txt",'w') as evLog:
+                    evLog.write("Reading Data")
                     while(not gest_timer.is_set()):#|(time.time()-start < 2):
                         await self.imu.wait()
                         hist.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz, gestID))
@@ -648,8 +647,9 @@ class Cato:
                             maxGest = hist.copy()
                             maxAbs = maxGest[int(winSize/2)]
                             maxAbs = maxAbs[0]**2 + maxAbs[1]**2+maxAbs[2]**2
+                            self.bluType("Perform Gesture "+str(gestID))
                             print("Perform Gesture: ",gestID)
-                            inter.write("Timer Started")
+                            evLog.write("Timer Started")
                             asyncio.create_task(self.countN(gest_timer, 5))  # Timer starts here
                             start = time.time()
                             counter = -1
@@ -660,7 +660,7 @@ class Cato:
                             currMid = hist[int(winSize/2)]                    
                             currAbs = currMid[3]**2 + currMid[4]**2 + currMid[5]**2
                             if(currAbs > maxAbs):
-                                inter.write("New Max Read")
+                                evLog.write("New Max Read")
                                 maxAbs = currAbs
                                 maxGest = hist.copy()
 
@@ -668,8 +668,9 @@ class Cato:
                             #     counter = round(time.time()-start)
                             #     print(counter,": ",time.time()-start)
                     gest_timer.clear()
-                    self.bluType("Hello World 123")
-                    inter.write("Logging Max")
+                    self.bluType("Gesture Collected")
+                    self.bluType("Logging Max")
+                    evLog.write("Logging Max")
                     
                 # record data
                 with open(logName,"w") as log:       ##swap to append for final?
@@ -680,9 +681,9 @@ class Cato:
                         log.write("\n")
 
         print("Gesture Collection Completed")
-        self.bluType("Hello World 123")
+        self.bluType("Gesture Collection Completed")
 
-        asyncio.create_task(self.countN(gest_timer, 10))
+        asyncio.create_task(self.countN(gest_timer, 5))
         await gest_timer.wait()
         mc.nvm[0] = True
         #raise Exception("Gesture Collection Completed")
@@ -704,6 +705,7 @@ class Cato:
                 c = int(c) + 29
             self.blue.k.press(c)
             self.blue.k.release_all()
+        self.blue.k.send(40)    #Enter
         print("- bluType")
             
 
