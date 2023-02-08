@@ -18,6 +18,7 @@
     "operation_mode" : "standard",
 
     "st_matrix" : [
+        [   "noop",                        "noop",                 "noop"          ],
         [   "_move_mouse",                 "to_idle",              "to_idle"       ], 
         [   "left_click",                  "left_click",           "press_enter"   ], 
         [   "_scroll",                     "noop",                 "noop"          ], 
@@ -25,7 +26,6 @@
         [   "_scroll_lr",                  "noop",                 "noop"          ], 
         [   "_scroll_lr",                  "noop",                 "noop"          ], 
         [   "double_click",                "noop",                 "noop"          ], 
-        [   "_wait_for_motion",            "noop",                 "noop"          ], 
-        [   "noop",                        "noop",                 "noop"          ]
+        [   "_wait_for_motion",            "noop",                 "noop"          ]
     ]
 }
