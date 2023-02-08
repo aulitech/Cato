@@ -148,20 +148,13 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         collect_spacer = 10 # collect garbage every n cycles
         rad_to_deg = 360.0 / (2*3.1416)
         while True:
-            # hold until data ready
-            # print("read -- awaiting imu_ready")
-            
-            # print("A: ", gc.mem_free())
             await self.imu_ready.wait()
             cycles = (cycles + 1) % collect_spacer
             if cycles == 0:
                 gc.collect()
-            # print("B: ", gc.mem_free())
             
             self.imu_ready.clear()
-            # read from IMU
             self.gx, self.gy, self.gz = self.gyro
-            # print("C: ", gc.mem_free())
 
             self.gx *= rad_to_deg
             self.gy *= rad_to_deg

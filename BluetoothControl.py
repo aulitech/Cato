@@ -27,9 +27,8 @@ class Appearances:
 
 class BluetoothControl:
     def __init__(self):
-        mem("BTC, INIT, TOP")
-        self.hid = HIDService()
-        mem("BTC, hid created")
+        self.hid = HIDService() # manages human interface device
+
         self.device_info = DeviceInfoService(
             manufacturer = "AULITECH",
             # github will manage
@@ -42,76 +41,65 @@ class BluetoothControl:
             hardware_revision = "v0.0",
             service = None
         )
-        # mem("BTC, device_info created")
 
         self.advertisement = ProvideServicesAdvertisement( self.hid )
         self.advertisement.appearance = Appearances.hid
-        self.advertisement.short_name = "Cato_advert_name"
+        self.advertisement.short_name = "Cato"
         # self.advertisement.flags.general_discovery = False
         # self.advertisement.flags.limited_discovery = True
         # self.advertisement.flags.general_discovery = AdvertisingFlag(1)
         # mem("BTC, advertisement created")
 
         self.scan_response = Advertisement(  )
-        self.scan_response.short_name = "Cato_scan_resp_name"
+        self.scan_response.short_name = "Cato"
         self.scan_response.appearance = Appearances.hid
         # mem("BTC, scan_response created")
         
+        # BLERadio can toggle advertising state
         self.ble = adafruit_ble.BLERadio()
-        # mem("BTC, ble_radio created")
-        if self.ble.connected:
-            print("Woke up connected")
-            for c in self.ble.connections:
-                c.disconnect()
-
-        self.battery_service = adafruit_ble.services.standard.BatteryService()
         
-         #mem("Pre hid's")
+        # HID handles
         self.k = Keyboard(self.hid.devices)
         self.kl = KeyboardLayoutUS(self.k)
         self.mouse = Mouse(self.hid.devices)
-        # mem("Post hid's")
         
-        self.ena_adv = asyncio.Event()
-        self.is_connected = asyncio.Event()
-        self.is_disconnected = asyncio.Event()
+        # Battery service. Can inform central of battery level with this.level
+        self.battery_service = adafruit_ble.services.standard.BatteryService()
+
+        self.ena_adv = asyncio.Event()          # enable advertising
+        self.is_connected = asyncio.Event()     # indicates connection
+        self.is_disconnected = asyncio.Event()  # indicates disconnection
 
         self.is_disconnected.set() #board starts without connection
 
-        self.tasks = {
+        self.tasks = {  # tasks
             "manage_connection"     : self.manage_connection(),
             "monitor_connections"   : self.monitor_connections(),
             "reconnect"             : self.reconnect()
         }
-
-        mem("BTC: INIT END")
  
     async def manage_connection(self):
         while True:
-            # wait for advertisement enable
+            # First, wait for advertisement enable
             await self.ena_adv.wait()
-            mem("bt advetising")
             print("Bluetooth: Advertising")
             self.ble.start_advertising(self.advertisement, self.scan_response)
             
-            # wait for a connection
+            # Then, wait for a connection
             await self.is_connected.wait()
+            
+            # Finally, stop advertising
             self.ena_adv.clear()
-
-            # await asyncio.sleep(1)
             self.ble.stop_advertising()
-            mem("done advertising")
-            print("Bluetooth: No longer advertising")
+            print("Bluetooth: Advertising disabled")
     
     async def reconnect(self):
         while True:
             await self.is_disconnected.wait()
             self.ena_adv.set()
-
-            await asyncio.sleep(5) # rate limit the "start advertising"
+            
+            await self.is_connected.wait()
             self.ena_adv.clear()
-
-            await asyncio.sleep(0.5) # small advertising reset
         
     async def monitor_connections(self):
         while True:
@@ -132,4 +120,4 @@ class BluetoothControl:
 
                 if self.is_connected.is_set():
                     self.is_connected.clear()
-            await asyncio.sleep(3)
+            await asyncio.sleep(5)

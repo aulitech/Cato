@@ -89,7 +89,7 @@ class Cato:
             with open("config.json", 'r') as f:
                 self.config = json.load(f)
         except:
-            mc.reset()
+            mc.reset() # nominally I'd like this to write some kind of "default config" from boot
 
         #specification for operation
         self.specs = {
@@ -108,11 +108,8 @@ class Cato:
             import DummyBT as BluetoothControl
         
         self.blue = BluetoothControl.BluetoothControl()
-        # mem("post bluetooth load")
-        
-        self.state = ST.IDLE
 
-        # Set up state matrix control
+        self.state = ST.IDLE
         self.st_matrix = []
         for row in self.config['st_matrix']:
             tmp_row = []
@@ -120,15 +117,12 @@ class Cato:
                 cmd = f"self.{entry}"
                 tmp_row.append( eval(cmd, {"self":self}) )
             self.st_matrix.append(tmp_row)
-        # mem("st_matrix loaded")
 
         self.gx_trim, self.gy_trim, self.gz_trim = 0, 0, 0
 
-        self.events = Events
-
         self.imu = LSM6DS3TRC()
 
-        # blocking functions enabled by events
+        # functions to 'keep on hand'
         self.tasks = {
             "wait_for_motion"   : self.wait_for_motion(),
             "move_mouse"        : self.move_mouse(),
@@ -136,16 +130,11 @@ class Cato:
             "monitor_battery"   : self.monitor_battery(),
             "scroll"            : self.scroll()
         }
-        self.tasks.update(self.imu.tasks)
-        self.tasks.update(self.blue.tasks)
-        # mem("tasks loaded up")
+        self.tasks.update(self.imu.tasks)   # functions for the imu
+        self.tasks.update(self.blue.tasks)  # functions for bluetooth
 
         self.n = Neuton(outputs=neuton_outputs)
-        # mem("loaded neuton")
-
         self.gesture = EV.NONE
-        mem("Cato init end")
-        print("")
 
     @property
     def gx(self):
@@ -177,16 +166,10 @@ class Cato:
             self.blue.battery_service.level = self.battery.level
 
     async def _move_mouse(self, hall_pass: asyncio.Event = None):
-        mem("Move Mouse Handler: TOP")
-        # gc.collect()
-        # await asyncio.sleep(1)
-        mem("Move Mouse Handler: post clear")
-        self.events.move_mouse.set()
-        await self.events.mouse_done.wait()
-        self.events.mouse_done.clear()
-
+        Events.move_mouse.set()
+        await Events.mouse_done.wait()
+        Events.mouse_done.clear()
         hall_pass.set()
-        mem("Move Mouse Handler: BOT")
     
     async def block_on(self, coro):
         '''
@@ -203,33 +186,25 @@ class Cato:
         ''' calls to gesture detection libraries '''
         gesture = EV.NONE
         while True:
-            await self.events.detect_event.wait()
+            await Events.detect_event.wait()
+            Events.detect_event.clear()
 
-            mem("detect_event -- top")
-            self.events.detect_event.clear()
-
-            await self.imu.wait()
-            mem("detect_event -- pre block-on")
-            
             await self.shake_cursor()
-            mem("post cursor shake")
-
-            await self.block_on(self._wait_for_motion)
-            print("finished wait ")
-
-            # RUNS OUT OF MEM HERE
-
-            mem('detect_event -- post block_on')        # 10800
             
-            motion_detected = self.events.sig_motion.is_set()
+            gc.collect()
+
+            print("Detect Event: waiting for motion")
+            await self.block_on(self._wait_for_motion)
+            print("Detect Event: Motion recieved")
+
+            motion_detected = Events.sig_motion.is_set()
             
             if motion_detected:
-                self.events.sig_motion.clear()
+                Events.sig_motion.clear()
 
                 neuton_needs_more_data = True
                 arr = array.array( 'f', [0]*6 )
                 
-                i = 1 #buf pos tracker
                 while( neuton_needs_more_data ):
                     await self.imu.wait()
                     arr[0] = self.ax
@@ -239,9 +214,7 @@ class Cato:
                     arr[4] = self.gy
                     arr[5] = self.gz
                     neuton_needs_more_data = self.n.set_inputs( arr )
-                    i += 1
 
-                mem('post buffer-fill')     # 23800
                 gesture = self.n.inference() + 1 # plus one ensures that 0 event is "none"
                 confidence = max(neuton_outputs)
 
@@ -250,23 +223,16 @@ class Cato:
                     gesture = EV.NONE
 
             else:
-                # print("D_EV: wait_for_motion timed out")
                 gesture = EV.NONE
-            
-
-            #Dispatch the event
-            mem(f"Dispatching event {gesture}")
 
             target_fn = self.st_matrix[gesture][self.state]
-            print(f"target_fn: {target_fn.__name__}")
+            print(f"Detect Event -- Dispatching: {target_fn.__name__}")
 
             await self.block_on(target_fn)
-            print("detect_event post fn call")
-            mem()
+            print("Detect Event: Finished Dispatching")
 
-            self.events.control_loop.set()
-
-    
+            Events.control_loop.set()
+      
     # Cato Actions
     # CircuitPython Docs: https://docs.circuitpython.org/projects/hid/en/latest/api.html#adafruit-hid-mouse-mouse '''
     async def noop(self, hall_pass: asyncio.Event = None):
@@ -367,11 +333,11 @@ class Cato:
 
         while True:
             # print(".")
-            if not self.events.move_mouse.is_set():
+            if not Events.move_mouse.is_set():
                 print("move mouse -- awaiting")
             
             # print("A: ", gc.mem_free() )
-            await self.events.move_mouse.wait() # only execute when move_mouse is set
+            await Events.move_mouse.wait() # only execute when move_mouse is set
             # print("B: ", gc.mem_free() )
             await self.imu.wait()
             # print("C: ", gc.mem_free() )
@@ -409,8 +375,8 @@ class Cato:
 
                 if idle_count >= max_idle_cycles: # if sufficiently idle, clear move_mouse
                     print("\tMouse Exit")
-                    self.events.move_mouse.clear()
-                    self.events.mouse_done.set()
+                    Events.move_mouse.clear()
+                    Events.mouse_done.set()
 
                     idle_count = 0
                     cycle_count = 0
@@ -432,9 +398,9 @@ class Cato:
             # print("")
             
     async def _scroll(self, hall_pass: asyncio.Event = None):
-        self.events.scroll.set()
-        await self.events.scroll_done.wait()
-        self.events.scroll_done.clear()
+        Events.scroll.set()
+        await Events.scroll_done.wait()
+        Events.scroll_done.clear()
         hall_pass.set()
 
     async def scroll(self, hall_pass: asyncio.Event = None):
@@ -445,7 +411,7 @@ class Cato:
         scale = 1.0 # slow down kids
 
         while True:
-            await self.events.scroll.wait() # block if not set
+            await Events.scroll.wait() # block if not set
             slow_down = 10
             for i in range(slow_down):
                 await self.imu.wait()
@@ -459,17 +425,17 @@ class Cato:
             if( abs(self.gy) > 30.0 ):
                 print("\tScroll Broken")
                 z = 0.0
-                self.events.scroll_done.set()
-                self.events.scroll.clear()
+                Events.scroll_done.set()
+                Events.scroll.clear()
                 if hall_pass is not None:
                     print("\tSCROLL: Scroll_done set & hall_pass set")
                     hall_pass.set()
     
     async def _scroll_lr(self, hall_pass: asyncio.Event = None):
         self.blue.k.press(Keycode.LEFT_SHIFT)
-        self.events.scroll.set()
-        await self.events.scroll_done.wait()
-        self.events.scroll_done.clear()
+        Events.scroll.set()
+        await Events.scroll_done.wait()
+        Events.scroll_done.clear()
         self.blue.k.release(Keycode.LEFT_SHIFT)
 
     async def left_click(self, hall_pass: asyncio.Event = None): # "Does the send a wait for acknowledgement"
@@ -577,10 +543,10 @@ class Cato:
         return "{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f}".format(self.last_read, self.ax, self.ay, self.az, self.gx, self.gy, self.gz)
 
     async def _wait_for_motion(self, hall_pass: asyncio.Event = None):
-        self.events.wait_for_motion.set()
-        await self.events.wait_for_motion_done.wait()
+        Events.wait_for_motion.set()
+        await Events.wait_for_motion_done.wait()
 
-        self.events.wait_for_motion_done.clear()
+        Events.wait_for_motion_done.clear()
         hall_pass.set()
 
     async def wait_for_motion(self, thresh = 105, *, num = -1):
@@ -595,7 +561,7 @@ class Cato:
         while True:
             # print("A: ", gc.mem_free())
             
-            await self.events.wait_for_motion.wait()
+            await Events.wait_for_motion.wait()
             # print("wait_for_motion triggered")
             # print("B: ", gc.mem_free())
             
@@ -607,19 +573,19 @@ class Cato:
 
             # BREAK CONDN 1: SIGNIFICANT MOTION
             if val > thresh:
-                self.events.wait_for_motion.clear()
-                self.events.sig_motion.set()
+                Events.wait_for_motion.clear()
+                Events.sig_motion.set()
             #Break CONDN 2: TIMEOUT
             if num != -1:
                 if cycles > num:
-                    self.events.wait_for_motion.clear()
-                    self.events.sig_motion.clear()
+                    Events.wait_for_motion.clear()
+                    Events.sig_motion.clear()
             # print("D: ", gc.mem_free())
             # exiting cleanup
-            if not self.events.wait_for_motion.is_set():
-                exit_reason = "MOTION" if self.events.sig_motion.is_set() else "TIMEOUT"
+            if not Events.wait_for_motion.is_set():
+                exit_reason = "MOTION" if Events.sig_motion.is_set() else "TIMEOUT"
                 print( f"WAIT FOR MOTION: EXIT : { exit_reason }" )
-                self.events.wait_for_motion_done.set()
+                Events.wait_for_motion_done.set()
                 cycles = 0
             # print("E: ", gc.mem_free())
             # print("")
@@ -631,7 +597,7 @@ class Cato:
             await (SOME SIGNAL THAT IT"S TIME TO COLLECT DATA):
             clear that signal
 
-            await significant motion (method self.events.wait_for_motion.set())
+            await significant motion (method Events.wait_for_motion.set())
             wait for motion detection to break
             clera the signal that motion detection happened
 
