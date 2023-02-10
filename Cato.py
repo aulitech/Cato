@@ -608,7 +608,7 @@ class Cato:
                     
     # NEEDS REWRITE
     async def collect_gestures(self, logName = "log.txt", n = 2, winSize = 76):
-        await self.events.collect_gestures.wait()
+        await Events.collect_gestures.wait()
         for gestID in range(5):
             while(n > 0):
                 n -= 1

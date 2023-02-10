@@ -20,6 +20,7 @@ import asyncio
 import time
 
 import Cato
+from Cato import Events
 import battery
 import mode
 
@@ -44,13 +45,13 @@ async def control_loop(c : Cato.Cato):
     """Control loop for Cato standard operation"""
     while True:
         print("control -- top")
-        await c.events.control_loop.wait() #await permission to start
-        c.events.control_loop.clear()
+        await Events.control_loop.wait() #await permission to start
+        Events.control_loop.clear()
 
-        c.events.collect_gestures.set()
+        Events.collect_gestures.set()
 
         await c.block_on( c._move_mouse )
-        Cato.Events.detect_event.set()
+        Events.detect_event.set()
 
 async def main():
     c = Cato.Cato( bt = True, do_calib = True)
@@ -63,7 +64,7 @@ async def main():
     tasks.update(c.tasks)
     await asyncio.sleep(0.3)
     c.imu.imu_enable.set()
-    Cato.Events.control_loop.set()
+    Events.control_loop.set()
 
     await asyncio.gather( *tasks.values() )
 
