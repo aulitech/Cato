@@ -1,5 +1,4 @@
-﻿#!/bin/bash
-
+﻿
 auli_cato_loc=/d/
 
 echo "Checking connection"

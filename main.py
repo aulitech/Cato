@@ -20,53 +20,55 @@ import asyncio
 import time
 
 import Cato
+from Cato import Events
 import battery
 import mode
 
 from math import sqrt
 
+batt_ev = asyncio.Event()
 # Beginning code proper
-c = Cato.Cato( bt = True, do_calib = True )
-w.timeout = 10 #seconds
-w.mode = WatchDogMode.RAISE
 
-ti = time.time()
-def my_time():
-    return time.time() - ti
 
-async def battery_process():
-    # read the battery info
-    local_c = c
-    level = None
-    while True:
-        level = local_c.battery.level
-        local_c.blue.battery_service.level = level
-        await asyncio.sleep(30)
+def mem( loc = "" ):
+    print(f"Free Memory at {loc}: \n\t{gc.mem_free()}")
 
 async def feed_dog():
     ''' feed the watchdog '''
+    w.timeout = 10 #seconds
+    w.mode = WatchDogMode.RAISE
     while True:
         w.feed()
-        await asyncio.sleep(3)
+        await asyncio.sleep(8)
 
-def print_boot_out():
-    print("boot_out.txt: ")
-    with io.open("boot_out.txt") as b: 
-        for line in b.readlines():
-            print('\t', line, end='')
+async def control_loop(c : Cato.Cato):
+    """Control loop for Cato standard operation"""
+    while True:
+        print("control -- top")
+        await Events.control_loop.wait() #await permission to start
+        Events.control_loop.clear()
+
+        Events.collect_gestures.set()
+
+        await c.block_on( c._move_mouse )
+        Events.detect_event.set()
 
 async def main():
-    # print_boot_out()
-    tasks = []
-    tasks.append( asyncio.create_task( battery_process() ) )
-    tasks.append( asyncio.create_task( feed_dog() ) )
-    for t in c.tasks:
-         tasks.append(t)
-    print("MAIN: setting default_move_mouse")
-    c.events.default_move_mouse.set() 
-    await asyncio.sleep(1)
-    await asyncio.gather( *tasks )
+    c = Cato.Cato( bt = True, do_calib = True)
+    c.imu.imu_enable.set()
+    
+    tasks = {
+        "dog"           : feed_dog(),
+        "control_loop"  : control_loop( c ),
+    }
+    tasks.update(c.tasks)
+    await asyncio.sleep(0.3)
+    c.imu.imu_enable.set()
+    Events.control_loop.set()
 
+    await asyncio.gather( *tasks.values() )
+
+print("Running Main: ")
 asyncio.run( main() ) # True -> Debug
 
 # mode.select_reboot_mode()

@@ -1,4 +1,4 @@
-#!/bin/bash
+#! /usr/bin/bash
 
 boot_load_loc=/d/
 auli_cato_loc=/d/
