@@ -96,8 +96,6 @@ def main():
     has_config = check_config()
     print(f"Checking config: {has_config}")
     
-    # write_default_config()
-    
     storage.remount("/", mc.nvm[0])
     os.sync()
 
