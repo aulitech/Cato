@@ -124,7 +124,7 @@ class Cato:
         self.imu = LSM6DS3TRC()
 
         print("mc.nvm[0] = ",mc.nvm[0]," ")
-        if(self.config["operation_mode"] == "CollGest")&(bool(mc.nvm[0])):  ###prob want to replace >=20 w more robust boolDict of selfwrite modes
+        if(self.config["operation_mode"] >=20)&(bool(mc.nvm[0])):  ###prob want to replace >=20 w more robust boolDict of selfwrite modes
             print("BOOTING SELF-WRITABLE")
             mc.nvm[0] = 0       #switch bit to boot board self writable
             print("mc.nvm[0] = ",bool(mc.nvm[0])," ")
@@ -132,8 +132,8 @@ class Cato:
             mc.reset()
         print("-- past writable check")
 
-        # functions to 'keep on hand'
-        if(self.config["operation_mode"] == "standard"):
+        # blocking functions enabled by events
+        if(self.config["operation_mode"] == 0):
             self.tasks = {
                 "wait_for_motion"   : self.wait_for_motion(),
                 "move_mouse"        : self.move_mouse(),
@@ -141,10 +141,10 @@ class Cato:
                 "monitor_battery"   : self.monitor_battery(),
                 "scroll"            : self.scroll()
             }
-        elif(self.config["operation_mode"] == "CollGest"):
+        elif(self.config["operation_mode"] >=20):
             self.tasks = {
                 "wait_for_motion"   : self.wait_for_motion(),
-                "collect_gestures"  : self.collect_gestures()
+                "collect_gestures"  : self.collect_gestures_keyb()
             }
         self.tasks.update(self.imu.tasks)   # functions for the imu
         self.tasks.update(self.blue.tasks)  # functions for bluetooth
@@ -605,63 +605,163 @@ class Cato:
                 cycles = 0
             # print("E: ", gc.mem_free())
             # print("")
-                    
-    # NEEDS REWRITE
-    async def collect_gestures(self, logName = "log.txt", n = 2, winSize = 76):
-        await Events.collect_gestures.wait()
-        for gestID in range(5):
-            while(n > 0):
-                n -= 1
-                print("Collecting Gestures")
-                hist = []
-                maxGest = list
-                maxAbs = float
+            
 
-                # gather data from imu for 5sec
-                loadtimer = asyncio.Event()
-                c = 0
-                start = int
-                counter = int
-                while(not loadtimer.is_set()):    ##could check max acc as it's read to cut mem by 1/4 (would require splitting maxGest into pre/post queues)
+    async def collect_gestures(self, logName = "log.txt", n = 2, gestID = 0, winSize = 76):
+        #await self.blue.is_connected.wait()
+        await self.events.collect_gestures.wait()
+        print("Bluetooth Connected!")
+        await asyncio.sleep(3)
+
+        print("Collecting Gestures")
+        gest_timer = asyncio.Event()
+        for i in range(n):
+            hist = []
+            maxGest = list
+            maxAbs = float
+
+            # gather data from imu for 5sec
+            c = 0
+            start = 0
+            counter = int
+            with open("collgest_event_log.txt",'w') as evLog:
+                evLog.write("Reading Data")
+                while(not gest_timer.is_set()):
                     await self.imu.wait()
                     hist.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz, gestID))
-                    if(c == 0):
-                        print(",\t".join(str(v) for v in hist[len(hist)-1]))
-                    c = (c+1)%32
+                    # if(c == 0):
+                    #     print(",\t".join(str(v) for v in hist[len(hist)-1]))
+                    # c = (c+1)%32
 
                     if(len(hist) == winSize):
                         maxGest = hist.copy()
                         maxAbs = maxGest[int(winSize/2)]
                         maxAbs = maxAbs[0]**2 + maxAbs[1]**2+maxAbs[2]**2
-                        print("Perform Gesture: ",gestID)
-                        asyncio.create_task(self.countN(loadtimer, 5))
+                        asyncio.create_task(self.countN(gest_timer, 5))  # Timer starts here
                         start = time.time()
-                        counter = -1
-                        
+                        counter = 0
+                        print("Perform Gesture: ",gestID)
+                        evLog.write("Timer Started")
+                    
+                    ##could check max acc as it's read to cut mem by 1/4 (would require splitting maxGest into pre/post queues)
                     elif(len(hist) > winSize):
                         hist.pop(0)
                         currMid = hist[int(winSize/2)]                    
                         currAbs = currMid[3]**2 + currMid[4]**2 + currMid[5]**2
                         if(currAbs > maxAbs):
+                            evLog.write("New Max Read")
                             maxAbs = currAbs
                             maxGest = hist.copy()
-                        
+
                         if(counter < round(time.time() -start)):
                             counter = round(time.time()-start)
-                            print(counter,": ",time.time()-start)
+                            print(counter)
+                gest_timer.clear()
+                evLog.write("Logging Max")
+                
+            # record data
+            with open(logName,"a") as log:       ##swap to append for final?
+                print("Writing to",logName)
+                while(len(maxGest) > 0):
+                    d = maxGest.pop(0)
+                    log.write(",".join(str(v) for v in d))
+                    log.write("\n")
 
-                # record data
-                with open(logName,"w") as log:       ##swap to append for final
-                    print("Writing to ",logName)
-                    while(len(maxGest) > 0):
-                        d = maxGest.pop(0)
-                        log.write(",".join(str(v) for v in d))
-                        log.write("\n")
+        print("Gesture Collection Completed")
 
-        #print("Gesture Collection Completed")
+        asyncio.create_task(self.countN(gest_timer, 5))
+        await gest_timer.wait()
         mc.nvm[0] = True
-        raise Exception("Gesture Collection Completed")
+
+    async def collect_gestures_keyb(self, logName = "log.txt", n = 2, gestID = 0, winSize = 76):
+        await self.blue.is_connected.wait()
+        #await self.events.collect_gestures.wait()
+        print("Bluetooth Connected!")
+        await asyncio.sleep(3)
+        with open(logName,"w"):     # open log as w to clear previous data
+            pass
+        
+        print("Collecting Gestures")
+        gest_timer = asyncio.Event()
+        for i in range(n):
+            hist = []
+            maxGest = list
+            maxAbs = float
+
+            # gather data from imu for 5sec
+            c = 0
+            start = 0
+            counter = int
+            while(not gest_timer.is_set()):
+                await self.imu.wait()
+                hist.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz, gestID))
+
+                if(len(hist) == winSize):
+                    maxGest = hist.copy()
+                    maxAbs = maxGest[int(winSize/2)]
+                    maxAbs = maxAbs[0]**2 + maxAbs[1]**2+maxAbs[2]**2
+                    asyncio.create_task(self.countN(gest_timer, 5))  # Timer starts here
+                    start = time.time()
+                    counter = 0
+                    print("Perform Gesture: ",gestID)
+                    self.bluType("Perform Gesture "+str(gestID)+"\n")
+                    self.blue.k.send(34)    # 5
+                
+                ##could check max acc as it's read to cut mem by 1/4 (would require splitting maxGest into pre/post queues)
+                elif(len(hist) > winSize):
+                    hist.pop(0)
+                    currMid = hist[int(winSize/2)]                    
+                    currAbs = currMid[3]**2 + currMid[4]**2 + currMid[5]**2
+                    if(currAbs > maxAbs):
+                        maxAbs = currAbs
+                        maxGest = hist.copy()
+
+                    if(counter < round(time.time() -start)):
+                        counter = round(time.time()-start)
+                        print(counter)
+                        self.blue.k.send(42)    # Backspace
+                        if(counter <= 5):
+                            self.bluType(str(5-counter))
+            gest_timer.clear()
+            self.blue.k.send(42)    # Backspace
+            self.bluType("Gesture Collected\nLogging Max\n")
+                
+            # record data
+            with open(logName,"a") as log:       ##swap to append for final?
+                print("Writing to",logName)
+                while(len(maxGest) > 0):
+                    d = maxGest.pop(0)
+                    log.write(",".join(str(v) for v in d))
+                    log.write("\n")
+
+        print("Gesture Collection Completed")
+        self.bluType("Gesture Collection Completed\n")
+
+        asyncio.create_task(self.countN(gest_timer, 5))
+        await gest_timer.wait()
+        mc.nvm[0] = True
     
+
+    def bluType(self, str):
+        ##maybe a more robust version of this exists somewhere; worth looking into?
+        for c in str:
+            if(ord(c) >= 97):
+                c = ord(c) - 93
+            elif(ord(c) >= 65):
+                self.blue.k.press(225)  #LShift
+                c = ord(c) - 61
+            elif(c == ' '):
+                c = 44
+            elif(c == '\n'):
+                c = 40  #Enter
+            elif(c == '0'):
+                c = 39
+            else:
+                c = int(c) + 29
+            self.blue.k.press(c)
+            self.blue.k.release_all()
+            
+
     async def countN(self, ev, n):
         #print("+ countN")
         await asyncio.sleep(n)
