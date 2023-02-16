@@ -19,6 +19,8 @@ import busio
 import asyncio
 import time
 
+from imu import LSM6DS3TRC
+
 import Cato
 import battery
 import mode
@@ -49,19 +51,8 @@ async def control_loop(c : Cato.Cato):
         Cato.Events.detect_event.set()
 
 async def main():
-    c = Cato.Cato( bt = True, do_calib = True)
-    c.imu.imu_enable.set()
-    
-    tasks = {
-        "dog"           : feed_dog(),
-        "control_loop"  : control_loop( c ),
-    }
-    tasks.update(c.tasks)
-    await asyncio.sleep(0.3)
-    c.imu.imu_enable.set()
-    Cato.Events.control_loop.set()
-
-    await asyncio.gather( *tasks.values() )
+    imu = LSM6DS3TRC()
+    await asyncio.gather( *imu.tasks.values() )
 
 print("Running Main: ")
 asyncio.run( main() ) # True -> Debug

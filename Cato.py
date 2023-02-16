@@ -550,6 +550,7 @@ class Cato:
         hall_pass.set()
 
     async def wait_for_motion(self, thresh = 105, *, num = -1):
+        #NOTE: THIS COULD BE MADE MUCH CHEAPER WITH THE INT1_SIGN_MOT INTERRUPT!
         """
             thresh      = threshold of motion to break loop             \n
             num         = number of cycles max before return False      \n
