@@ -2,6 +2,7 @@
 # Code.py for Auli Cato, Driver
 # Finn Biggs - finn@auli.tech
 # 17-Nov-2022
+import alarm
 
 import board
 import sys
@@ -50,9 +51,44 @@ async def control_loop(c : Cato.Cato):
         await c.block_on( c._move_mouse )
         Cato.Events.detect_event.set()
 
+async def blink():
+    RGB = {
+        "R" : digitalio.DigitalInOut( board.LED_RED ),
+        "G" : digitalio.DigitalInOut( board.LED_GREEN ),
+        "B" : digitalio.DigitalInOut( board.LED_BLUE )
+    }
+    for led in RGB.values():
+        led.direction = digitalio.Direction.OUTPUT
+        led.value = True
+    while True:
+        for led in RGB.values():
+            led.value = False
+            await asyncio.sleep(0.5)
+            led.value = True
+            await asyncio.sleep(0.5)
+
+# async def light_sleep_task():
+#     while True:
+#         await asyncio.sleep(10)
+#         time_alarm = alarm.time.TimeAlarm(monotonic_time=time.monotonic() + 10)
+#         alarm.light_sleep_until_alarms(time_alarm)
+
+# async def deep_sleep_task():
+#     await asyncio.sleep(10)
+#     time_alarm = alarm.time.TimeAlarm(monotonic_time=time.monotonic() + 10)
+#     alarm.exit_and_deep_sleep_until_alarms(time_alarm)
+
+# async def pin_sleep_task():
+#     await asyncio.sleep(3)
+#     pin_alarm = alarm.pin.PinAlarm(pin=board.IMU_INT1, value = False, pull = True)
+#     print("going to sleep")
+#     alarm.light_sleep_until_alarms(pin_alarm)
+#     print("woke from sleep")
+
 async def main():
-    imu = LSM6DS3TRC()
-    await asyncio.gather( *imu.tasks.values() )
+    myIMU = LSM6DS3TRC()
+    
+    await asyncio.gather(blink(), *myIMU.tasks.values())
 
 print("Running Main: ")
 asyncio.run( main() ) # True -> Debug

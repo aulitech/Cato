@@ -24,16 +24,21 @@ except ImportError:
     pass
 
 _LSM6DS_INT1_CTRL   = const(0x0D)
-_LSM6DS_CTRL10_C    = const(0x19)
-_LSM6DS_STATUS_REG  = const(0x1E)
-_LSM6DS_MASTER_CFG  = const(0x1A)
-_LSM6DS_TAP_THS_6D  = const(0x59)
-_LSM6DS_TAP_CFG     = const(0x58)
-_LSM6DS_MD1_CFG     = const(0x5E)
+
 _LSM6DS_CTRL1_XL    = const(0x10)
+_LSM6DS_CTRL10_C    = const(0x19)
+_LSM6DS_MASTER_CFG  = const(0x1A)
+
+_LSM6DS_STATUS_REG  = const(0x1E) # This is a read only
+
+_LSM6DS_TAP_CFG     = const(0x58)
+_LSM6DS_TAP_THS_6D  = const(0x59)
+
 _LSM6DS_INT_DUR2    = const(0x5A)
 _LSM6DS_WAKE_UP_THS = const(0x5B)
+_LSM6DS_WAKE_UP_DUR = const(0x5C)
 
+_LSM6DS_MD1_CFG     = const(0x5E)
 
 class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     CHIP_ID = 0x6A
@@ -42,15 +47,17 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     _status_reg = ROUnaryStruct(    _LSM6DS_STATUS_REG,     "<b")
 
     _int1_ctrl      = RWBits(7,     _LSM6DS_INT1_CTRL,      0   ) # "The pad's output will supply the OR combination of all enabled signals"
+    _ctrl1_xl       = RWBits(7,     _LSM6DS_CTRL1_XL,       0   )
+    _ctrl10_c       = RWBits(7,     _LSM6DS_CTRL10_C,       0   )
     _master_cfg     = RWBits(7,     _LSM6DS_MASTER_CFG,     0   )
-
+    
     _tap_cfg        = RWBits(7,     _LSM6DS_TAP_CFG,        0   )
     _tap_ths_6d     = RWBits(7,     _LSM6DS_TAP_THS_6D,     0   ) # [4D orientation (no z axis), sixd_ths(1:0), tap_ths(4:0)]
-    _md1_cfg        = RWBits(7,     _LSM6DS_MD1_CFG,        0   )
-    _ctrl10_c       = RWBits(7,     _LSM6DS_CTRL10_C,       0   )
-    _ctrl1_xl       = RWBits(7,     _LSM6DS_CTRL1_XL,       0   )
     _int_dur2       = RWBits(7,     _LSM6DS_INT_DUR2,       0   )
     _wake_up_ths    = RWBits(7,     _LSM6DS_WAKE_UP_THS,    0   )
+    _wake_up_dur    = RWBits(7,     _LSM6DS_WAKE_UP_DUR,    0   )
+    
+    _md1_cfg        = RWBits(7,     _LSM6DS_MD1_CFG,        0   )
 
     def __init__(self, address: int = LSM6DS_DEFAULT_ADDRESS) -> None:
         # print("imu init -- start")
@@ -76,7 +83,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self.y_trim = 0
         self.z_trim = 0
         
-        self.mode_setup()
+        self.single_tap_cfg()
 
         self.tasks = {
             "interrupt" : self.interrupt(),
@@ -89,22 +96,35 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     
     def mode_setup(self):
 
-        self._ctrl1_xl    = 0x60 # accelerometer ODR control
-        self._tap_cfg     = 0x8E # timer, pedo, tilt, slope_fds, tap_x, tap_y, tap_z, latched interrupt
-        self._tap_ths_6d  = 0x8C # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
-        self._int_dur2    = 0x7F # Dur[3:0], Quiet[1:0], Shock[1:0]
-        self._wake_up_ths = 0x80 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
+        self._ctrl1_xl      = 0x60 # accelerometer ODR control
+        self._tap_cfg       = 0x0D # timer, pedo, tilt, slope_fds, tap_x, tap_y, tap_z, latched interrupt
+        self._tap_ths_6d    = 0x81 # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
+        self._int_dur2      = 0x7F # Dur[3:0], Quiet[1:0], Shock[1:0]
+        self._wake_up_ths   = 0x02 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
+        self._wake_up_dur   = 0x00 # FF_Dur5, Wake_Dur1, Wake_Dur0, TimerHR, Sleep_Dur[3:0]
+        self._md1_cfg       = 0x24 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
+        _master_cfg         = 0x00 # DRDY_ON_INT1, DATA_VALID_SEL_FIFO, 0, START_CONFIG, PULL_UP_EN, PASS_THROUGH_MODE, IRON_EN, MASTER_ON
 
-        #for double tap, md1_cfg = 0x08
-        self._md1_cfg     = 0x40 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
+    def single_tap_cfg(self):
+        self._ctrl1_xl      = 0x60 # accelerometer ODR control
+        self._tap_cfg       = 0x0E # timer, pedo, tilt, slope_fds, tap_x, tap_y, tap_z, latched interrupt
+        self._tap_ths_6d    = 0x09 # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
+        self._int_dur2      = 0x06 # Dur[3:0], Quiet[1:0], Shock[1:0]
+        self._wake_up_ths   = 0x00 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
+        self._md1_cfg       = 0x40 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
 
-        print("To_Mode Executed, Board has been configured")
-
+    def double_tap_cfg(self):
+        self._ctrl1_xl      = 0x60 # accelerometer ODR control
+        self._tap_cfg       = 0x0E # timer, pedo, tilt, slope_fds, tap_x, tap_y, tap_z, latched interrupt
+        self._tap_ths_6d    = 0x0C # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
+        self._int_dur2      = 0x7F # Dur[3:0], Quiet[1:0], Shock[1:0]
+        self._wake_up_ths   = 0x80 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
+        self._md1_cfg       = 0x08 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
 
     @property
     def pwr(self):
         return self._pwr.value
-    
+
     @pwr.setter
     def pwr(self, state : bool):
         self._pwr.value = state
