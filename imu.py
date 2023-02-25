@@ -15,6 +15,7 @@ import asyncio
 import time
 import countio
 from math import pi
+import gc
 # import supervisor as sp
 try:
     import typing  # pylint: disable=unused-import
@@ -74,7 +75,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     #_gyro_range_4000dps = RWBit(_LSM6DS_CTRL2_G, 0)
 
     def __init__(self, address: int = LSM6DS_DEFAULT_ADDRESS) -> None:
-        print("imu init -- start")
+        # print("imu init -- start")
         # enable imu
         self._pwr = digitalio.DigitalInOut(board.IMU_PWR)
         self._pwr.direction = digitalio.Direction.OUTPUT
@@ -110,7 +111,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         }
 
         # self.ena.set()
-        print("imu init -- finish")
+        # print("imu init -- finish")
 
     @property
     def pwr(self):
@@ -123,9 +124,8 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
 
     async def interrupt(self):
         """ interrupt on imu for gyro data ready """
-        #print("+ interrupt -> await imu_enable")
+        # print("interrupt -- await imu enable")
         await self.imu_enable.wait()
-        #print("+ interrupt -> imu_enable is set")
         with countio.Counter(   
             board.IMU_INT1, 
             edge = countio.Edge.RISE, 
@@ -133,26 +133,33 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         ) as interrupt:
             self.spark()
             while True:
-                #print(": interrupt -> ?(interrupt.count > 0)")
+                await asyncio.sleep(0)
+                # print("IMU Start: ", gc.mem_free())
                 if interrupt.count > 0:
                     interrupt.count = 0
                     #print(": interrupt -> imu_ready.set(); (interrupt.count > 0)")
                     self.imu_ready.set()
-                await asyncio.sleep(0)
+                # print("IMU End: ", gc.mem_free())
 
     async def read(self):
         ''' reads data off of the IMU into -> gx, gy, gz, ax, ay, az '''
         # print("Quick read of gyro -- once at top of imu.read")
-        #print("+ read")
-        rad_to_deg = 360.0 / (2*pi)
+        # print(self.gyro)
+        cycles = 0
+        collect_spacer = 10 # collect garbage every n cycles
+        rad_to_deg = 360.0 / (2*3.1416)
         while True:
-            # hold until data ready
-            #print(": read -> await imu_ready.wait()")
             await self.imu_ready.wait()
+            cycles = (cycles + 1) % collect_spacer
+            if cycles == 0:
+                gc.collect()
+            
             self.imu_ready.clear()
+            self.gx, self.gy, self.gz = self.gyro
 
-            # read from IMU
-            self.gx, self.gy, self.gz = [val * rad_to_deg for val in self.gyro]
+            self.gx *= rad_to_deg
+            self.gy *= rad_to_deg
+            self.gz *= rad_to_deg
             self.ax, self.ay, self.az = self.acceleration
 
             # trim measurements based on calibration
@@ -160,14 +167,16 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             self.gy -= self.y_trim
             self.gz -= self.z_trim
             
+            # print("D: ", gc.mem_free())
             #print(": read -> self.data_ready.set()")
             self.data_ready.set()
-
-            #print("end of read imu")
+            # print("" )
+            # print("- end of read_imu -")
 
     async def wait(self):
         ''' await this function to sync wth next data-ready signal '''
-        #print("+ wait -> await self.data_ready.wait()")
+        # print("wait -- awaiting data-ready")
+        
         await self.data_ready.wait()
         self.data_ready.clear()
         #print("- wait")
@@ -178,7 +187,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         y = 0.0
         z = 0.0
         for i in range(num_calib_cycles):
-            #print(": calibrate -> await self.wait; ",f"num: {i}")
+            # print(f"num: {i}")
             await self.wait()
             x += self.gx
             y += self.gy
@@ -201,8 +210,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             data ready signal only appears after data is read 
                 -- countio counts edges, if data constantly ready, countio always high, interrupt never triggers
         '''
-        print("SPARK!")
-        #print("+ spark")
+        # print("SPARK!")
         for i in range(3):
             temp_g, temp_a = self.gyro, self.acceleration
         #print("- spark")

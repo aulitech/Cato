@@ -1,3 +1,4 @@
+
 import adafruit_ble
 
 from adafruit_ble.advertising import Advertisement, AdvertisingFlag, AdvertisingFlags
@@ -20,6 +21,11 @@ from adafruit_ble.characteristics.string import StringCharacteristic
 import asyncio
 
 import json
+
+import gc
+
+def mem( loc = "" ):
+    print(f"Free Memory at {loc}: \n\t{gc.mem_free()}")
 
 class Appearances:
     remote = 0x0180 #0x0180 to 0x01BF
@@ -52,7 +58,6 @@ class BluetoothControl(Service):
                 uuid = VendorUUID("528ff74b-fdb8-444c-9c64-3dd5da4135ae"),
                 properties = Characteristic.READ | Characteristic.WRITE,
             )
-            self.cgMessenger = "WAZZAAP"
 
         self.hid = HIDService()
 
@@ -71,35 +76,35 @@ class BluetoothControl(Service):
 
         self.advertisement = ProvideServicesAdvertisement( self.hid )
         self.advertisement.appearance = Appearances.hid
-        self.advertisement.short_name = "Cato_advert_name"
+        self.advertisement.short_name = "Cato"
         # self.advertisement.flags.general_discovery = False
         # self.advertisement.flags.limited_discovery = True
         # self.advertisement.flags.general_discovery = AdvertisingFlag(1)
+        # mem("BTC, advertisement created")
 
         self.scan_response = Advertisement(  )
-        self.scan_response.short_name = "Cato_scan_resp_name"
+        self.scan_response.short_name = "Cato"
         self.scan_response.appearance = Appearances.hid
-
+        # mem("BTC, scan_response created")
         
+        # BLERadio can toggle advertising state
         self.ble = adafruit_ble.BLERadio()
-        if self.ble.connected:
-            print("Woke up connected")
-            for c in self.ble.connections:
-                c.disconnect()
-
-        self.battery_service = adafruit_ble.services.standard.BatteryService()
         
+        # HID handles
         self.k = Keyboard(self.hid.devices)
         self.kl = KeyboardLayoutUS(self.k)
         self.mouse = Mouse(self.hid.devices)
+        
+        # Battery service. Can inform central of battery level with this.level
+        self.battery_service = adafruit_ble.services.standard.BatteryService()
 
-        self.ena_adv = asyncio.Event()
-        self.is_connected = asyncio.Event()
-        self.is_disconnected = asyncio.Event()
+        self.ena_adv = asyncio.Event()          # enable advertising
+        self.is_connected = asyncio.Event()     # indicates connection
+        self.is_disconnected = asyncio.Event()  # indicates disconnection
 
         self.is_disconnected.set() #board starts without connection
 
-        self.tasks = {
+        self.tasks = {  # tasks
             "characteristic_loop"   : self.characteristic_loop(),
             "manage_connection"     : self.manage_connection(),
             "monitor_connections"   : self.monitor_connections(),
@@ -109,28 +114,27 @@ class BluetoothControl(Service):
     async def manage_connection(self):
         #print("+ manage_connection")
         while True:
-            # wait for advertisement enable
+            # First, wait for advertisement enable
             await self.ena_adv.wait()
-            print("BLE_MANAGE: Starting BLE advertisement")
+            print("Bluetooth: Advertising")
             self.ble.start_advertising(self.advertisement, self.scan_response)
             
-            #print(": manage_connection -> is_connected.wait()")
-            # wait for a connection
+            # Then, wait for a connection
             await self.is_connected.wait()
+            
+            # Finally, stop advertising
             self.ena_adv.clear()
-
-            await asyncio.sleep(1)
             self.ble.stop_advertising()
-            print("BLE_MANAGE: No longer advertising")
+            print("Bluetooth: Advertising disabled")
     
     async def reconnect(self):
         #print("+ reconnect")
         while True:
             await self.is_disconnected.wait()
             self.ena_adv.set()
-            await asyncio.sleep(5) # rate limit the "start advertising"
+            
+            await self.is_connected.wait()
             self.ena_adv.clear()
-            await asyncio.sleep(0.5) # small advertising reset
         
     async def monitor_connections(self):
         #print("+ monitor_connections")
@@ -138,7 +142,7 @@ class BluetoothControl(Service):
             # Check connection
             if self.ble.connected: # When connected
                 if not self.is_connected.is_set():
-                    print("BLE_MONITOR: BLE Connected")
+                    print("Bluetooth: Connected")
                     self.is_connected.set()
 
                 if self.is_disconnected.is_set():
@@ -147,7 +151,7 @@ class BluetoothControl(Service):
             else: # When disconnected
 
                 if not self.is_disconnected.is_set():
-                    print("BLE_MONITOR: BLE Disconnected")
+                    print("Bluetooth: Connection Lost")
                     self.is_disconnected.set()
 
                 if self.is_connected.is_set():
