@@ -27,5 +27,7 @@
         [   "double_click",                "noop",                 "noop"          ], 
         [   "_wait_for_motion",            "noop",                 "noop"          ], 
         [   "noop",                        "noop",                 "noop"          ]
-    ]
+    ],
+
+    "test_val" : 0
 }

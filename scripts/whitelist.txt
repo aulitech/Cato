@@ -8,3 +8,4 @@ imu.py
 main.py
 mode.py
 config.json
+tester.json

@@ -81,6 +81,7 @@ def mem():
 
 class Cato:
     ''' Main Class of Cato Gesture Mouse '''
+    config = None
     def __init__(self, bt:bool = True, do_calib = True):
         '''
             ~ @param bt: True configures and connect to BLE, False provides dummy connection
@@ -88,11 +89,21 @@ class Cato:
         '''
         print("Cato init: start")
 
-        try:    
-            with open("config.json", 'r') as f:
-                self.config = json.load(f)
-        except:
+        if bt:
+            import BluetoothControl
+        else:
+            import DummyBT as BluetoothControl
+        
+        Cato.config = BluetoothControl.BluetoothControl.config
+        print(Cato.config)
+        
+        if(Cato.config["operation_mode"] >=20)&(bool(mc.nvm[0])):  ###prob want to replace >=20 w more robust boolDict of selfwrite modes
+            print("BOOTING SELF-WRITABLE")
+            mc.nvm[0] = 0       #switch bit to boot board self writable
+            print("mc.nvm[0] = ",bool(mc.nvm[0])," ")
+            time.sleep(1)       ##this is here just so print statements finish
             mc.reset()
+        print("-- past writable check")
 
         #specification for operation
         self.specs = {
@@ -108,18 +119,13 @@ class Cato:
         # battery managing container
         self.battery = battery.Bat()
 
-
-        if bt:
-            import BluetoothControl
-        else:
-            import DummyBT as BluetoothControl
         self.blue = BluetoothControl.BluetoothControl()
         
         self.state = ST.IDLE
 
         # Set up state matrix control
         self.st_matrix = []
-        for row in self.config['st_matrix']:
+        for row in Cato.config['st_matrix']:
             tmp_row = []
             for entry in row:
                 cmd = f"self.{entry}"
@@ -132,28 +138,22 @@ class Cato:
 
         self.imu = LSM6DS3TRC()
 
-        print("mc.nvm[0] = ",mc.nvm[0]," ")
-        if(self.config["operation_mode"] >=20)&(bool(mc.nvm[0])):  ###prob want to replace >=20 w more robust boolDict of selfwrite modes
-            print("BOOTING SELF-WRITABLE")
-            mc.nvm[0] = 0       #switch bit to boot board self writable
-            print("mc.nvm[0] = ",bool(mc.nvm[0])," ")
-            time.sleep(1)       ##this is here just so print statements finish
-            mc.reset()
-        print("-- past writable check")
-
         # blocking functions enabled by events
-        if(self.config["operation_mode"] == 0):
+        if(Cato.config["operation_mode"] == 0):
             self.tasks = {
                 "wait_for_motion"   : self.wait_for_motion(),
                 "move_mouse"        : self.move_mouse(),
                 "detect_event"      : self.detect_event(),
                 "scroll"            : self.scroll()
             }
-        elif(self.config["operation_mode"] >=20):
+        elif(Cato.config["operation_mode"] >=20):
             self.tasks = {
                 "wait_for_motion"   : self.wait_for_motion(),
-                "collect_gestures"  : self.collect_gestures_keyb()
-                #"scroll"            : self.scroll()
+                "collect_gestures"  : self.collect_gestures()
+            }
+        elif(Cato.config["operation_mode"] == 10):
+            self.tasks = {
+                "test_loop"         : self.test_loop()
             }
         self.tasks.update(self.imu.tasks)
         self.tasks.update(self.blue.tasks)
@@ -340,21 +340,21 @@ class Cato:
         '''
             move the mouse via bluetooth until sufficiently idle
         '''
-        idle_thresh = self.config['mouse']['idle_thresh'] # speed below which is considered idle  
-        min_run_cycles = self.config['mouse']['min_run_cycles']
+        idle_thresh = Cato.config['mouse']['idle_thresh'] # speed below which is considered idle  
+        min_run_cycles = Cato.config['mouse']['min_run_cycles']
         
         #scale is "base" for acceleration - do adjustments here
         scale = 1.0
-        usr_scale = self.config['mouse']['scale'] #user multiplier
+        usr_scale = Cato.config['mouse']['scale'] #user multiplier
 
         """ TODO: have these values arise out of config """
         # dps limits for slow vs mid vs fast movement        
-        slow_thresh = self.config['mouse']['slow_thresh']
-        fast_thresh = self.config['mouse']['fast_thresh']
+        slow_thresh = Cato.config['mouse']['slow_thresh']
+        fast_thresh = Cato.config['mouse']['fast_thresh']
 
         # scale amount for slow and fast movement, mid is linear translation between
-        slow_scale = self.config['mouse']['slow_scale']
-        fast_scale = self.config['mouse']['fast_scale']
+        slow_scale = Cato.config['mouse']['slow_scale']
+        fast_scale = Cato.config['mouse']['fast_scale']
 
         # number of cycles currently idled (reset to 0 on motion)
         idle_count = 0
@@ -618,56 +618,64 @@ class Cato:
 
 
     async def collect_gestures(self, logName = "log.txt", n = 2, gestID = 0, winSize = 76):
-        #await self.blue.is_connected.wait()
-        await self.events.collect_gestures.wait()
+        mc.nvm[0] = True
+        print("+ collect_gestures")
+        await self.blue.is_connected.wait()
         print("Bluetooth Connected!")
         await asyncio.sleep(3)
 
         print("Collecting Gestures")
         gest_timer = asyncio.Event()
+        print(self.blue.cgMessenger)
         for i in range(n):
             hist = []
             maxGest = list
-            maxAbs = float
+            maxAbs = 0
 
             # gather data from imu for 5sec
             c = 0
             start = 0
             counter = int
-            with open("collgest_event_log.txt",'w') as evLog:
-                evLog.write("Reading Data")
-                while(not gest_timer.is_set()):
-                    await self.imu.wait()
-                    hist.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz, gestID))
-                    # if(c == 0):
-                    #     print(",\t".join(str(v) for v in hist[len(hist)-1]))
-                    # c = (c+1)%32
 
-                    if(len(hist) == winSize):
+            self.blue.cgMessenger = "Ready for Input"
+            while(self.blue.cgMessenger == "Ready for Input"):
+                await asyncio.sleep(0)
+            self.blue.cgMessenger = "Input Recieved"
+            while(not gest_timer.is_set()):
+                await self.imu.wait()
+                hist.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz, gestID))
+                # if(c == 0):
+                #     print(",\t".join(str(v) for v in hist[len(hist)-1]))
+                # c = (c+1)%32
+
+                if(len(hist) == winSize):
+                    maxGest = hist.copy()
+                    maxAbs = maxGest[int(winSize/2)]
+                    maxAbs = maxAbs[0]**2 + maxAbs[1]**2+maxAbs[2]**2
+                    asyncio.create_task(self.countN(gest_timer, 5))  # Timer starts here
+                    start = time.time()
+                    counter = 0
+                    print("Perform Gesture: ",gestID)
+                    self.blue.cgMessenger = "Perform Gesture: "+str(gestID)
+                
+                ##could check max acc as it's read to cut mem by 1/4 (would require splitting maxGest into pre/post queues)
+                elif(len(hist) > winSize):
+                    hist.pop(0)
+                    currMid = hist[int(winSize/2)]
+                    currAbs = currMid[3]**2 + currMid[4]**2 + currMid[5]**2
+                    #print(currMid)
+                    print(currAbs, "<", maxAbs)
+                    if(currAbs > maxAbs):
+                        print("New Max Read")
+                        self.blue.cgMessenger = "New Max Read"
+                        maxAbs = currAbs
                         maxGest = hist.copy()
-                        maxAbs = maxGest[int(winSize/2)]
-                        maxAbs = maxAbs[0]**2 + maxAbs[1]**2+maxAbs[2]**2
-                        asyncio.create_task(self.countN(gest_timer, 5))  # Timer starts here
-                        start = time.time()
-                        counter = 0
-                        print("Perform Gesture: ",gestID)
-                        evLog.write("Timer Started")
-                    
-                    ##could check max acc as it's read to cut mem by 1/4 (would require splitting maxGest into pre/post queues)
-                    elif(len(hist) > winSize):
-                        hist.pop(0)
-                        currMid = hist[int(winSize/2)]                    
-                        currAbs = currMid[3]**2 + currMid[4]**2 + currMid[5]**2
-                        if(currAbs > maxAbs):
-                            evLog.write("New Max Read")
-                            maxAbs = currAbs
-                            maxGest = hist.copy()
 
-                        if(counter < round(time.time() -start)):
-                            counter = round(time.time()-start)
-                            print(counter)
-                gest_timer.clear()
-                evLog.write("Logging Max")
+                    if(counter < round(time.time() -start)):
+                        counter = round(time.time()-start)
+                        print(counter)
+            gest_timer.clear()
+            self.blue.cgMessenger = "Logging Max"
                 
             # record data
             with open(logName,"a") as log:       ##swap to append for final?
@@ -676,7 +684,8 @@ class Cato:
                     d = maxGest.pop(0)
                     log.write(",".join(str(v) for v in d))
                     log.write("\n")
-
+        
+        self.blue.cgMessenger = "Gesture Collection Completed"
         print("Gesture Collection Completed")
 
         asyncio.create_task(self.countN(gest_timer, 5))
@@ -687,11 +696,13 @@ class Cato:
         await self.blue.is_connected.wait()
         #await self.events.collect_gestures.wait()
         print("Bluetooth Connected!")
-        await asyncio.sleep(3)
+        await asyncio.sleep(2)
         with open(logName,"w"):     # open log as w to clear previous data
             pass
         
+        self.bluType("Collecting Gestures")
         print("Collecting Gestures")
+        await asyncio.sleep(2)
         gest_timer = asyncio.Event()
         for i in range(n):
             hist = []
@@ -715,7 +726,7 @@ class Cato:
                     counter = 0
                     print("Perform Gesture: ",gestID)
                     self.bluType("Perform Gesture "+str(gestID)+"\n")
-                    self.blue.k.send(34)    # 5
+                    self.blue.k.send(34)    # type 5
                 
                 ##could check max acc as it's read to cut mem by 1/4 (would require splitting maxGest into pre/post queues)
                 elif(len(hist) > winSize):
@@ -776,3 +787,12 @@ class Cato:
         #print("+ countN")
         await asyncio.sleep(n)
         ev.set()
+
+
+    async def test_loop(self):
+        print("+ test_loop")
+        #await self.blue.is_connected.wait()
+        while(True):
+            await asyncio.sleep(1)
+            print(self.blue.configUUID)
+            #print(": test_loop -> end of while ")
