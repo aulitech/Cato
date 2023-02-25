@@ -73,22 +73,23 @@ async def blink():
 #         time_alarm = alarm.time.TimeAlarm(monotonic_time=time.monotonic() + 10)
 #         alarm.light_sleep_until_alarms(time_alarm)
 
-# async def deep_sleep_task():
-#     await asyncio.sleep(10)
-#     time_alarm = alarm.time.TimeAlarm(monotonic_time=time.monotonic() + 10)
-#     alarm.exit_and_deep_sleep_until_alarms(time_alarm)
+async def deep_sleep_task():
+    await asyncio.sleep(5)
+    pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True)
+    alarm.exit_and_deep_sleep_until_alarms(pin_alarm)
 
-# async def pin_sleep_task():
-#     await asyncio.sleep(3)
-#     pin_alarm = alarm.pin.PinAlarm(pin=board.IMU_INT1, value = False, pull = True)
-#     print("going to sleep")
-#     alarm.light_sleep_until_alarms(pin_alarm)
-#     print("woke from sleep")
+async def pin_sleep_task():
+    while True:
+        await asyncio.sleep(3)
+        pin_alarm = alarm.pin.PinAlarm(pin=board.IMU_INT1, value = True)
+        print("going to sleep")
+        alarm.light_sleep_until_alarms(pin_alarm)
+        print("woke from sleep")
 
 async def main():
     myIMU = LSM6DS3TRC()
     
-    await asyncio.gather(blink(), *myIMU.tasks.values())
+    await asyncio.gather(blink(), pin_sleep_task())
 
 print("Running Main: ")
 asyncio.run( main() ) # True -> Debug

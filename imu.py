@@ -95,32 +95,34 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         # print("imu init -- finish")
     
     def mode_setup(self):
-
-        self._ctrl1_xl      = 0x60 # accelerometer ODR control
-        self._tap_cfg       = 0x0D # timer, pedo, tilt, slope_fds, tap_x, tap_y, tap_z, latched interrupt
-        self._tap_ths_6d    = 0x81 # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
-        self._int_dur2      = 0x7F # Dur[3:0], Quiet[1:0], Shock[1:0]
-        self._wake_up_ths   = 0x02 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
-        self._wake_up_dur   = 0x00 # FF_Dur5, Wake_Dur1, Wake_Dur0, TimerHR, Sleep_Dur[3:0]
-        self._md1_cfg       = 0x24 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
-        _master_cfg         = 0x00 # DRDY_ON_INT1, DATA_VALID_SEL_FIFO, 0, START_CONFIG, PULL_UP_EN, PASS_THROUGH_MODE, IRON_EN, MASTER_ON
+        pass
+        # self._ctrl1_xl      = 0x60 # accelerometer ODR control
+        # self._tap_cfg       = 0x0D # timer, pedo, tilt, slope_fds, tap_x, tap_y, tap_z, latched interrupt
+        # self._tap_ths_6d    = 0x81 # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
+        # self._int_dur2      = 0x7F # Dur[3:0], Quiet[1:0], Shock[1:0]
+        # self._wake_up_ths   = 0x02 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
+        # self._wake_up_dur   = 0x00 # FF_Dur5, Wake_Dur1, Wake_Dur0, TimerHR, Sleep_Dur[3:0]
+        # self._md1_cfg       = 0x24 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
+        # _master_cfg         = 0x00 # DRDY_ON_INT1, DATA_VALID_SEL_FIFO, 0, START_CONFIG, PULL_UP_EN, PASS_THROUGH_MODE, IRON_EN, MASTER_ON
 
     def single_tap_cfg(self):
-        self._ctrl1_xl      = 0x60 # accelerometer ODR control
-        self._tap_cfg       = 0x0E # timer, pedo, tilt, slope_fds, tap_x, tap_y, tap_z, latched interrupt
-        self._tap_ths_6d    = 0x09 # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
-        self._int_dur2      = 0x06 # Dur[3:0], Quiet[1:0], Shock[1:0]
-        self._wake_up_ths   = 0x00 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
-        self._md1_cfg       = 0x40 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
+        self._ctrl1_xl    = 0x60 # accelerometer ODR (output data rate) control
+        self._tap_cfg     = 0x8E # timer, pedo, tilt, slope_fds, tap_x, tap_y, tap_z, latched interrupt
+        self._tap_ths_6d  = 0x8C # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
+        self._int_dur2    = 0x7F # Dur[3:0], Quiet[1:0], Shock[1:0]
+        self._wake_up_ths = 0x80 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
+        self._md1_cfg     = 0x40 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
 
     def double_tap_cfg(self):
-        self._ctrl1_xl      = 0x60 # accelerometer ODR control
-        self._tap_cfg       = 0x0E # timer, pedo, tilt, slope_fds, tap_x, tap_y, tap_z, latched interrupt
-        self._tap_ths_6d    = 0x0C # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
-        self._int_dur2      = 0x7F # Dur[3:0], Quiet[1:0], Shock[1:0]
-        self._wake_up_ths   = 0x80 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
-        self._md1_cfg       = 0x08 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
+        self._ctrl1_xl    = 0x60 # accelerometer ODR control
+        self._tap_cfg     = 0x8E # timer, pedo, tilt, slope_fds, tap_x, tap_y, tap_z, latched interrupt
+        self._tap_ths_6d  = 0x8C # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
+        self._int_dur2    = 0x7F # Dur[3:0], Quiet[1:0], Shock[1:0]
+        self._wake_up_ths = 0x80 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
 
+        #for double tap, md1_cfg = 0x08
+        self._md1_cfg     = 0x08 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
+        
     @property
     def pwr(self):
         return self._pwr.value
