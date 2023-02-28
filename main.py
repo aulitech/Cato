@@ -47,12 +47,21 @@ async def control_loop(c : Cato.Cato):
     while True:
         await Cato.Events.control_loop.wait() #await permission to start
         Cato.Events.control_loop.clear()
+        # print("A")
         await c.block_on( c._move_mouse )
+        # print("B")
         Cato.Events.detect_event.set()
 
 async def main():
-    imu = LSM6DS3TRC()
-    await asyncio.gather( *imu.tasks.values() )
+    c = Cato.Cato()
+    tasks = {
+        "control_loop"  : control_loop(c),
+        "dog"           : feed_dog(),
+    }
+    tasks.update(c.tasks)
+    Cato.Events.control_loop.set()
+    print(tasks.keys())
+    await asyncio.gather( *tasks.values() )
 
 print("Running Main: ")
 asyncio.run( main() ) # True -> Debug

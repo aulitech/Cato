@@ -76,16 +76,16 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self.y_trim = 0
         self.z_trim = 0
         
-        self.mode_setup()
+        self.data_ready_on_int1_setup()
 
         self.tasks = {
             "interrupt" : self.interrupt(),
-            # "read"      : self.read(),
+            "read"      : self.read(),
             #"stream"    : self.stream()
         }
-
-        # self.ena.set()
-        # print("imu init -- finish")
+    
+    def data_ready_on_int1_setup(self):
+        self.int1_ctrl = 0x02
     
     def mode_setup(self):
 
@@ -117,13 +117,13 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             board.IMU_INT1, 
             edge = countio.Edge.RISE
         ) as interrupt:
-            # self.spark()
+            self.spark()
             while True:
                 await asyncio.sleep(0)
                 # print("IMU Start: ", gc.mem_free())
                 if interrupt.count > 0:
                     interrupt.count = 0
-                    print("Interrupt")
+                    # print("Interrupt")
                     self.imu_ready.set()
                 # print("IMU End: ", gc.mem_free())
 
