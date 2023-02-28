@@ -18,6 +18,8 @@ from adafruit_ble.services import Service
 from adafruit_ble.characteristics import Characteristic
 from adafruit_ble.characteristics.string import StringCharacteristic
 
+import supervisor as sp
+
 import asyncio
 
 import json
@@ -179,7 +181,7 @@ class BluetoothControl(Service):
         }
         while(True):
             #replace w event used by control loop
-            await asyncio.sleep(1)
+            time = sp.ticks_ms()
             try:
                 coro = SIGNAL_STRING[self.configUUID]
             except:
