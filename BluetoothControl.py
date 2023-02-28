@@ -12,7 +12,15 @@ from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
 from adafruit_hid.keycode import Keycode as Keycode
 from adafruit_hid.mouse import Mouse
 
+##maybe this should be in a new class file allowing bt services to loaded seperately
+from adafruit_ble.uuid import VendorUUID
+from adafruit_ble.services import Service
+from adafruit_ble.characteristics import Characteristic
+from adafruit_ble.characteristics.string import StringCharacteristic
+
 import asyncio
+
+import json
 
 import gc
 
@@ -25,9 +33,33 @@ class Appearances:
     hid = 0x03C0 # 0x03C0 to 0x03FF
     control_device = 0x04C0 # 0x04C0 to 0x04FF
 
-class BluetoothControl:
+class BluetoothControl(Service):
+    uuid = VendorUUID("51ad213f-e568-4e35-84e4-67af89c79ef0")
+    
+    config = dict
+    with open("config.json",'r') as f:
+        config = json.load(f)
+
+    configUUID = StringCharacteristic(
+        uuid = VendorUUID("e077bdec-f18b-4944-9e9e-8b3a815162b4"),
+        properties = Characteristic.READ | Characteristic.WRITE
+    )
+
+    # sensors = JSONCharacteristic(
+    #     uuid=VendorUUID("528ff74b-fdb8-444c-9c64-3dd5da4135ae"),
+    #     properties=Characteristic.READ,
+    # )
+
     def __init__(self):
-        self.hid = HIDService() # manages human interface device
+        super().__init__(service = None)
+        
+        if(self.config["operation_mode"] >= 20):
+            BluetoothControl.cgMessenger = StringCharacteristic(
+                uuid = VendorUUID("528ff74b-fdb8-444c-9c64-3dd5da4135ae"),
+                properties = Characteristic.READ | Characteristic.WRITE,
+            )
+
+        self.hid = HIDService()
 
         self.device_info = DeviceInfoService(
             manufacturer = "AULITECH",
@@ -73,6 +105,7 @@ class BluetoothControl:
         self.is_disconnected.set() #board starts without connection
 
         self.tasks = {  # tasks
+            "characteristic_loop"   : self.characteristic_loop(),
             "manage_connection"     : self.manage_connection(),
             "monitor_connections"   : self.monitor_connections(),
             "reconnect"             : self.reconnect()
@@ -123,4 +156,86 @@ class BluetoothControl:
 
                 if self.is_connected.is_set():
                     self.is_connected.clear()
-            await asyncio.sleep(5)
+            await asyncio.sleep(3)
+
+
+
+    async def characteristic_loop(self):                
+        with open("config.json",'r') as f:
+            for l in f.readlines():
+                self.configUUID = l
+                # while(self.configUUID != "NEXT"):
+                #     await asyncio.sleep(0.1)
+                ##not needed till working interface app
+            self.configUUID = "SEND COMPLETE"
+        
+        ##return not necessary, but offloads control loop imp till finished w collGest
+        if(self.config["operation_mode"] >= 20):
+            return
+
+        SIGNAL_STRING = {
+            "UPDATE"        : self.update_config,
+            "OVERWRITE"     : self.overwrite_config
+        }
+        while(True):
+            #replace w event used by control loop
+            await asyncio.sleep(1)
+            try:
+                coro = SIGNAL_STRING[self.configUUID]
+            except:
+                continue
+            await coro()
+
+
+    async def update_config(self):
+        self.configUUID = "READY"
+        confBuff = await self._gather_configUUID()
+        print(confBuff)
+        print(json.loads(confBuff))
+        try:
+            confBuff = json.loads(confBuff)
+        except:
+            self.configUUID = "UPDATE ERROR: Invalid Dict"
+            return
+        
+        # k/v pairs WILL update if read before invalid key is reached
+        try:
+            for k in confBuff.keys():
+                self.config[k] = confBuff[k]
+        except:
+            self.configUUID = "UPDATE ERROR: Invalid Keys"
+            return
+        
+        self.configUUID = "UPDATE COMPLETE"
+
+
+    async def overwrite_config(self):
+        self.configUUID = "READY"
+        confBuff = await self._gather_configUUID()
+        print(confBuff)
+
+        try:
+            confBuff = json.loads(confBuff)
+        except:
+            self.configUUID = "OVERWRITE ERROR: Invalid Dict"
+            return
+        
+        self.configUUID = "OVERWRITE COMPLETE"
+
+
+    async def _gather_configUUID(self):
+        print("+ _gather_configUUID")
+        # rudamentry safety signal in case multiple updates are queued
+        self.configUUID = "READY"
+        while(self.configUUID == "READY"):
+            await asyncio.sleep(0.1)
+        
+        str = ""
+        while(self.configUUID != "COMPLETE"):
+            if(self.configUUID != "NEXT"):
+                print(": _gather_configUUID\t-> configUUID = ",self.configUUID)
+                str += self.configUUID
+                self.configUUID = "NEXT"
+            await asyncio.sleep(0.1)    ##sleep(0) upon nonhuman uuid interfacing
+        print("- _gather_configUUID")
+        return str

@@ -9,3 +9,4 @@ main.py
 mode.py
 CircularBuffer.py
 config.json
+tester.json
