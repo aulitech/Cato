@@ -160,6 +160,12 @@ class Cato:
     def az(self):
         return self.imu.az
     
+    async def go_to_sleep(self):
+        print("sleepytime")
+        self.imu.c
+        await asyncio.sleep(1)
+        pass
+    
     async def monitor_battery(self):
         while True:
             await asyncio.sleep(10)
@@ -335,11 +341,10 @@ class Cato:
             # print(".")
             if not Events.move_mouse.is_set():
                 print("move mouse -- awaiting")
-            
-            # print("A: ", gc.mem_free() )
-            await Events.move_mouse.wait() # only execute when move_mouse is set
-            # print("B: ", gc.mem_free() )
+            await Events.move_mouse.wait() # only execute when move_mouse is set\
+            # print("1")
             await self.imu.wait()
+            # print("2")
             # print("C: ", gc.mem_free() )
             # print("C2: ", gc.mem_free() )
             if cycle_count == 0:
