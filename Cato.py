@@ -35,6 +35,8 @@ import gc
 
 from neutonml import Neuton
 
+from BluetoothControl import DebugStream
+
 #helpers and enums
 
 class ST():
@@ -76,7 +78,7 @@ class Events:
 neuton_outputs = array.array( "f", [0, 0, 0, 0, 0, 0, 0, 0] )
 
 def mem( loc = "" ):
-    print(f"Free Memory at {loc}: \n\t{gc.mem_free()}")
+    DebugStream.println(f"Free Memory at {loc}: \n\t{gc.mem_free()}")
 
 class Cato:
     ''' Main Class of Cato Gesture Mouse '''
@@ -86,7 +88,7 @@ class Cato:
             ~ @param bt: True configures and connect to BLE, False provides dummy connection
             ~ @param do_calib: True runs calibration, False disables for fast/lazy startup
         '''
-        print("Cato init: start")
+        DebugStream.println("Cato init: start")
 
         if bt:
             import BluetoothControl
@@ -94,15 +96,15 @@ class Cato:
             import DummyBT as BluetoothControl
         
         Cato.config = BluetoothControl.BluetoothControl.config
-        print(Cato.config)
+        DebugStream.println(Cato.config)
         
         if(Cato.config["operation_mode"] >=20)&(bool(mc.nvm[0])):  ###prob want to replace >=20 w more robust boolDict of selfwrite modes
-            print("BOOTING SELF-WRITABLE")
+            DebugStream.println("BOOTING SELF-WRITABLE")
             mc.nvm[0] = 0       #switch bit to boot board self writable
-            print("mc.nvm[0] = ",bool(mc.nvm[0])," ")
-            time.sleep(1)       ##this is here just so print statements finish
+            DebugStream.println("mc.nvm[0] = ",bool(mc.nvm[0])," ")
+            time.sleep(1)       ##this is here just so DebugStream.print statements finish
             mc.reset()
-        print("-- past writable check")
+        DebugStream.println("-- past writable check")
 
         #specification for operation
         self.specs = {
@@ -211,9 +213,9 @@ class Cato:
             
             gc.collect()
 
-            print("Detect Event: waiting for motion")
+            DebugStream.println("Detect Event: waiting for motion")
             await self.block_on(self._wait_for_motion)
-            print("Detect Event: Motion recieved")
+            DebugStream.println("Detect Event: Motion recieved")
 
             motion_detected = Events.sig_motion.is_set()
             
@@ -244,10 +246,10 @@ class Cato:
                 gesture = EV.NONE
 
             target_fn = self.st_matrix[gesture][self.state]
-            print(f"Detect Event -- Dispatching: {target_fn.__name__}")
+            DebugStream.println(f"Detect Event -- Dispatching: {target_fn.__name__}")
 
             await self.block_on(target_fn)
-            print("Detect Event: Finished Dispatching")
+            DebugStream.println("Detect Event: Finished Dispatching")
 
             Events.control_loop.set()
       
@@ -255,7 +257,7 @@ class Cato:
     # CircuitPython Docs: https://docs.circuitpython.org/projects/hid/en/latest/api.html#adafruit-hid-mouse-mouse '''
     async def noop(self, hall_pass: asyncio.Event = None):
         ''' no operation '''
-        print("nooping")
+        DebugStream.println("nooping")
         if hall_pass is not None:
             hall_pass.set()
     
@@ -350,21 +352,21 @@ class Cato:
         mem("post_cfg") # At this point, between pre and post, we lost only 100bytes
 
         while True:
-            # print(".")
+            # DebugStream.println(".")
             if not Events.move_mouse.is_set():
-                print("move mouse -- awaiting")
+                DebugStream.println("move mouse -- awaiting")
             
-            # print("A: ", gc.mem_free() )
+            # DebugStream.println("A: ", gc.mem_free() )
             await Events.move_mouse.wait() # only execute when move_mouse is set
-            # print("B: ", gc.mem_free() )
+            # DebugStream.println("B: ", gc.mem_free() )
             await self.imu.wait()
-            # print("C: ", gc.mem_free() )
-            # print("C2: ", gc.mem_free() )
+            # DebugStream.println("C: ", gc.mem_free() )
+            # DebugStream.println("C2: ", gc.mem_free() )
             if cycle_count == 0:
-                print("Mouse is live: ")
+                DebugStream.println("Mouse is live: ")
                 mem("Start of Mouse operation")
-            # print("D: ", gc.mem_free() ) # f string substitution eats 60 bytes of data...
-            # print("D2: ", gc.mem_free() )
+            # DebugStream.println("D: ", gc.mem_free() ) # f string substitution eats 60 bytes of data...
+            # DebugStream.println("D2: ", gc.mem_free() )
             cycle_count += 1    # count cycles
 
             # isolate x and y axes so they can be changed later with different orientations
@@ -377,7 +379,7 @@ class Cato:
             # pure linear mouse, move number of pixels equal to number of degrees rotation
             if(mouse_type == "LINEAR"):
                 pass
-            # print("A: ", gc.mem_free() )
+            # DebugStream.println("A: ", gc.mem_free() )
             # mouse with dynamic acceleration for fine and coarse control
             if(mouse_type == "ACCEL"):
                 scale = Cato.translate(slow_thresh, fast_thresh, slow_scale, fast_scale, mag)
@@ -385,21 +387,21 @@ class Cato:
             if(cycle_count >= min_run_cycles ):
                 if( mag <= idle_thresh ): # if too slow
                     # if (idle_count == 0): # count time of idle to finish (design util)
-                        # print("\tidle detected, count begun")
+                        # DebugStream.println("\tidle detected, count begun")
                     idle_count += 1
                 else:
-                    # print("\tactivity resumed: idle counter reset")
+                    # DebugStream.println("\tactivity resumed: idle counter reset")
                     idle_count = 0
 
                 if idle_count >= max_idle_cycles: # if sufficiently idle, clear move_mouse
-                    print("\tMouse Exit")
+                    DebugStream.println("\tMouse Exit")
                     Events.move_mouse.clear()
                     Events.mouse_done.set()
 
                     idle_count = 0
                     cycle_count = 0
-                    # print(f"post-reset cycle count: {cycle_count}")
-            # print("A: ", gc.mem_free() )
+                    # DebugStream.println(f"post-reset cycle count: {cycle_count}")
+            # DebugStream.println("A: ", gc.mem_free() )
             mag = mag * usr_scale
             # trig scaling of mouse x and y values
             dx = int( scale * mag * cos(ang) )
@@ -407,13 +409,13 @@ class Cato:
 
             # mi = gc.mem_free()
             self.blue.mouse.move(dx, dy, dscroll)
-            # print("E: ", gc.mem_free() )
+            # DebugStream.println("E: ", gc.mem_free() )
             # mf = gc.mem_free()
 
             # if (mf - mi > 0):
-            #     print("Memory eaten by blue mouse move")
-            #     print(mf - mi)
-            # print("")
+            #     DebugStream.println("Memory eaten by blue mouse move")
+            #     DebugStream.println(mf - mi)
+            # DebugStream.println("")
             
     async def _scroll(self, hall_pass: asyncio.Event = None):
         Events.scroll.set()
@@ -436,17 +438,17 @@ class Cato:
             
             z += (-1) * scale * self.gz * dt
 
-            # print(f"z: {z}")
-            # print( id(self.blue.mouse) )
+            # DebugStream.println(f"z: {z}")
+            # DebugStream.println( id(self.blue.mouse) )
             self.blue.mouse.move(0, 0, int(z))
 
             if( abs(self.gy) > 30.0 ):
-                print("\tScroll Broken")
+                DebugStream.println("\tScroll Broken")
                 z = 0.0
                 Events.scroll_done.set()
                 Events.scroll.clear()
                 if hall_pass is not None:
-                    print("\tSCROLL: Scroll_done set & hall_pass set")
+                    DebugStream.println("\tSCROLL: Scroll_done set & hall_pass set")
                     hall_pass.set()
     
     async def _scroll_lr(self, hall_pass: asyncio.Event = None):
@@ -486,9 +488,9 @@ class Cato:
 
     async def left_click_drag(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        print("Left click")
+        DebugStream.println("Left click")
         self.left_press()
-        print("Drag")
+        DebugStream.println("Drag")
         await self.move_mouse()
         self.left_release()
 
@@ -577,14 +579,14 @@ class Cato:
         cycles = 0 # count number of waited cycles
         val = 0.0
         while True:
-            # print("A: ", gc.mem_free())
+            # DebugStream.println("A: ", gc.mem_free())
             
             await Events.wait_for_motion.wait()
-            # print("wait_for_motion triggered")
-            # print("B: ", gc.mem_free())
+            # DebugStream.println("wait_for_motion triggered")
+            # DebugStream.println("B: ", gc.mem_free())
             
             await self.imu.wait()
-            # print("C: ", gc.mem_free())
+            # DebugStream.println("C: ", gc.mem_free())
             cycles += 1
 
             val = self.gx ** 2 + self.gy ** 2 + self.gz ** 2
@@ -598,27 +600,27 @@ class Cato:
                 if cycles > num:
                     Events.wait_for_motion.clear()
                     Events.sig_motion.clear()
-            # print("D: ", gc.mem_free())
+            # DebugStream.println("D: ", gc.mem_free())
             # exiting cleanup
             if not Events.wait_for_motion.is_set():
                 exit_reason = "MOTION" if Events.sig_motion.is_set() else "TIMEOUT"
-                print( f"WAIT FOR MOTION: EXIT : { exit_reason }" )
+                DebugStream.println( f"WAIT FOR MOTION: EXIT : { exit_reason }" )
                 Events.wait_for_motion_done.set()
                 cycles = 0
-            # print("E: ", gc.mem_free())
-            # print("")
+            # DebugStream.println("E: ", gc.mem_free())
+            # DebugStream.println("")
             
 
     async def collect_gestures(self, logName = "log.txt", n = 2, gestID = 0, winSize = 76):
         mc.nvm[0] = True
-        print("+ collect_gestures")
+        DebugStream.println("+ collect_gestures")
         await self.blue.is_connected.wait()
-        print("Bluetooth Connected!")
+        DebugStream.println("Bluetooth Connected!")
         await asyncio.sleep(3)
 
-        print("Collecting Gestures")
+        DebugStream.println("Collecting Gestures")
         gest_timer = asyncio.Event()
-        print(self.blue.cgMessenger)
+        DebugStream.println(self.blue.cgMessenger)
         for i in range(n):
             hist = []
             maxGest = list
@@ -637,7 +639,7 @@ class Cato:
                 await self.imu.wait()
                 hist.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz, gestID))
                 # if(c == 0):
-                #     print(",\t".join(str(v) for v in hist[len(hist)-1]))
+                #     DebugStream.println(",\t".join(str(v) for v in hist[len(hist)-1]))
                 # c = (c+1)%32
 
                 if(len(hist) == winSize):
@@ -647,7 +649,7 @@ class Cato:
                     asyncio.create_task(self.countN(gest_timer, 5))  # Timer starts here
                     start = time.time()
                     counter = 0
-                    print("Perform Gesture: ",gestID)
+                    DebugStream.println("Perform Gesture: ",gestID)
                     self.blue.cgMessenger = "Perform Gesture: "+str(gestID)
                 
                 ##could check max acc as it's read to cut mem by 1/4 (would require splitting maxGest into pre/post queues)
@@ -655,30 +657,30 @@ class Cato:
                     hist.pop(0)
                     currMid = hist[int(winSize/2)]
                     currAbs = currMid[3]**2 + currMid[4]**2 + currMid[5]**2
-                    #print(currMid)
-                    print(currAbs, "<", maxAbs)
+                    #DebugStream.println(currMid)
+                    DebugStream.println(currAbs, "<", maxAbs)
                     if(currAbs > maxAbs):
-                        print("New Max Read")
+                        DebugStream.println("New Max Read")
                         self.blue.cgMessenger = "New Max Read"
                         maxAbs = currAbs
                         maxGest = hist.copy()
 
                     if(counter < round(time.time() -start)):
                         counter = round(time.time()-start)
-                        print(counter)
+                        DebugStream.println(counter)
             gest_timer.clear()
             self.blue.cgMessenger = "Logging Max"
                 
             # record data
             with open(logName,"a") as log:       ##swap to append for final?
-                print("Writing to",logName)
+                DebugStream.println("Writing to",logName)
                 while(len(maxGest) > 0):
                     d = maxGest.pop(0)
                     log.write(",".join(str(v) for v in d))
                     log.write("\n")
         
         self.blue.cgMessenger = "Gesture Collection Completed"
-        print("Gesture Collection Completed")
+        DebugStream.println("Gesture Collection Completed")
 
         asyncio.create_task(self.countN(gest_timer, 5))
         await gest_timer.wait()
@@ -687,13 +689,13 @@ class Cato:
     async def collect_gestures_keyb(self, logName = "log.txt", n = 2, gestID = 0, winSize = 76):
         await self.blue.is_connected.wait()
         #await self.events.collect_gestures.wait()
-        print("Bluetooth Connected!")
+        DebugStream.println("Bluetooth Connected!")
         await asyncio.sleep(2)
         with open(logName,"w"):     # open log as w to clear previous data
             pass
         
         self.bluType("Collecting Gestures")
-        print("Collecting Gestures")
+        DebugStream.println("Collecting Gestures")
         await asyncio.sleep(2)
         gest_timer = asyncio.Event()
         for i in range(n):
@@ -716,7 +718,7 @@ class Cato:
                     asyncio.create_task(self.countN(gest_timer, 5))  # Timer starts here
                     start = time.time()
                     counter = 0
-                    print("Perform Gesture: ",gestID)
+                    DebugStream.println("Perform Gesture: ",gestID)
                     self.bluType("Perform Gesture "+str(gestID)+"\n")
                     self.blue.k.send(34)    # type 5
                 
@@ -731,7 +733,7 @@ class Cato:
 
                     if(counter < round(time.time() -start)):
                         counter = round(time.time()-start)
-                        print(counter)
+                        DebugStream.println(counter)
                         self.blue.k.send(42)    # Backspace
                         if(counter <= 5):
                             self.bluType(str(5-counter))
@@ -741,13 +743,13 @@ class Cato:
                 
             # record data
             with open(logName,"a") as log:       ##swap to append for final?
-                print("Writing to",logName)
+                DebugStream.println("Writing to",logName)
                 while(len(maxGest) > 0):
                     d = maxGest.pop(0)
                     log.write(",".join(str(v) for v in d))
                     log.write("\n")
 
-        print("Gesture Collection Completed")
+        DebugStream.println("Gesture Collection Completed")
         self.bluType("Gesture Collection Completed\n")
 
         asyncio.create_task(self.countN(gest_timer, 5))
@@ -776,15 +778,18 @@ class Cato:
             
 
     async def countN(self, ev, n):
-        #print("+ countN")
+        #DebugStream.println("+ countN")
         await asyncio.sleep(n)
         ev.set()
 
 
     async def test_loop(self):
-        print("+ test_loop")
-        #await self.blue.is_connected.wait()
+        DebugStream.println("+ test_loop")
+        await self.blue.is_connected.wait()
+        i = 0
         while(True):
             await asyncio.sleep(1)
-            print(self.blue.configUUID)
-            #print(": test_loop -> end of while ")
+            #DebugStream.println("loop: "+str(i))
+            i += 1
+            #DebugStream.println(self.blue.configUUID)
+            #DebugStream.println(": test_loop -> end of while ")
