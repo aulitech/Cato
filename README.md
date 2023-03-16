@@ -81,7 +81,8 @@ It detects "Yes" and "No"
 
 ## Sending config.json to client
 
-Once a bluetooth connection is established, Cato will imediately begin sending config.json over uuid 51ad213f-e568-4e35-84e4-67af89c79ef0.
+Once a bluetooth connection is established, Cato will imediately begin sending config.json over uuid e077bdec-f18b-4944-9e9e-8b3a815162b4.
+
 config.json will be sent one line at a time, awaiting the stream to be updated to "NEXT" after every line.  After the file has been fully read, the stream will be updated to "SEND COMPLETE".
 
 ## Update config.json
