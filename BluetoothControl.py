@@ -164,9 +164,8 @@ class BluetoothControl(Service):
         with open("config.json",'r') as f:
             for l in f.readlines():
                 self.configUUID = l
-                # while(self.configUUID != "NEXT"):
-                #     await asyncio.sleep(0.1)
-                ##not needed till working interface app
+                while(self.configUUID != "NEXT"):
+                    await asyncio.sleep(0)
             self.configUUID = "SEND COMPLETE"
         
         ##return not necessary, but offloads control loop imp till finished w collGest
