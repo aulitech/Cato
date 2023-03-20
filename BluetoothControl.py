@@ -36,38 +36,42 @@ class Appearances:
     hid = 0x03C0 # 0x03C0 to 0x03FF
     control_device = 0x04C0 # 0x04C0 to 0x04FF
 
-class BluetoothControl(Service):
-    # BLERadio can toggle advertising state
-    ble = adafruit_ble.BLERadio()
-
+class StrCharacteristicService(Service):
     uuid = VendorUUID("51ad213f-e568-4e35-84e4-67af89c79ef0")
-    
-    config = dict
-    with open("config.json",'r') as f:
-        config = json.load(f)
-
-    configChar = StringCharacteristic(
-        uuid = VendorUUID("e077bdec-f18b-4944-9e9e-8b3a815162b4"),
-        properties = Characteristic.READ | Characteristic.WRITE,
+   
+    configUUID = StringCharacteristic(
+        uuid = uuid,
+        properties = Characteristic.READ | Characteristic.WRITE | Characteristic.INDICATE,
         initial_value = "Hello World"
     )
+    debugUUID = StringCharacteristic(
+        uuid = uuid,
+        properties = Characteristic.READ | Characteristic.NOTIFY
+    )
+    cgMessenger = None
 
     def __init__(self):
         super().__init__(service = None)
         self.connectable = True
 
-        print(self.configChar)
-        DebugStream.println(self.configChar)
+    def colGestService():
+        StrCharacteristicService.colGestUUID = StringCharacteristic(
+            uuid = VendorUUID("528ff74b-fdb8-444c-9c64-3dd5da4135ae"),
+            properties = Characteristic.READ | Characteristic.WRITE | Characteristic.INDICATE
+        )
 
-        #BluetoothControl.ble.start_advertising(DebugStream.advertisement)
-        #DebugStream.println("Hello World??")
-        
-        if(self.config["operation_mode"] >= 20):
-            BluetoothControl.cgMessenger = StringCharacteristic(
-                uuid = VendorUUID("528ff74b-fdb8-444c-9c64-3dd5da4135ae"),
-                properties = Characteristic.READ | Characteristic.WRITE,
-            )
 
+class BluetoothControl():
+    # BLERadio can toggle advertising state
+    ble = adafruit_ble.BLERadio()
+
+    SCS = StrCharacteristicService()
+    
+    config = dict
+    with open("config.json",'r') as f:
+        config = json.load(f)
+
+    def __init__(self):
         self.hid = HIDService()
 
         self.device_info = DeviceInfoService(
@@ -171,11 +175,11 @@ class BluetoothControl(Service):
         DebugStream.println("+ characteristic_loop")
         with open("config.json",'r') as f:
             for l in f.readlines():
-                self.configChar = l
+                self.SCS.configUUID = l
                 # while(self.configUUID != "NEXT"):
                 #     await asyncio.sleep(0.1)
                 ##not needed till working interface app
-            self.configChar = "SEND COMPLETE"
+            self.SCS.configUUID = "SEND COMPLETE"
         
         ##return not necessary, but offloads control loop impl till finished w collGest
         if(self.config["operation_mode"] >= 20):
@@ -189,21 +193,21 @@ class BluetoothControl(Service):
             ##test w different time lengths or async event triggers
             await asyncio.sleep(0.2)
             try:
-                coro = SIGNAL_STRING[self.configChar]
+                coro = SIGNAL_STRING[self.SCS.configUUID]
             except:
                 continue
             await coro()
 
 
     async def update_config(self):
-        self.configChar = "READY"
+        self.SCS.configUUID = "READY"
         confBuff = await self._gather_configUUID()
         DebugStream.println(confBuff)
         DebugStream.println(json.loads(confBuff))
         try:
             confBuff = json.loads(confBuff)
         except:
-            self.configChar = "UPDATE ERROR: Invalid Dict"
+            self.SCS.configUUID = "UPDATE ERROR: Invalid Dict"
             return
         
         # k/v pairs WILL update if read before invalid key is reached
@@ -211,57 +215,51 @@ class BluetoothControl(Service):
             for k in confBuff.keys():
                 self.config[k] = confBuff[k]
         except:
-            self.configChar = "UPDATE ERROR: Invalid Keys"
+            self.SCS.configUUID = "UPDATE ERROR: Invalid Keys"
             return
         
-        self.configChar = "UPDATE COMPLETE"
+        self.SCS.configUUID = "UPDATE COMPLETE"
 
 
     async def overwrite_config(self):
-        self.configChar = "READY"
+        self.SCS.configUUID = "READY"
         confBuff = await self._gather_configUUID()
         DebugStream.println(confBuff)
 
         try:
             confBuff = json.loads(confBuff)
         except:
-            self.configChar = "OVERWRITE ERROR: Invalid Dict"
+            self.SCS.configUUID = "OVERWRITE ERROR: Invalid Dict"
             return
         
-        self.configChar = "OVERWRITE COMPLETE"
+        self.SCS.configUUID = "OVERWRITE COMPLETE"
 
 
     async def _gather_configUUID(self):
         DebugStream.println("+ _gather_configUUID")
         # rudamentry safety signal in case multiple updates are queued
-        self.configChar = "READY"
-        while(self.configChar == "READY"):
+        self.SCS.configUUID = "READY"
+        while(self.SCS.configUUID == "READY"):
             await asyncio.sleep(0.1)
         
         str = ""
-        while(self.configChar != "COMPLETE"):
-            if(self.configChar != "NEXT"):
-                DebugStream.println(": _gather_configUUID\t-> configUUID = ",self.configChar)
-                str += self.configChar
-                self.configChar = "NEXT"
+        while(self.SCS.configUUID != "COMPLETE"):
+            if(self.SCS.configUUID != "NEXT"):
+                DebugStream.println(": _gather_configUUID\t-> configUUID = ",self.SCS.configUUID)
+                str += self.SCS.configUUID
+                self.SCS.configUUID = "NEXT"
             await asyncio.sleep(0.1)    ##sleep(0) upon nonhuman uuid interfacing
         DebugStream.println("- _gather_configUUID")
         return str
-    
+
 
 # TODO: implement string buffer and only write once bluetooth is connected
 class DebugStream:
-    #ble = BluetoothControl.uuid
-    #uart = UARTService()
-    #advertisement = ProvideServicesAdvertisement(uart)
 
-    # uart writes dont seem to be saved before bluetooth connection
-    strBuff = ""
-
-    def print(str):
-        print(str, end="")
-        #DebugStream.uart.write(str)
+    def print(s):
+        print(s, end="")
+        BluetoothControl.SCS.debugUUID = s
     
-    def println(str):
-        print(str)
-        #DebugStream.uart.write(str+'\n')
+    def println(s):
+        print(s)
+        BluetoothControl.SCS.debugUUID = str(s) +"\n"

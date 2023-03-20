@@ -96,7 +96,7 @@ class Cato:
             import DummyBT as BluetoothControl
         
         Cato.config = BluetoothControl.BluetoothControl.config
-        DebugStream.println(Cato.config)
+        #DebugStream.println(Cato.config)
         
         if(Cato.config["operation_mode"] >=20)&(bool(mc.nvm[0])):  ###prob want to replace >=20 w more robust boolDict of selfwrite modes
             DebugStream.println("BOOTING SELF-WRITABLE")
@@ -613,6 +613,7 @@ class Cato:
 
     async def collect_gestures(self, logName = "log.txt", n = 2, gestID = 0, winSize = 76):
         mc.nvm[0] = True
+        self.blue.SCS.colGestService()
         DebugStream.println("+ collect_gestures")
         await self.blue.is_connected.wait()
         DebugStream.println("Bluetooth Connected!")
@@ -620,7 +621,7 @@ class Cato:
 
         DebugStream.println("Collecting Gestures")
         gest_timer = asyncio.Event()
-        DebugStream.println(self.blue.cgMessenger)
+        DebugStream.println(self.blue.SCS.colgestUUID)
         for i in range(n):
             hist = []
             maxGest = list
@@ -631,10 +632,10 @@ class Cato:
             start = 0
             counter = int
 
-            self.blue.cgMessenger = "Ready for Input"
-            while(self.blue.cgMessenger == "Ready for Input"):
+            self.blue.SCS.colgestUUID = "Ready for Input"
+            while(self.blue.SCS.colgestUUID == "Ready for Input"):
                 await asyncio.sleep(0)
-            self.blue.cgMessenger = "Input Recieved"
+            self.blue.SCS.colgestUUID = "Input Recieved"
             while(not gest_timer.is_set()):
                 await self.imu.wait()
                 hist.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz, gestID))
@@ -650,7 +651,7 @@ class Cato:
                     start = time.time()
                     counter = 0
                     DebugStream.println("Perform Gesture: ",gestID)
-                    self.blue.cgMessenger = "Perform Gesture: "+str(gestID)
+                    self.blue.SCS.colgestUUID = "Perform Gesture: "+str(gestID)
                 
                 ##could check max acc as it's read to cut mem by 1/4 (would require splitting maxGest into pre/post queues)
                 elif(len(hist) > winSize):
@@ -661,7 +662,7 @@ class Cato:
                     DebugStream.println(currAbs, "<", maxAbs)
                     if(currAbs > maxAbs):
                         DebugStream.println("New Max Read")
-                        self.blue.cgMessenger = "New Max Read"
+                        self.blue.SCS.colgestUUID = "New Max Read"
                         maxAbs = currAbs
                         maxGest = hist.copy()
 
@@ -669,7 +670,7 @@ class Cato:
                         counter = round(time.time()-start)
                         DebugStream.println(counter)
             gest_timer.clear()
-            self.blue.cgMessenger = "Logging Max"
+            self.blue.SCS.colgestUUID = "Logging Max"
                 
             # record data
             with open(logName,"a") as log:       ##swap to append for final?
@@ -679,7 +680,7 @@ class Cato:
                     log.write(",".join(str(v) for v in d))
                     log.write("\n")
         
-        self.blue.cgMessenger = "Gesture Collection Completed"
+        self.blue.SCS.colgestUUID = "Gesture Collection Completed"
         DebugStream.println("Gesture Collection Completed")
 
         asyncio.create_task(self.countN(gest_timer, 5))
@@ -788,8 +789,8 @@ class Cato:
         await self.blue.is_connected.wait()
         i = 0
         while(True):
-            await asyncio.sleep(1)
+            await asyncio.sleep(5)
             #DebugStream.println("loop: "+str(i))
             i += 1
-            #DebugStream.println(self.blue.configUUID)
-            #DebugStream.println(": test_loop -> end of while ")
+            DebugStream.println(self.blue.SCS.configUUID)
+            DebugStream.println(i)
