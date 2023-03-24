@@ -41,23 +41,26 @@ class StrCharacteristicService(Service):
    
     configUUID = StringCharacteristic(
         uuid = uuid,
-        properties = Characteristic.READ | Characteristic.WRITE | Characteristic.INDICATE,
-        initial_value = "Hello World"
+        properties = Characteristic.READ | Characteristic.WRITE
     )
-    debugUUID = StringCharacteristic(
-        uuid = uuid,
-        properties = Characteristic.READ | Characteristic.NOTIFY
-    )
-    cgMessenger = None
+    debugUUID = None
+    collGestUUID = None
 
     def __init__(self):
         super().__init__(service = None)
         self.connectable = True
 
+    #@staticmethod
+    def debugService():
+        StrCharacteristicService.debugUUID = StringCharacteristic(
+            uuid = StrCharacteristicService.uuid,
+            properties = Characteristic.READ | Characteristic.NOTIFY
+        )
+
     def colGestService():
-        StrCharacteristicService.colGestUUID = StringCharacteristic(
+        StrCharacteristicService.collGestUUID = StringCharacteristic(
             uuid = VendorUUID("528ff74b-fdb8-444c-9c64-3dd5da4135ae"),
-            properties = Characteristic.READ | Characteristic.WRITE | Characteristic.INDICATE
+            properties = Characteristic.READ | Characteristic.WRITE
         )
 
 
@@ -65,11 +68,14 @@ class BluetoothControl():
     # BLERadio can toggle advertising state
     ble = adafruit_ble.BLERadio()
 
-    SCS = StrCharacteristicService()
-    
     config = dict
     with open("config.json",'r') as f:
         config = json.load(f)
+
+    StrCharacteristicService.debugService()
+    if(config["operation_mode"] >= 20):
+        StrCharacteristicService.colGestService()
+    SCS = StrCharacteristicService()
 
     def __init__(self):
         self.hid = HIDService()
@@ -253,13 +259,17 @@ class BluetoothControl():
         return str
 
 
-# TODO: implement string buffer and only write once bluetooth is connected
+# TODO: implement string buffer for larger/delayed inputs and only write once bluetooth is connected
 class DebugStream:
 
-    def print(s):
-        print(s, end="")
-        BluetoothControl.SCS.debugUUID = s
+    strBuff = ""
+
+    def print(*args):
+        for s in args:
+            print(s, end="")
+            BluetoothControl.SCS.debugUUID = str(s)
     
-    def println(s):
-        print(s)
-        BluetoothControl.SCS.debugUUID = str(s) +"\n"
+    def println(*args):
+        DebugStream.print(*args)
+        print()
+        BluetoothControl.SCS.debugUUID ='\n'

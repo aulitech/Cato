@@ -37,6 +37,9 @@ from neutonml import Neuton
 
 from BluetoothControl import DebugStream
 
+##TEMP IMPORT
+import supervisor
+
 #helpers and enums
 
 class ST():
@@ -81,14 +84,17 @@ def mem( loc = "" ):
     DebugStream.println(f"Free Memory at {loc}: \n\t{gc.mem_free()}")
 
 class Cato:
+
     ''' Main Class of Cato Gesture Mouse '''
     config = None
+
     def __init__(self, bt:bool = True, do_calib = True):
         '''
             ~ @param bt: True configures and connect to BLE, False provides dummy connection
             ~ @param do_calib: True runs calibration, False disables for fast/lazy startup
         '''
         DebugStream.println("Cato init: start")
+        mc.nvm[1] = True
 
         if bt:
             import BluetoothControl
@@ -97,14 +103,15 @@ class Cato:
         
         Cato.config = BluetoothControl.BluetoothControl.config
         #DebugStream.println(Cato.config)
-        
-        if(Cato.config["operation_mode"] >=20)&(bool(mc.nvm[0])):  ###prob want to replace >=20 w more robust boolDict of selfwrite modes
-            DebugStream.println("BOOTING SELF-WRITABLE")
-            mc.nvm[0] = 0       #switch bit to boot board self writable
-            DebugStream.println("mc.nvm[0] = ",bool(mc.nvm[0])," ")
-            time.sleep(1)       ##this is here just so DebugStream.print statements finish
-            mc.reset()
-        DebugStream.println("-- past writable check")
+       
+        if(Cato.config["operation_mode"] >=20)&(bool(mc.nvm[0])):  ##prob want to replace >=20 w more robust boolDict of selfwrite modes
+            DebugStream.println("WARNING: Collect Gesture mode will not record data")
+        #     DebugStream.println("BOOTING SELF-WRITABLE")
+        #     mc.nvm[0] = 0       #switch bit to boot board self writable
+        #     DebugStream.println("mc.nvm[0] = ",bool(mc.nvm[0])," ")
+        #     time.sleep(1)       ##this is here just so DebugStream.print statements finish
+        #     mc.reset()
+        # DebugStream.println("-- past writable check")
 
         #specification for operation
         self.specs = {
@@ -612,7 +619,6 @@ class Cato:
             
 
     async def collect_gestures(self, logName = "log.txt", n = 2, gestID = 0, winSize = 76):
-        mc.nvm[0] = True
         self.blue.SCS.colGestService()
         DebugStream.println("+ collect_gestures")
         await self.blue.is_connected.wait()
@@ -632,10 +638,10 @@ class Cato:
             start = 0
             counter = int
 
-            self.blue.SCS.colgestUUID = "Ready for Input"
-            while(self.blue.SCS.colgestUUID == "Ready for Input"):
+            self.blue.SCS.collGestUUID = "Ready for Input"
+            while(self.blue.SCS.collGestUUID == "Ready for Input"):
                 await asyncio.sleep(0)
-            self.blue.SCS.colgestUUID = "Input Recieved"
+            self.blue.SCS.collGestUUID = "Input Recieved"
             while(not gest_timer.is_set()):
                 await self.imu.wait()
                 hist.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz, gestID))
@@ -651,7 +657,7 @@ class Cato:
                     start = time.time()
                     counter = 0
                     DebugStream.println("Perform Gesture: ",gestID)
-                    self.blue.SCS.colgestUUID = "Perform Gesture: "+str(gestID)
+                    self.blue.SCS.collGestUUID = "Perform Gesture: "+str(gestID)
                 
                 ##could check max acc as it's read to cut mem by 1/4 (would require splitting maxGest into pre/post queues)
                 elif(len(hist) > winSize):
@@ -662,7 +668,7 @@ class Cato:
                     DebugStream.println(currAbs, "<", maxAbs)
                     if(currAbs > maxAbs):
                         DebugStream.println("New Max Read")
-                        self.blue.SCS.colgestUUID = "New Max Read"
+                        self.blue.SCS.collGestUUID = "New Max Read"
                         maxAbs = currAbs
                         maxGest = hist.copy()
 
@@ -670,22 +676,24 @@ class Cato:
                         counter = round(time.time()-start)
                         DebugStream.println(counter)
             gest_timer.clear()
-            self.blue.SCS.colgestUUID = "Logging Max"
-                
+
+            self.blue.SCS.collGestUUID = "Logging Max"
             # record data
-            with open(logName,"a") as log:       ##swap to append for final?
-                DebugStream.println("Writing to",logName)
-                while(len(maxGest) > 0):
-                    d = maxGest.pop(0)
-                    log.write(",".join(str(v) for v in d))
-                    log.write("\n")
+            try:
+                with open(logName,"a") as log:       ##swap to append for final?
+                    DebugStream.println("Writing to",logName)
+                    while(len(maxGest) > 0):
+                        d = maxGest.pop(0)
+                        log.write(",".join(str(v) for v in d))
+                        log.write("\n")
+            except:
+                continue
         
-        self.blue.SCS.colgestUUID = "Gesture Collection Completed"
+        self.blue.SCS.collGestUUID = "Gesture Collection Completed"
         DebugStream.println("Gesture Collection Completed")
 
         asyncio.create_task(self.countN(gest_timer, 5))
         await gest_timer.wait()
-        mc.nvm[0] = True
 
     async def collect_gestures_keyb(self, logName = "log.txt", n = 2, gestID = 0, winSize = 76):
         await self.blue.is_connected.wait()
@@ -743,19 +751,21 @@ class Cato:
             self.bluType("Gesture Collected\nLogging Max\n")
                 
             # record data
-            with open(logName,"a") as log:       ##swap to append for final?
-                DebugStream.println("Writing to",logName)
-                while(len(maxGest) > 0):
-                    d = maxGest.pop(0)
-                    log.write(",".join(str(v) for v in d))
-                    log.write("\n")
-
+            try:
+                with open(logName,"a") as log:       ##swap to append for final?
+                    DebugStream.println("Writing to",logName)
+                    while(len(maxGest) > 0):
+                        d = maxGest.pop(0)
+                        log.write(",".join(str(v) for v in d))
+                        log.write("\n")
+            except:
+                continue
+            
         DebugStream.println("Gesture Collection Completed")
         self.bluType("Gesture Collection Completed\n")
 
         asyncio.create_task(self.countN(gest_timer, 5))
         await gest_timer.wait()
-        mc.nvm[0] = True
     
 
     def bluType(self, str):
@@ -779,18 +789,24 @@ class Cato:
             
 
     async def countN(self, ev, n):
-        #DebugStream.println("+ countN")
         await asyncio.sleep(n)
         ev.set()
 
 
     async def test_loop(self):
         DebugStream.println("+ test_loop")
-        await self.blue.is_connected.wait()
+        #await self.blue.is_connected.wait()
+        await asyncio.sleep(5)
         i = 0
+        DebugStream.println(mc.nvm[0],'\t',mc.nvm[1])
+        try:
+            with open("config.json",'a') as f:
+                DebugStream.println("RO")
+        except:
+            DebugStream.println("RW")
+        DebugStream.println(mc.nvm[0],'\t',mc.nvm[1])
         while(True):
-            await asyncio.sleep(5)
             #DebugStream.println("loop: "+str(i))
             i += 1
-            DebugStream.println(self.blue.SCS.configUUID)
-            DebugStream.println(i)
+            DebugStream.println("USB?\t"+str(supervisor.runtime.usb_connected))
+            await asyncio.sleep(5)

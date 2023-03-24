@@ -6,9 +6,10 @@
 import board
 import sys
 
+import microcontroller as mc
 from microcontroller import watchdog as w
 from watchdog import WatchDogMode
-import supervisor as sp
+import supervisor
 import gc
 
 import io
@@ -54,6 +55,7 @@ async def control_loop(c : Cato.Cato):
         Events.detect_event.set()
 
 async def main():
+    mc.nvm[0] = supervisor.runtime.usb_connected
     c = Cato.Cato( bt = True, do_calib = True)
     c.imu.imu_enable.set()
     
