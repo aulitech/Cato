@@ -90,10 +90,12 @@ class Cato:
     gesture_key = [
         "Nod Down",
         "Nod Up",
-        "Nod Left",
         "Nod Right",
+        "Nod Left",
+        "Tilt Right",
         "Tilt Left",
-        "Tilt Right"
+        "Shake Vertical",
+        "Shake Horizontal"
     ]
 
     def __init__(self, bt:bool = True, do_calib = True):
