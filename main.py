@@ -6,10 +6,9 @@
 import board
 import sys
 
-import microcontroller as mc
 from microcontroller import watchdog as w
 from watchdog import WatchDogMode
-import supervisor
+import supervisor as sp
 import gc
 
 import io
@@ -25,9 +24,7 @@ from Cato import Events
 import battery
 import mode
 
-from BluetoothControl import DebugStream as DBS
-
-import storage
+from math import sqrt
 
 batt_ev = asyncio.Event()
 # Beginning code proper
@@ -57,22 +54,6 @@ async def control_loop(c : Cato.Cato):
         Events.detect_event.set()
 
 async def main():
-    ##once remount process is confirmed to work consistently, only try/except is necessary
-    mc.nvm[0] = supervisor.runtime.usb_connected
-    mc.nvm[1] = False
-    if(not(mc.nvm[0])):
-        mc.nvm[1] = True
-        mc.nvm[2] = True
-        try:
-            storage.remount('/', False)
-            DBS.println("Successful remount RO")
-        except RuntimeError as re:
-            mc.nvm[2] = False
-            DBS.println("Failed to remount RO")
-            print(re)
-    else:
-        DBS.println("No remount necessary")
-
     c = Cato.Cato( bt = True, do_calib = True)
     c.imu.imu_enable.set()
     

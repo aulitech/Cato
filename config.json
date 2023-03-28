@@ -15,7 +15,7 @@
         "high": 30950
     },
 
-    "operation_mode" : 10,
+    "operation_mode" : "standard",
 
     "st_matrix" : [
         [   "noop",                        "noop",                 "noop"          ],
