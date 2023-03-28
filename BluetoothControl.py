@@ -57,7 +57,7 @@ class StrCharacteristicService(Service):
             properties = Characteristic.READ | Characteristic.NOTIFY
         )
 
-    def colGestService():
+    def collGestService():
         StrCharacteristicService.collGestUUID = StringCharacteristic(
             uuid = VendorUUID("528ff74b-fdb8-444c-9c64-3dd5da4135ae"),
             properties = Characteristic.READ | Characteristic.WRITE
@@ -187,7 +187,7 @@ class BluetoothControl():
                 ##not needed till working interface app
             self.SCS.configUUID = "SEND COMPLETE"
         
-        ##return not necessary, but offloads control loop impl till finished w collGest
+        ##return not necessary, but offloads control loop impl till finished w collGest 
         if(self.config["operation_mode"] >= 20):
             return
 
@@ -203,6 +203,7 @@ class BluetoothControl():
             except:
                 continue
             await coro()
+            ##code to update config.json goes here
 
 
     async def update_config(self):

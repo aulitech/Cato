@@ -37,8 +37,7 @@ from neutonml import Neuton
 
 from BluetoothControl import DebugStream
 
-##TEMP IMPORT
-import supervisor
+##TEMP IMPORTS
 
 #helpers and enums
 
@@ -88,13 +87,21 @@ class Cato:
     ''' Main Class of Cato Gesture Mouse '''
     config = None
 
+    gesture_key = [
+        "Nod Down",
+        "Nod Up",
+        "Nod Left",
+        "Nod Right",
+        "Tilt Left",
+        "Tilt Right"
+    ]
+
     def __init__(self, bt:bool = True, do_calib = True):
         '''
             ~ @param bt: True configures and connect to BLE, False provides dummy connection
             ~ @param do_calib: True runs calibration, False disables for fast/lazy startup
         '''
         DebugStream.println("Cato init: start")
-        mc.nvm[1] = True
 
         if bt:
             import BluetoothControl
@@ -151,7 +158,7 @@ class Cato:
         elif(Cato.config["operation_mode"] >=20):
             self.tasks = {
                 "wait_for_motion"   : self.wait_for_motion(),
-                "collect_gestures"  : self.collect_gestures()
+                "collect_gestures"  : self.collect_gestures(gestID = Cato.config["operation_mode"]-20)
             }
         elif(Cato.config["operation_mode"] == 10):
             self.tasks = {
@@ -618,8 +625,8 @@ class Cato:
             # DebugStream.println("")
             
 
-    async def collect_gestures(self, logName = "log.txt", n = 2, gestID = 0, winSize = 76):
-        self.blue.SCS.colGestService()
+    async def collect_gestures(self, logName = "log.txt", n = 10, gestID = 0, winSize = 76):
+        self.blue.SCS.collGestService()
         DebugStream.println("+ collect_gestures")
         await self.blue.is_connected.wait()
         DebugStream.println("Bluetooth Connected!")
@@ -627,7 +634,7 @@ class Cato:
 
         DebugStream.println("Collecting Gestures")
         gest_timer = asyncio.Event()
-        DebugStream.println(self.blue.SCS.colgestUUID)
+        DebugStream.println(self.blue.SCS.collGestUUID)
         for i in range(n):
             hist = []
             maxGest = list
@@ -656,7 +663,7 @@ class Cato:
                     asyncio.create_task(self.countN(gest_timer, 5))  # Timer starts here
                     start = time.time()
                     counter = 0
-                    DebugStream.println("Perform Gesture: ",gestID)
+                    DebugStream.println("Perform Gesture: ",Cato.gesture_key[gestID])
                     self.blue.SCS.collGestUUID = "Perform Gesture: "+str(gestID)
                 
                 ##could check max acc as it's read to cut mem by 1/4 (would require splitting maxGest into pre/post queues)
@@ -798,15 +805,13 @@ class Cato:
         #await self.blue.is_connected.wait()
         await asyncio.sleep(5)
         i = 0
-        DebugStream.println(mc.nvm[0],'\t',mc.nvm[1])
-        try:
-            with open("config.json",'a') as f:
-                DebugStream.println("RO")
-        except:
-            DebugStream.println("RW")
-        DebugStream.println(mc.nvm[0],'\t',mc.nvm[1])
         while(True):
             #DebugStream.println("loop: "+str(i))
             i += 1
-            DebugStream.println("USB?\t"+str(supervisor.runtime.usb_connected))
+            try:
+                with open("config.json",'a') as f:
+                    DebugStream.print("RO\t")
+            except:
+                DebugStream.print("RW\t")
+            DebugStream.println(str(mc.nvm[0])+'\t'+str(mc.nvm[1])+'\t'+str(mc.nvm[2]))
             await asyncio.sleep(5)
