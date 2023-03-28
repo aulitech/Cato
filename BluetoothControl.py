@@ -181,11 +181,10 @@ class BluetoothControl():
         DebugStream.println("+ characteristic_loop")
         with open("config.json",'r') as f:
             for l in f.readlines():
-                self.SCS.configUUID = l
-                # while(self.configUUID != "NEXT"):
-                #     await asyncio.sleep(0.1)
-                ##not needed till working interface app
-            self.SCS.configUUID = "SEND COMPLETE"
+                self.configUUID = l
+                while(self.configUUID != "NEXT"):
+                    await asyncio.sleep(0)
+            self.configUUID = "SEND COMPLETE"
         
         ##return not necessary, but offloads control loop impl till finished w collGest 
         if(self.config["operation_mode"] >= 20):
