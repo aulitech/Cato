@@ -82,45 +82,34 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self.x_trim = 0
         self.y_trim = 0
         self.z_trim = 0
-        
+        print(self.int1_ctrl)
         self.data_ready_on_int1_setup()
 
         self.tasks = {
-            "interrupt" : self.interrupt(),
-            "read"      : self.read(),
+            "interrupt" : asyncio.create_task(self.interrupt()),
+            "read"      : asyncio.create_task(self.read()),
             #"stream"    : self.stream()
         }
     
     def data_ready_on_int1_setup(self):
         self.int1_ctrl = 0x02
     
-    def mode_setup(self):
-        pass
-        # self._ctrl1_xl      = 0x60 # accelerometer ODR control
-        # self._tap_cfg       = 0x0D # timer, pedo, tilt, slope_fds, tap_x, tap_y, tap_z, latched interrupt
-        # self._tap_ths_6d    = 0x81 # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
-        # self._int_dur2      = 0x7F # Dur[3:0], Quiet[1:0], Shock[1:0]
-        # self._wake_up_ths   = 0x02 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
-        # self._wake_up_dur   = 0x00 # FF_Dur5, Wake_Dur1, Wake_Dur0, TimerHR, Sleep_Dur[3:0]
-        # self._md1_cfg       = 0x24 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
-        # _master_cfg         = 0x00 # DRDY_ON_INT1, DATA_VALID_SEL_FIFO, 0, START_CONFIG, PULL_UP_EN, PASS_THROUGH_MODE, IRON_EN, MASTER_ON
+    def tap_ena(self):
+        self.int1_ctrl      = 0x00
+        self._ctrl1_xl      = 0x60 # accelerometer ODR (output data rate) control
+        self._tap_cfg       = 0x8E # timer, pedo, tilt, slope_fds, tap_x, tap_y, tap_z, latched interrupt
+        self._tap_ths_6d    = 0x8C # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
+        self._int_dur2      = 0x7F # Dur[3:0], Quiet[1:0], Shock[1:0]
+        self._wake_up_ths   = 0x80 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
+        # SELECT A TAP WITH SINGLE OR DOUBLE
 
     def single_tap_cfg(self):
-        self._ctrl1_xl    = 0x60 # accelerometer ODR (output data rate) control
-        self._tap_cfg     = 0x8E # timer, pedo, tilt, slope_fds, tap_x, tap_y, tap_z, latched interrupt
-        self._tap_ths_6d  = 0x8C # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
-        self._int_dur2    = 0x7F # Dur[3:0], Quiet[1:0], Shock[1:0]
-        self._wake_up_ths = 0x80 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
+        self.tap_ena()
         self._md1_cfg     = 0x40 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
+        print("Single tap: Configured")
 
     def double_tap_cfg(self):
-        self._ctrl1_xl    = 0x60 # accelerometer ODR control
-        self._tap_cfg     = 0x8E # timer, pedo, tilt, slope_fds, tap_x, tap_y, tap_z, latched interrupt
-        self._tap_ths_6d  = 0x8C # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
-        self._int_dur2    = 0x7F # Dur[3:0], Quiet[1:0], Shock[1:0]
-        self._wake_up_ths = 0x80 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
-
-        #for double tap, md1_cfg = 0x08
+        self.tap_ena()
         self._md1_cfg     = 0x08 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
         
     @property
@@ -134,7 +123,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
 
     async def interrupt(self):
         """ interrupt on imu for gyro data ready """
-        print("Interrupt task is live")
+        print("interrupt task spawned")
         with countio.Counter(   
             board.IMU_INT1, 
             edge = countio.Edge.RISE
@@ -142,12 +131,11 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             self.spark()
             while True:
                 await asyncio.sleep(0)
-                # print("IMU Start: ", gc.mem_free())
                 if interrupt.count > 0:
+                    if self.int1_ctrl == 0:
+                        print("!")
                     interrupt.count = 0
-                    # print("Interrupt")
                     self.imu_ready.set()
-                # print("IMU End: ", gc.mem_free())
 
     async def read(self):
         ''' reads data off of the IMU into -> gx, gy, gz, ax, ay, az '''

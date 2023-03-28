@@ -30,7 +30,7 @@ class Battery:
         time.sleep(0.1)
         temp = self.b_pin.value
         self.bat_hist.append(temp)
-        print(f"Battery: Raw Value = {temp}")
+        # print(f"Battery: Raw Value = {temp}")
         self.read_bat_ena.value = True
         time.sleep(0.1)
         return self.bat_hist.avg

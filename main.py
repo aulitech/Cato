@@ -53,53 +53,12 @@ async def control_loop(c : Cato.Cato):
         # print("B")
         Cato.Events.detect_event.set()
 
-async def blink():
-    RGB = {
-        "R" : digitalio.DigitalInOut( board.LED_RED ),
-        "G" : digitalio.DigitalInOut( board.LED_GREEN ),
-        "B" : digitalio.DigitalInOut( board.LED_BLUE )
-    }
-    for led in RGB.values():
-        led.direction = digitalio.Direction.OUTPUT
-        led.value = True
-    while True:
-        for led in RGB.values():
-            led.value = False
-            await asyncio.sleep(0.5)
-            led.value = True
-            await asyncio.sleep(0.5)
-
-# async def light_sleep_task():
-#     while True:
-#         await asyncio.sleep(10)
-#         time_alarm = alarm.time.TimeAlarm(monotonic_time=time.monotonic() + 10)
-#         alarm.light_sleep_until_alarms(time_alarm)
-
-async def deep_sleep_task():
-    await asyncio.sleep(5)
-    pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True)
-    alarm.exit_and_deep_sleep_until_alarms(pin_alarm)
-
-async def pin_sleep_task():
-    while True:
-        await asyncio.sleep(3)
-        pin_alarm = alarm.pin.PinAlarm(pin=board.IMU_INT1, value = True)
-        print("going to sleep")
-        alarm.light_sleep_until_alarms(pin_alarm)
-        print("woke from sleep")
 
 async def main():
     c = Cato.Cato()
-    tasks = {
-        "control_loop"  : control_loop(c),
-        "dog"           : feed_dog(),
-    }
-    tasks.update(c.tasks)
+    ctrl_loop = asyncio.create_task( control_loop(c) )
     Cato.Events.control_loop.set()
-    print(tasks.keys())
-    await asyncio.gather( *tasks.values() )
+    await asyncio.gather(ctrl_loop, *c.tasks.values())
 
-print("Running Main: ")
-asyncio.run( main() ) # True -> Debug
-
+asyncio.run(main())
 # mode.select_reboot_mode()

@@ -15,7 +15,7 @@ import json
 import time
 import digitalio
 import countio
-
+import alarm
 
 from adafruit_hid.keyboard import Keyboard
 from adafruit_hid.keycode import Keycode
@@ -124,11 +124,12 @@ class Cato:
 
         # functions to 'keep on hand'
         self.tasks = {
-            "wait_for_motion"   : self.wait_for_motion(),
-            "move_mouse"        : self.move_mouse(),
-            "detect_event"      : self.detect_event(),
-            "monitor_battery"   : self.monitor_battery(),
-            "scroll"            : self.scroll()
+            "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
+            "move_mouse"        : asyncio.create_task(self.move_mouse()),
+            "detect_event"      : asyncio.create_task(self.detect_event()),
+            "monitor_battery"   : asyncio.create_task(self.monitor_battery()),
+            "scroll"            : asyncio.create_task(self.scroll()),
+            "sleep"             : asyncio.create_task(self.go_to_sleep()),
         }
         self.tasks.update(self.imu.tasks)   # functions for the imu
         self.tasks.update(self.blue.tasks)  # functions for bluetooth
@@ -160,12 +161,23 @@ class Cato:
     def az(self):
         return self.imu.az
     
-    async def go_to_sleep(self):
-        print("sleepytime")
-        self.imu.c
-        await asyncio.sleep(1)
-        pass
     
+    async def go_to_sleep(self):
+        await asyncio.sleep(15)
+        self.imu.single_tap_cfg()
+        self.tasks['interrupt'].cancel()
+        await asyncio.sleep(1)
+        pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True)
+        print("LIGHT SLEEP")
+        alarm.light_sleep_until_alarms(pin_alarm)
+        print("WOKE UP")
+        self.imu.data_ready_on_int1_setup()
+        del(pin_alarm) # release imu_int1
+        await asyncio.sleep(1)
+        self.tasks['interrupt'] = asyncio.create_task( self.imu.interrupt() )
+        while True:
+            await asyncio.sleep(10)
+
     async def monitor_battery(self):
         while True:
             await asyncio.sleep(10)
