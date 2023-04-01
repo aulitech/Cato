@@ -694,7 +694,7 @@ class Cato:
                         d = maxGest.pop(0)
                         log.write(",".join(str(v) for v in d))
                         log.write("\n")
-            except:
+            except OSError as oser:
                 SCS.collGestUUID = "Gestures cannot be recorded"
                 continue
         

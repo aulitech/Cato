@@ -125,8 +125,8 @@ class StrCharacteristicService(Service):
             with open("config.json", 'w') as f:
                 json.dump(config, f)
             self.configUUID = "SAVE COMPLETE"
-        except RuntimeError as re:
-            self.configUUID = "SAVE ERROR: "+str(re)
+        except OSError as oser:
+            self.configUUID = "SAVE ERROR: "+str(oser)
     
     async def reboot(self):
         await self.save_config()
