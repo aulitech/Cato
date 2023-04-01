@@ -625,15 +625,17 @@ class Cato:
             
 
     async def collect_gestures(self, logName = "log.txt", n = 10, gestID = 0, winSize = 76):
-        self.blue.SCS.collGestService()
+        from StrCharacteristicService import SCS
         DebugStream.println("+ collect_gestures")
         await self.blue.is_connected.wait()
-        DebugStream.println("Bluetooth Connected!")
+        if(mc.nvm[1]):
+            SCS.collGestUUID = "WARNING: Cato did not bott selfwritable.  Values will not be recorded"
+            DebugStream.println("WARNING: Cato did not bott selfwritable.  Values will not be recorded")
         await asyncio.sleep(3)
 
         DebugStream.println("Collecting Gestures")
         gest_timer = asyncio.Event()
-        DebugStream.println(self.blue.SCS.collGestUUID)
+        DebugStream.println(SCS.collGestUUID)
         for i in range(n):
             hist = []
             maxGest = list
@@ -644,10 +646,10 @@ class Cato:
             start = 0
             counter = int
 
-            self.blue.SCS.collGestUUID = "Ready for Input"
-            while(self.blue.SCS.collGestUUID == "Ready for Input"):
+            SCS.collGestUUID = "Ready for Input"
+            while(SCS.collGestUUID == "Ready for Input"):
                 await asyncio.sleep(0)
-            self.blue.SCS.collGestUUID = "Input Recieved"
+            SCS.collGestUUID = "Input Recieved"
             while(not gest_timer.is_set()):
                 await self.imu.wait()
                 hist.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz, gestID))
@@ -663,7 +665,7 @@ class Cato:
                     start = time.time()
                     counter = 0
                     DebugStream.println("Perform Gesture: ",Cato.gesture_key[gestID])
-                    self.blue.SCS.collGestUUID = "Perform Gesture: "+str(gestID)
+                    SCS.collGestUUID = "Perform Gesture: "+str(gestID)
                 
                 ##could check max acc as it's read to cut mem by 1/4 (would require splitting maxGest into pre/post queues)
                 elif(len(hist) > winSize):
@@ -674,7 +676,7 @@ class Cato:
                     DebugStream.println(currAbs, "<", maxAbs)
                     if(currAbs > maxAbs):
                         DebugStream.println("New Max Read")
-                        self.blue.SCS.collGestUUID = "New Max Read"
+                        SCS.collGestUUID = "New Max Read"
                         maxAbs = currAbs
                         maxGest = hist.copy()
 
@@ -683,24 +685,26 @@ class Cato:
                         DebugStream.println(counter)
             gest_timer.clear()
 
-            self.blue.SCS.collGestUUID = "Logging Max"
             # record data
             try:
-                with open(logName,"a") as log:       ##swap to append for final?
+                with open(logName, 'a') as log:
+                    SCS.collGestUUID = "Logging Max"
                     DebugStream.println("Writing to",logName)
                     while(len(maxGest) > 0):
                         d = maxGest.pop(0)
                         log.write(",".join(str(v) for v in d))
                         log.write("\n")
             except:
+                SCS.collGestUUID = "Gestures cannot be recorded"
                 continue
         
-        self.blue.SCS.collGestUUID = "Gesture Collection Completed"
+        SCS.collGestUUID = "Gesture Collection Completed"
         DebugStream.println("Gesture Collection Completed")
 
         asyncio.create_task(self.countN(gest_timer, 5))
         await gest_timer.wait()
 
+    """
     async def collect_gestures_keyb(self, logName = "log.txt", n = 2, gestID = 0, winSize = 76):
         await self.blue.is_connected.wait()
         #await self.events.collect_gestures.wait()
@@ -792,7 +796,7 @@ class Cato:
                 c = int(c) + 29
             self.blue.k.press(c)
             self.blue.k.release_all()
-            
+    """
 
     async def countN(self, ev, n):
         await asyncio.sleep(n)
@@ -812,5 +816,6 @@ class Cato:
                     DebugStream.print("RO\t")
             except:
                 DebugStream.print("RW\t")
-            DebugStream.println(str(mc.nvm[0])+'\t'+str(mc.nvm[1])+'\t'+str(mc.nvm[2]))
+            DebugStream.print(str(mc.nvm[0])+'\t'+str(mc.nvm[1])+'\n')
+            DebugStream.print(config["operation_mode"])
             await asyncio.sleep(5)

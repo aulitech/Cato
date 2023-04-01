@@ -58,16 +58,12 @@ async def control_loop(c : Cato.Cato):
 
 async def main():
     ##once remount process is confirmed to work consistently, only try/except is necessary
-    mc.nvm[0] = supervisor.runtime.usb_connected
-    mc.nvm[1] = False
-    if(not(mc.nvm[0])):
-        mc.nvm[1] = True
-        mc.nvm[2] = True
+    if(mc.nvm[1]):
         try:
             storage.remount('/', False)
+            mc.nvm[1] = False
             DBS.println("Successful remount RO")
         except RuntimeError as re:
-            mc.nvm[2] = False
             DBS.println("Failed to remount RO")
             print(re)
     else:

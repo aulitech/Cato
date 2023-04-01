@@ -54,7 +54,8 @@ class StrCharacteristicService(Service):
             "UPDATE"        : self.update_config,
             "OVERWRITE"     : self.overwrite_config,
             "SAVE"          : self.save_config,
-            "REBOOT"        : self.reboot
+            "REBOOT"        : self.reboot,
+            "REBOOTRO"      : self.reboot_forceRO
         }
         while(True):
             ##test w different time lengths or async event triggers
@@ -118,16 +119,25 @@ class StrCharacteristicService(Service):
         return str
     
     async def save_config(self):
+        self.configUUID = "SAVING"
         #testDict = {"testStr" : "Hello World", "testInt" : 23, "testClass" : DebugStream}
-        with open("tester.json", 'w') as f:
-            json.dump(config, f)
-        self.configUUID = "COMPLETE"
+        try:
+            with open("config.json", 'w') as f:
+                json.dump(config, f)
+            self.configUUID = "SAVE COMPLETE"
+        except RuntimeError as re:
+            self.configUUID = "SAVE ERROR: "+str(re)
     
     async def reboot(self):
-        self.configUUID = "SAVING"
         await self.save_config()
         self.configUUID = "REBOOTING"
         mc.reset()
+    async def reboot_forceRO(self):
+        await self.save_config()
+        self.configUUID = "REBOOTING READ ONLY"
+        mc.nvm[0] = False
+        mc.reset()
+
 
 # TODO: implement string buffer for larger/delayed inputs and only write once bluetooth is connected
 class DebugStream:
