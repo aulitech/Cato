@@ -35,7 +35,8 @@ import gc
 
 from neutonml import Neuton
 
-from BluetoothControl import DebugStream
+from StrCharacteristicService import config
+from StrCharacteristicService import DebugStream
 
 ##TEMP IMPORTS
 
@@ -108,17 +109,10 @@ class Cato:
         else:
             import DummyBT as BluetoothControl
         
-        Cato.config = BluetoothControl.BluetoothControl.config
-        #DebugStream.println(Cato.config)
+        #DebugStream.println(config)
        
-        if(Cato.config["operation_mode"] >=20)&(bool(mc.nvm[0])):  ##prob want to replace >=20 w more robust boolDict of selfwrite modes
+        if(config["operation_mode"] >=20)&(bool(mc.nvm[0])):
             DebugStream.println("WARNING: Collect Gesture mode will not record data")
-        #     DebugStream.println("BOOTING SELF-WRITABLE")
-        #     mc.nvm[0] = 0       #switch bit to boot board self writable
-        #     DebugStream.println("mc.nvm[0] = ",bool(mc.nvm[0])," ")
-        #     time.sleep(1)       ##this is here just so DebugStream.print statements finish
-        #     mc.reset()
-        # DebugStream.println("-- past writable check")
 
         #specification for operation
         self.specs = {
@@ -135,7 +129,7 @@ class Cato:
 
         self.state = ST.IDLE
         self.st_matrix = []
-        for row in Cato.config['st_matrix']:
+        for row in config['st_matrix']:
             tmp_row = []
             for entry in row:
                 cmd = f"self.{entry}"
@@ -147,7 +141,7 @@ class Cato:
         self.imu = LSM6DS3TRC()
 
         # blocking functions enabled by events
-        if(Cato.config["operation_mode"] == 0):
+        if(config["operation_mode"] == 0):
             self.tasks = {
                 "wait_for_motion"   : self.wait_for_motion(),
                 "move_mouse"        : self.move_mouse(),
@@ -155,12 +149,12 @@ class Cato:
                 "monitor_battery"   : self.monitor_battery(),
                 "scroll"            : self.scroll()
             }
-        elif(Cato.config["operation_mode"] >=20):
+        elif(config["operation_mode"] >=20):
             self.tasks = {
                 "wait_for_motion"   : self.wait_for_motion(),
-                "collect_gestures"  : self.collect_gestures(gestID = Cato.config["operation_mode"]-20)
+                "collect_gestures"  : self.collect_gestures(gestID = config["operation_mode"]-20)
             }
-        elif(Cato.config["operation_mode"] == 10):
+        elif(config["operation_mode"] == 10):
             self.tasks = {
                 "test_loop"         : self.test_loop()
             }
@@ -169,6 +163,9 @@ class Cato:
 
         self.n = Neuton(outputs=neuton_outputs)
         self.gesture = EV.NONE
+    
+    async def reboot():
+        mc.reset()
 
     @property
     def gx(self):
