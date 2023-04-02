@@ -123,7 +123,8 @@ class StrCharacteristicService(Service):
         #testDict = {"testStr" : "Hello World", "testInt" : 23, "testClass" : DebugStream}
         try:
             with open("config.json", 'w') as f:
-                json.dump(config, f)
+                json.dump(config, f)    #for some reason "indent" kwarg is not recognized
+                ##json formatter method would be nice here to make config.json human readable
             self.configUUID = "SAVE COMPLETE"
         except OSError as oser:
             self.configUUID = "SAVE ERROR: "+str(oser)
