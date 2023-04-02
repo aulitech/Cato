@@ -150,16 +150,16 @@ class Cato:
                 "detect_event"      : asyncio.create_task(self.detect_event()),
                 "monitor_battery"   : asyncio.create_task(self.monitor_battery()),
                 "scroll"            : asyncio.create_task(self.scroll()),
-            "sleep"             : asyncio.create_task(self.go_to_sleep()),
+                "sleep"             : asyncio.create_task(self.go_to_sleep()),
             }
         elif(config["operation_mode"] >=20):
             self.tasks = {
-                "wait_for_motion"   : self.wait_for_motion(),
-                "collect_gestures"  : self.collect_gestures(gestID = config["operation_mode"]-20)
+                "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
+                "collect_gestures"  : asyncio.create_task(self.collect_gestures(gestID = config["operation_mode"]-20))
             }
         elif(config["operation_mode"] == 10):
             self.tasks = {
-                "test_loop"         : self.test_loop()
+                "test_loop"         : asyncio.create_task(self.test_loop())
             }
         self.tasks.update(self.imu.tasks)   # functions for the imu
         self.tasks.update(self.blue.tasks)  # functions for bluetooth

@@ -77,13 +77,16 @@ async def main():
     c.imu.imu_enable.set()
     
     tasks = {
-        "dog"           : feed_dog(),
-        "control_loop"  : control_loop( c ),
+        "dog"           : asyncio.create_task(feed_dog()),
+        "control_loop"  : asyncio.create_task(control_loop( c )),
     }
     tasks.update(c.tasks)
     await asyncio.sleep(0.3)
     c.imu.imu_enable.set()
     Events.control_loop.set()
+    await asyncio.gather(*tasks.values())
+
 
 asyncio.run(main())
 # mode.select_reboot_mode()
+#Here is a new comment
