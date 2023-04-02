@@ -2,6 +2,7 @@
 # Code.py for Auli Cato, Driver
 # Finn Biggs - finn@auli.tech
 # 17-Nov-2022
+import alarm
 
 import board
 import sys
@@ -19,6 +20,8 @@ import busio
 
 import asyncio
 import time
+
+from imu import LSM6DS3TRC
 
 import Cato
 from Cato import Events
@@ -56,6 +59,7 @@ async def control_loop(c : Cato.Cato):
         await c.block_on( c._move_mouse )
         Events.detect_event.set()
 
+
 async def main():
     ##once remount process is confirmed to work consistently, only try/except is necessary
     if(mc.nvm[1]):
@@ -81,9 +85,5 @@ async def main():
     c.imu.imu_enable.set()
     Events.control_loop.set()
 
-    await asyncio.gather( *tasks.values() )
-
-print("Running Main: ")
-asyncio.run( main() ) # True -> Debug
-
+asyncio.run(main())
 # mode.select_reboot_mode()

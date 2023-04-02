@@ -15,7 +15,7 @@ import json
 import time
 import digitalio
 import countio
-
+import alarm
 
 from adafruit_hid.keyboard import Keyboard
 from adafruit_hid.keycode import Keycode
@@ -145,11 +145,12 @@ class Cato:
         # blocking functions enabled by events
         if(config["operation_mode"] == 0):
             self.tasks = {
-                "wait_for_motion"   : self.wait_for_motion(),
-                "move_mouse"        : self.move_mouse(),
-                "detect_event"      : self.detect_event(),
-                "monitor_battery"   : self.monitor_battery(),
-                "scroll"            : self.scroll()
+                "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
+                "move_mouse"        : asyncio.create_task(self.move_mouse()),
+                "detect_event"      : asyncio.create_task(self.detect_event()),
+                "monitor_battery"   : asyncio.create_task(self.monitor_battery()),
+                "scroll"            : asyncio.create_task(self.scroll()),
+            "sleep"             : asyncio.create_task(self.go_to_sleep()),
             }
         elif(config["operation_mode"] >=20):
             self.tasks = {
@@ -193,6 +194,23 @@ class Cato:
     def az(self):
         return self.imu.az
     
+    
+    async def go_to_sleep(self):
+        await asyncio.sleep(15)
+        self.imu.single_tap_cfg()
+        self.tasks['interrupt'].cancel()
+        await asyncio.sleep(1)
+        pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True)
+        print("LIGHT SLEEP")
+        alarm.light_sleep_until_alarms(pin_alarm)
+        print("WOKE UP")
+        self.imu.data_ready_on_int1_setup()
+        del(pin_alarm) # release imu_int1
+        await asyncio.sleep(1)
+        self.tasks['interrupt'] = asyncio.create_task( self.imu.interrupt() )
+        while True:
+            await asyncio.sleep(10)
+
     async def monitor_battery(self):
         while True:
             await asyncio.sleep(10)
@@ -373,6 +391,7 @@ class Cato:
             await Events.move_mouse.wait() # only execute when move_mouse is set
             # DebugStream.println("B: ", gc.mem_free() )
             await self.imu.wait()
+            # print("2")
             # DebugStream.println("C: ", gc.mem_free() )
             # DebugStream.println("C2: ", gc.mem_free() )
             if cycle_count == 0:
@@ -583,6 +602,7 @@ class Cato:
         hall_pass.set()
 
     async def wait_for_motion(self, thresh = 105, *, num = -1):
+        #NOTE: THIS COULD BE MADE MUCH CHEAPER WITH THE INT1_SIGN_MOT INTERRUPT!
         """
             thresh      = threshold of motion to break loop             \n
             num         = number of cycles max before return False      \n

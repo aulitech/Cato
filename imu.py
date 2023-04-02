@@ -23,56 +23,41 @@ try:
 except ImportError:
     pass
 
-_LSM6DS_INT1_CTRL  = const(0x0D)
-_LSM6DS_CTRL10_C = const(0x19)
-_LSM6DS_STATUS_REG = const(0x1E)
-_LSM6DS_MASTER_CFG = const(0x1A)
+_LSM6DS_INT1_CTRL   = const(0x0D)
+
+_LSM6DS_CTRL1_XL    = const(0x10)
+_LSM6DS_CTRL10_C    = const(0x19)
+_LSM6DS_MASTER_CFG  = const(0x1A)
+
+_LSM6DS_STATUS_REG  = const(0x1E) # This is a read only
+
+_LSM6DS_TAP_CFG     = const(0x58)
+_LSM6DS_TAP_THS_6D  = const(0x59)
+
+_LSM6DS_INT_DUR2    = const(0x5A)
+_LSM6DS_WAKE_UP_THS = const(0x5B)
+_LSM6DS_WAKE_UP_DUR = const(0x5C)
+
+_LSM6DS_MD1_CFG     = const(0x5E)
 
 class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
-
-    """Driver for the LSM6DS3TRC 6-axis accelerometer and gyroscope.
-
-    :param ~busio.I2C i2c_bus: The I2C bus the device is connected to.
-    :param int address: The I2C device address. Defaults to :const:`0x6A`
-
-
-    **Quickstart: Importing and using the device**
-
-        Here is an example of using the :class:`ISM330DHCX` class.
-        First you will need to import the libraries to use the sensor
-
-        .. code-block:: python
-
-            import board
-            from adafruit_lsm6ds.ism330dhcx import ISM330DHCX
-
-        Once this is done you can define your `board.I2C` object and define your sensor object
-
-        .. code-block:: python
-
-            i2c = board.I2C()  # uses board.SCL and board.SDA
-            sensor = ISM330DHCX(i2c)
-
-        Now you have access to the :attr:`acceleration` and :attr:`gyro`: attributes
-
-        .. code-block:: python
-
-            acc_x, acc_y, acc_z = sensor.acceleration
-            gyro_x, gyro_z, gyro_z = sensor.gyro
-
-
-    """
-
     CHIP_ID = 0x6A
-    # This version of the IMU has a different register for enabling the pedometer
-    # https://www.st.com/resource/en/datasheet/lsm6ds3tr-c.pdf
-    _ped_enable = RWBit(_LSM6DS_CTRL10_C, 4)
-    _status_reg = ROUnaryStruct(_LSM6DS_STATUS_REG, "<b")
-    _int1_ctrl = RWBits(7, _LSM6DS_INT1_CTRL, 0)
-    _master_cfg = RWBits(7, _LSM6DS_MASTER_CFG, 0)
-    
+    # config info at:
+    # https://cdn.sparkfun.com/assets/learn_tutorials/4/1/6/AN4650_DM00157511.pdf
+    _status_reg = ROUnaryStruct(    _LSM6DS_STATUS_REG,     "<b")
 
-    #_gyro_range_4000dps = RWBit(_LSM6DS_CTRL2_G, 0)
+    _int1_ctrl      = RWBits(7,     _LSM6DS_INT1_CTRL,      0   ) # "The pad's output will supply the OR combination of all enabled signals"
+    _ctrl1_xl       = RWBits(7,     _LSM6DS_CTRL1_XL,       0   )
+    _ctrl10_c       = RWBits(7,     _LSM6DS_CTRL10_C,       0   )
+    _master_cfg     = RWBits(7,     _LSM6DS_MASTER_CFG,     0   )
+    
+    _tap_cfg        = RWBits(7,     _LSM6DS_TAP_CFG,        0   )
+    _tap_ths_6d     = RWBits(7,     _LSM6DS_TAP_THS_6D,     0   ) # [4D orientation (no z axis), sixd_ths(1:0), tap_ths(4:0)]
+    _int_dur2       = RWBits(7,     _LSM6DS_INT_DUR2,       0   )
+    _wake_up_ths    = RWBits(7,     _LSM6DS_WAKE_UP_THS,    0   )
+    _wake_up_dur    = RWBits(7,     _LSM6DS_WAKE_UP_DUR,    0   )
+    
+    _md1_cfg        = RWBits(7,     _LSM6DS_MD1_CFG,        0   )
 
     def __init__(self, address: int = LSM6DS_DEFAULT_ADDRESS) -> None:
         # print("imu init -- start")
@@ -86,10 +71,10 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
 
         super().__init__(self.i2c, address)
 
-        self.imu_enable = asyncio.Event()   # enable:   Whether imu should allow reads
-        self.imu_ready  = asyncio.Event()   # imu_rdy:  Set when imu has fresh data
-        self.data_ready = asyncio.Event()   # data_rdt: Set when imu data has been read and assigned to values
-
+        self.imu_enable = asyncio.Event()   # enable:       Whether imu should allow reads
+        self.imu_ready  = asyncio.Event()   # imu_rdy:      Set when imu has fresh data
+        self.data_ready = asyncio.Event()   # data_rdt:     Set when imu data has been read and assigned to values
+        self.tap_detect = asyncio.Event()   # tap_detect:   Set when imu interrupt 1 detects tap.
         self.ax, self.ay, self.az = 0, 0, 0 # accelerometer fields
         self.gx, self.gy, self.gz = 0, 0, 0 # gyro fields
 
@@ -97,26 +82,40 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self.x_trim = 0
         self.y_trim = 0
         self.z_trim = 0
-        
-        # config info at:
-        # https://cdn.sparkfun.com/assets/learn_tutorials/4/1/6/AN4650_DM00157511.pdf
-        # here, we set the GDA bit of the INT1_CTRL register to True, 
-        # to push Data Ready (gyro) signal to INT1 pin for interrupt
-        self.int1_ctrl = 0x02
+        print(self.int1_ctrl)
+        self.data_ready_on_int1_setup()
 
         self.tasks = {
-            "interrupt" : self.interrupt(),
-            "read"      : self.read(),
+            "interrupt" : asyncio.create_task(self.interrupt()),
+            "read"      : asyncio.create_task(self.read()),
             #"stream"    : self.stream()
         }
+    
+    def data_ready_on_int1_setup(self):
+        self.int1_ctrl = 0x02
+    
+    def tap_ena(self):
+        self.int1_ctrl      = 0x00
+        self._ctrl1_xl      = 0x60 # accelerometer ODR (output data rate) control
+        self._tap_cfg       = 0x8E # timer, pedo, tilt, slope_fds, tap_x, tap_y, tap_z, latched interrupt
+        self._tap_ths_6d    = 0x8C # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
+        self._int_dur2      = 0x7F # Dur[3:0], Quiet[1:0], Shock[1:0]
+        self._wake_up_ths   = 0x80 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
+        # SELECT A TAP WITH SINGLE OR DOUBLE
 
-        # self.ena.set()
-        # print("imu init -- finish")
+    def single_tap_cfg(self):
+        self.tap_ena()
+        self._md1_cfg     = 0x40 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
+        print("Single tap: Configured")
 
+    def double_tap_cfg(self):
+        self.tap_ena()
+        self._md1_cfg     = 0x08 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
+        
     @property
     def pwr(self):
         return self._pwr.value
-    
+
     @pwr.setter
     def pwr(self, state : bool):
         self._pwr.value = state
@@ -124,22 +123,20 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
 
     async def interrupt(self):
         """ interrupt on imu for gyro data ready """
-        # print("interrupt -- await imu enable")
-        await self.imu_enable.wait()
+        print("interrupt task spawned")
         with countio.Counter(   
             board.IMU_INT1, 
-            edge = countio.Edge.RISE, 
-            pull = digitalio.Pull.DOWN 
+            edge = countio.Edge.RISE
         ) as interrupt:
             self.spark()
             while True:
                 await asyncio.sleep(0)
-                # print("IMU Start: ", gc.mem_free())
                 if interrupt.count > 0:
+                    if self.int1_ctrl == 0:
+                        print("!")
                     interrupt.count = 0
                     #print(": interrupt -> imu_ready.set(); (interrupt.count > 0)")
                     self.imu_ready.set()
-                # print("IMU End: ", gc.mem_free())
 
     async def read(self):
         ''' reads data off of the IMU into -> gx, gy, gz, ax, ay, az '''
