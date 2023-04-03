@@ -649,8 +649,8 @@ class Cato:
         DebugStream.println("+ collect_gestures")
         await self.blue.is_connected.wait()
         if(mc.nvm[1]):
-            SCS.collGestUUID = "WARNING: Cato did not bott selfwritable.  Values will not be recorded"
-            DebugStream.println("WARNING: Cato did not bott selfwritable.  Values will not be recorded")
+            SCS.collGestUUID = "WARNING: Cato did not boot selfwritable.  Values will not be recorded"
+            DebugStream.println("WARNING: Cato did not boot selfwritable.  Values will not be recorded")
         await asyncio.sleep(3)
 
         DebugStream.println("Collecting Gestures")
