@@ -85,10 +85,10 @@ class BluetoothControl():
         self.is_disconnected.set() #board starts without connection
 
         self.tasks = {  # tasks
-            "characteristic_loop"   : SCS.config_loop(),
-            "manage_connection"     : self.manage_connection(),
-            "monitor_connections"   : self.monitor_connections(),
-            "reconnect"             : self.reconnect()
+            "characteristic_loop"   : asyncio.create_task(SCS.config_loop()),
+            "manage_connection"     : asyncio.create_task(self.manage_connection()),
+            "monitor_connections"   : asyncio.create_task(self.monitor_connections()),
+            "reconnect"             : asyncio.create_task(self.reconnect())
         }
  
     async def manage_connection(self):
