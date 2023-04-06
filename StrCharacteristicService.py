@@ -24,13 +24,11 @@ class StrCharacteristicService(Service):
             uuid = uuid,
             properties = Characteristic.READ | Characteristic.NOTIFY
         )
-
-    collGestUUID = None
-    if(config["operation_mode"] >= 20):
-        collGestUUID = StringCharacteristic(
-            uuid = VendorUUID("528ff74b-fdb8-444c-9c64-3dd5da4135ae"),
-            properties = Characteristic.READ | Characteristic.WRITE
-        )
+    
+    collGestUUID = StringCharacteristic(
+        uuid = VendorUUID("528ff74b-fdb8-444c-9c64-3dd5da4135ae"),
+        properties = Characteristic.READ | Characteristic.WRITE
+    )
 
     def __init__(self):
         super().__init__(service = None)
@@ -138,6 +136,8 @@ class StrCharacteristicService(Service):
         self.configUUID = "REBOOTING READ ONLY"
         mc.nvm[0] = False
         mc.reset()
+    
+    # async def 
 
 
 # TODO: implement string buffer for larger/delayed inputs and only write once bluetooth is connected
