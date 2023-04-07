@@ -130,12 +130,12 @@ class Cato:
         self.blue = BluetoothControl.BluetoothControl()
 
         self.state = ST.IDLE
-        self.st_matrix = []
-        for row in config['st_matrix']:
+        self.st_matrix = [] # Parse strings from config into json for st_matrix proper
+        for row in self.config['st_matrix']:
             tmp_row = []
             for entry in row:
                 cmd = f"self.{entry}"
-                tmp_row.append( eval(cmd, {"self":self}) )
+                tmp_row.append( eval(cmd, {"self":self}) ) #here, bind function name strings to function handles
             self.st_matrix.append(tmp_row)
 
         self.gx_trim, self.gy_trim, self.gz_trim = 0, 0, 0
@@ -347,7 +347,7 @@ class Cato:
         return shifted
     
 
-    async def move_mouse(self, max_idle_cycles=80, mouse_type = "ACCEL"):
+    async def move_mouse(self, max_idle_cycles=80, mouse_type = "ACCEL", forever: bool = False):
         '''
             move the mouse via bluetooth until sufficiently idle
         '''
@@ -404,6 +404,7 @@ class Cato:
             # isolate x and y axes so they can be changed later with different orientations
             x_mvmt = self.gy
             y_mvmt = self.gz
+
             # calculate magnitude and angle for linear scaling
             mag = sqrt(x_mvmt**2 + y_mvmt**2)
             ang = atan2(y_mvmt, x_mvmt)
@@ -415,6 +416,7 @@ class Cato:
             # mouse with dynamic acceleration for fine and coarse control
             if(mouse_type == "ACCEL"):
                 scale = Cato.translate(slow_thresh, fast_thresh, slow_scale, fast_scale, mag)
+
             # Begin idle checking -- only after minimum duration
             if(cycle_count >= min_run_cycles ):
                 if( mag <= idle_thresh ): # if too slow
@@ -439,7 +441,6 @@ class Cato:
             dx = int( scale * mag * cos(ang) )
             dy = int( scale * mag * sin(ang) )
 
-            # mi = gc.mem_free()
             self.blue.mouse.move(dx, dy, dscroll)
             # DebugStream.println("E: ", gc.mem_free() )
             # mf = gc.mem_free()
@@ -597,7 +598,6 @@ class Cato:
     async def _wait_for_motion(self, hall_pass: asyncio.Event = None):
         Events.wait_for_motion.set()
         await Events.wait_for_motion_done.wait()
-
         Events.wait_for_motion_done.clear()
         hall_pass.set()
 
@@ -640,9 +640,15 @@ class Cato:
                 DebugStream.println( f"WAIT FOR MOTION: EXIT : { exit_reason }" )
                 Events.wait_for_motion_done.set()
                 cycles = 0
-            # DebugStream.println("E: ", gc.mem_free())
-            # DebugStream.println("")
-            
+            # print("E: ", gc.mem_free())
+            # print("")
+                    
+    # NEEDS REWRITE
+    def collect_n_gestures(self, n=1):
+        """
+        while True:
+            await (SOME SIGNAL THAT IT"S TIME TO COLLECT DATA):
+            clear that signal
 
     async def collect_gestures(self, logName = "log.txt", n = 10, gestID = 0, winSize = 76):
         from StrCharacteristicService import SCS
@@ -661,68 +667,7 @@ class Cato:
             maxGest = list
             maxAbs = 0
 
-            # gather data from imu for 5sec
-            c = 0
-            start = 0
-            counter = int
-
-            SCS.collGestUUID = "Ready for Input"
-            while(SCS.collGestUUID == "Ready for Input"):
-                await asyncio.sleep(0)
-            SCS.collGestUUID = "Input Recieved"
-            while(not gest_timer.is_set()):
-                await self.imu.wait()
-                hist.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz, gestID))
-                # if(c == 0):
-                #     DebugStream.println(",\t".join(str(v) for v in hist[len(hist)-1]))
-                # c = (c+1)%32
-
-                if(len(hist) == winSize):
-                    maxGest = hist.copy()
-                    maxAbs = maxGest[int(winSize/2)]
-                    maxAbs = maxAbs[0]**2 + maxAbs[1]**2+maxAbs[2]**2
-                    asyncio.create_task(self.countN(gest_timer, 5))  # Timer starts here
-                    start = time.time()
-                    counter = 0
-                    DebugStream.println("Perform Gesture: ",Cato.gesture_key[gestID])
-                    SCS.collGestUUID = "Perform Gesture: "+str(gestID)
-                
-                ##could check max acc as it's read to cut mem by 1/4 (would require splitting maxGest into pre/post queues)
-                elif(len(hist) > winSize):
-                    hist.pop(0)
-                    currMid = hist[int(winSize/2)]
-                    currAbs = currMid[3]**2 + currMid[4]**2 + currMid[5]**2
-                    #DebugStream.println(currMid)
-                    DebugStream.println(currAbs, "<", maxAbs)
-                    if(currAbs > maxAbs):
-                        DebugStream.println("New Max Read")
-                        SCS.collGestUUID = "New Max Read"
-                        maxAbs = currAbs
-                        maxGest = hist.copy()
-
-                    if(counter < round(time.time() -start)):
-                        counter = round(time.time()-start)
-                        DebugStream.println(counter)
-            gest_timer.clear()
-
-            # record data
-            try:
-                with open(logName, 'a') as log:
-                    SCS.collGestUUID = "Logging Max"
-                    DebugStream.println("Writing to",logName)
-                    while(len(maxGest) > 0):
-                        d = maxGest.pop(0)
-                        log.write(",".join(str(v) for v in d))
-                        log.write("\n")
-            except OSError as oser:
-                SCS.collGestUUID = "Gestures cannot be recorded"
-                continue
-        
-        SCS.collGestUUID = "Gesture Collection Completed"
-        DebugStream.println("Gesture Collection Completed")
-
-        asyncio.create_task(self.countN(gest_timer, 5))
-        await gest_timer.wait()
+            write them to the board
 
     """
     async def collect_gestures_keyb(self, logName = "log.txt", n = 2, gestID = 0, winSize = 76):
@@ -738,9 +683,34 @@ class Cato:
         await asyncio.sleep(2)
         gest_timer = asyncio.Event()
         for i in range(n):
-            hist = []
-            maxGest = list
-            maxAbs = float
+            my_file = "data/data{:02}.txt".format(i)
+            print("Ready to read into: {}".format(my_file))
+            print("    Waiting for motion")
+            self.wait_for_motion() # await motion, when triggered, do capture
+            print("Capturing")
+            self.read_gesture() # reads one full buffer into the history
+            print("Done")
+            my_string = ""
+            chunks = 0
+            chunksize = 10
+            with io.open(my_file, "w") as f:
+                temp = ""
+                print("{} opened".format(my_file))
+                for sample in range(self.specs["num_samples"]):
+                    b_pos = (self.buf + sample + 1) % self.specs["num_samples"]
+                    temp = "%d,%f,%f,%f,%f,%f,%f" % (self.time_hist[b_pos],    
+                                                    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],
+                                                    self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos])
+                    chunks += 1
+                    print(temp, file = f)
+                    if chunks % chunksize == 0:
+                        print('', file=f, flush=True, end='')
+                    # f.write("%d,%f,%f,%f,%f,%f,%f\r\n" % (self.time_hist[b_pos],    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],  \
+                    #    self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos]) )
+                #f.write(my_string)
+                #print(my_string)
+                f.close()
+            print("{} written".format(my_file))
 
             # gather data from imu for 5sec
             c = 0
@@ -797,6 +767,48 @@ class Cato:
         asyncio.create_task(self.countN(gest_timer, 5))
         await gest_timer.wait()
     
+
+    def bluType(self, str):
+        ##maybe a more robust version of this exists somewhere; worth looking into?
+        for c in str:
+            if(ord(c) >= 97):
+                c = ord(c) - 93
+            elif(ord(c) >= 65):
+                self.blue.k.press(225)  #LShift
+                c = ord(c) - 61
+            elif(c == ' '):
+                c = 44
+            elif(c == '\n'):
+                c = 40  #Enter
+            elif(c == '0'):
+                c = 39
+            else:
+                c = int(c) + 29
+            self.blue.k.press(c)
+            self.blue.k.release_all()
+    """
+
+    async def countN(self, ev, n):
+        await asyncio.sleep(n)
+        ev.set()
+
+
+    async def test_loop(self):
+        DebugStream.println("+ test_loop")
+        #await self.blue.is_connected.wait()
+        await asyncio.sleep(5)
+        i = 0
+        while(True):
+            #DebugStream.println("loop: "+str(i))
+            i += 1
+            try:
+                with open("config.json",'a') as f:
+                    DebugStream.print("RO\t")
+            except:
+                DebugStream.print("RW\t")
+            DebugStream.print(str(mc.nvm[0])+'\t'+str(mc.nvm[1])+'\n')
+            DebugStream.print(config["operation_mode"])
+            await asyncio.sleep(5)
 
     def bluType(self, str):
         ##maybe a more robust version of this exists somewhere; worth looking into?
