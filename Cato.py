@@ -110,12 +110,12 @@ class Cato:
         self.blue = BluetoothControl.BluetoothControl()
 
         self.state = ST.IDLE
-        self.st_matrix = []
+        self.st_matrix = [] # Parse strings from config into json for st_matrix proper
         for row in self.config['st_matrix']:
             tmp_row = []
             for entry in row:
                 cmd = f"self.{entry}"
-                tmp_row.append( eval(cmd, {"self":self}) )
+                tmp_row.append( eval(cmd, {"self":self}) ) #here, bind function name strings to function handles
             self.st_matrix.append(tmp_row)
 
         self.gx_trim, self.gy_trim, self.gz_trim = 0, 0, 0
@@ -124,13 +124,19 @@ class Cato:
 
         # functions to 'keep on hand'
         self.tasks = {
-            "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
-            "move_mouse"        : asyncio.create_task(self.move_mouse()),
-            "detect_event"      : asyncio.create_task(self.detect_event()),
+            #"wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
+            #"move_mouse"        : asyncio.create_task(self.move_mouse()),
+            #"detect_event"      : asyncio.create_task(self.detect_event()),
             "monitor_battery"   : asyncio.create_task(self.monitor_battery()),
-            "scroll"            : asyncio.create_task(self.scroll()),
-            "sleep"             : asyncio.create_task(self.go_to_sleep()),
+            # "scroll"            : asyncio.create_task(self.scroll()),
+            # "sleep"             : asyncio.create_task(self.go_to_sleep()),
         }
+        if( self.config['operation_mode'] == "pointer"):
+            self.tasks.update(
+                {
+                    'move_mouse' : asyncio.create_task( self.move_mouse(forever = True) )
+                }
+            )
         self.tasks.update(self.imu.tasks)   # functions for the imu
         self.tasks.update(self.blue.tasks)  # functions for bluetooth
 
@@ -208,8 +214,6 @@ class Cato:
             Events.detect_event.clear()
 
             await self.shake_cursor()
-            
-            gc.collect()
 
             print("Detect Event: waiting for motion")
             await self.block_on(self._wait_for_motion)
@@ -314,7 +318,7 @@ class Cato:
         return shifted
     
 
-    async def move_mouse(self, max_idle_cycles=80, mouse_type = "ACCEL"):
+    async def move_mouse(self, max_idle_cycles=80, mouse_type = "ACCEL", forever: bool = False):
         '''
             move the mouse via bluetooth until sufficiently idle
         '''
@@ -350,25 +354,21 @@ class Cato:
         mem("post_cfg") # At this point, between pre and post, we lost only 100bytes
 
         while True:
-            # print(".")
             if not Events.move_mouse.is_set():
                 print("move mouse -- awaiting")
-            await Events.move_mouse.wait() # only execute when move_mouse is set\
-            # print("1")
+            await Events.move_mouse.wait() # only execute when move_mouse is set
             await self.imu.wait()
-            # print("2")
-            # print("C: ", gc.mem_free() )
-            # print("C2: ", gc.mem_free() )
+
             if cycle_count == 0:
                 print("Mouse is live: ")
                 mem("Start of Mouse operation")
-            # print("D: ", gc.mem_free() ) # f string substitution eats 60 bytes of data...
-            # print("D2: ", gc.mem_free() )
+
             cycle_count += 1    # count cycles
 
             # isolate x and y axes so they can be changed later with different orientations
             x_mvmt = self.gy
             y_mvmt = self.gz
+
             # calculate magnitude and angle for linear scaling
             mag = sqrt(x_mvmt**2 + y_mvmt**2)
             ang = atan2(y_mvmt, x_mvmt)
@@ -376,18 +376,16 @@ class Cato:
             # pure linear mouse, move number of pixels equal to number of degrees rotation
             if(mouse_type == "LINEAR"):
                 pass
-            # print("A: ", gc.mem_free() )
+
             # mouse with dynamic acceleration for fine and coarse control
             if(mouse_type == "ACCEL"):
                 scale = Cato.translate(slow_thresh, fast_thresh, slow_scale, fast_scale, mag)
+
             # Begin idle checking -- only after minimum duration
-            if(cycle_count >= min_run_cycles ):
-                if( mag <= idle_thresh ): # if too slow
-                    # if (idle_count == 0): # count time of idle to finish (design util)
-                        # print("\tidle detected, count begun")
-                    idle_count += 1
-                else:
-                    # print("\tactivity resumed: idle counter reset")
+            if(cycle_count >= min_run_cycles and forever == False):
+                if( mag <= idle_thresh ): # if mouse move speed below threshold
+                    idle_count += 1 #iterate
+                else: # otherwise reset
                     idle_count = 0
 
                 if idle_count >= max_idle_cycles: # if sufficiently idle, clear move_mouse
@@ -397,23 +395,19 @@ class Cato:
 
                     idle_count = 0
                     cycle_count = 0
-                    # print(f"post-reset cycle count: {cycle_count}")
-            # print("A: ", gc.mem_free() )
+
             mag = mag * usr_scale
             # trig scaling of mouse x and y values
             dx = int( scale * mag * cos(ang) )
             dy = int( scale * mag * sin(ang) )
 
-            # mi = gc.mem_free()
             self.blue.mouse.move(dx, dy, dscroll)
-            # print("E: ", gc.mem_free() )
-            # mf = gc.mem_free()
 
-            # if (mf - mi > 0):
-            #     print("Memory eaten by blue mouse move")
-            #     print(mf - mi)
-            # print("")
-            
+    async def click(self):
+        while True:
+            await self.imu.wait()
+            await self.left_click()
+
     async def _scroll(self, hall_pass: asyncio.Event = None):
         Events.scroll.set()
         await Events.scroll_done.wait()
@@ -562,7 +556,6 @@ class Cato:
     async def _wait_for_motion(self, hall_pass: asyncio.Event = None):
         Events.wait_for_motion.set()
         await Events.wait_for_motion_done.wait()
-
         Events.wait_for_motion_done.clear()
         hall_pass.set()
 

@@ -16,7 +16,7 @@ import time
 import countio
 from math import pi
 import gc
-# import supervisor as sp
+import supervisor as sp
 try:
     import typing  # pylint: disable=unused-import
     from busio import I2C
@@ -98,8 +98,8 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self.int1_ctrl      = 0x00
         self._ctrl1_xl      = 0x60 # accelerometer ODR (output data rate) control
         self._tap_cfg       = 0x8E # timer, pedo, tilt, slope_fds, tap_x, tap_y, tap_z, latched interrupt
-        self._tap_ths_6d    = 0x8C # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
-        self._int_dur2      = 0x7F # Dur[3:0], Quiet[1:0], Shock[1:0]
+        self._tap_ths_6d    = 0x8B # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
+        self._int_dur2      = 0x13 # Dur[3:0], Quiet[1:0], Shock[1:0]
         self._wake_up_ths   = 0x80 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
         # SELECT A TAP WITH SINGLE OR DOUBLE
 
@@ -111,7 +111,11 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     def double_tap_cfg(self):
         self.tap_ena()
         self._md1_cfg     = 0x08 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
-        
+    
+    def sgl_dbl_tap_cfg(self):
+        self.tap_ena()
+        self._md1_cfg = 0x48
+
     @property
     def pwr(self):
         return self._pwr.value
@@ -133,7 +137,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
                 await asyncio.sleep(0)
                 if interrupt.count > 0:
                     if self.int1_ctrl == 0:
-                        print("!")
+                        print(sp.ticks_ms() % 100)
                     interrupt.count = 0
                     self.imu_ready.set()
 

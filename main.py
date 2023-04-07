@@ -43,22 +43,14 @@ async def feed_dog():
         w.feed()
         await asyncio.sleep(8)
 
-async def control_loop(c : Cato.Cato):
-    """Control loop for Cato standard operation"""
-    while True:
-        await Cato.Events.control_loop.wait() #await permission to start
-        Cato.Events.control_loop.clear()
-        # print("A")
-        await c.block_on( c._move_mouse )
-        # print("B")
-        Cato.Events.detect_event.set()
-
-
 async def main():
     c = Cato.Cato()
-    ctrl_loop = asyncio.create_task( control_loop(c) )
-    Cato.Events.control_loop.set()
-    await asyncio.gather(ctrl_loop, *c.tasks.values())
+    if( c.config['operation_mode'] == 'pointer'):
+        Cato.Events.move_mouse.set()
+    if( c.config['operation_mode'] == 'clicker'):
+        c.imu.single_tap_cfg()
+        c.tasks.update({"click" : asyncio.create_task(c.click())})
+    await asyncio.gather(*c.tasks.values())
 
 asyncio.run(main())
 # mode.select_reboot_mode()
