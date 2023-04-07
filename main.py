@@ -68,8 +68,7 @@ async def main():
             mc.nvm[1] = False
             DBS.println("Successful remount RO")
         except RuntimeError as re:
-            DBS.println("Failed to remount RO")
-            print(re)
+            DBS.println("COM port detected")
     else:
         DBS.println("No remount necessary")
 

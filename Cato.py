@@ -38,6 +38,8 @@ from neutonml import Neuton
 from StrCharacteristicService import config
 from StrCharacteristicService import DebugStream
 
+from StrCharacteristicService import SCS
+
 ##TEMP IMPORTS
 
 #helpers and enums
@@ -158,7 +160,7 @@ class Cato:
             }
         elif(mode == 1):
             self.tasks = {
-                "tv_loop"
+                "tv_loop"           : asyncio.create_task(self.tv_loop())
             }
         elif(mode >=20):
             self.tasks = {
@@ -274,36 +276,42 @@ class Cato:
         }
         task = None
         prev_task = "noop"
+        DebugStream.println("tv_loop")
         while True:
             #task_name = await self.interpret_event()
             task_name = await self.dummy_event()
 
             if(task_name != "noop"):
+                DebugStream.println(prev_task)
                 if(task != None):
                     turbo_terminate.set()
                     await task
                     turbo_terminate.clear()
                 
-                task_tuple = task_dict[task_name]
-                if((task_tuple[0] != self.turbo_input) or (task_name != prev_task)):
-                    task = asyncio.create_task(task[0](*task[1]))
+                func_tuple = task_dict[task_name]
+                if((func_tuple[0].__name__ != self.turbo_input.__name__) or (task_name != prev_task)):
+                    task = asyncio.create_task(func_tuple[0](*func_tuple[1]))
                     prev_task = task_name
                 else:
                     prev_task = "noop"
     
     async def dummy_event(self):
-        r = round(time.time()*100)
-        await asyncio.wait(3)
-        DebugStream.println(r,":\t",self.st_matrix[r][0])
-        return self.st_matrix[r][0]
+        SCS.collGestUUID = ""
+        while(SCS.collGestUUID == ""):
+            await asyncio.sleep(0.1)
+        g = int(SCS.collGestUUID)
+        DebugStream.println(g,":\t",self.st_matrix[g][0])
+        return self.st_matrix[g][0]
     
     async def turbo_input(self, coro, rate, terminator: asyncio.Event):
         delay = rate[0]
         while(not(terminator.is_set())):
+            DebugStream.print(delay,":\n\t")
             await coro()
-            await asyncio.wait(delay)
+            await asyncio.sleep(delay)
             if(delay > rate[1]):
                 delay *= rate[2]
+        DebugStream.println("Turbo Terminated")
 
     
     # TODO: needs rework to accomodate new getsture collection
@@ -643,50 +651,57 @@ class Cato:
     # cato keyboard actions
     async def press_enter(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        self.blue.k.press(Keycode.ENTER)
-        self.blue.k.release(Keycode.ENTER)
+        DebugStream.println("ENTER")
+        #self.blue.k.press(Keycode.ENTER)
+        #self.blue.k.release(Keycode.ENTER)
         if hall_pass is not None:
             hall_pass.set()
     
     async def press_esc(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        self.blue.k.press(Keycode.ESCAPE)
-        self.blue.k.release(Keycode.ESCAPE)
+        DebugStream.println("ESC")
+        #self.blue.k.press(Keycode.ESCAPE)
+        #self.blue.k.release(Keycode.ESCAPE)
         if hall_pass is not None:
             hall_pass.set()
 
     async def press_meta(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        self.blue.k.press(Keycode.GUI)
-        self.blue.k.release(Keycode.GUI)
+        DebugStream.println("META")
+        #self.blue.k.press(Keycode.GUI)
+        #self.blue.k.release(Keycode.GUI)
         if hall_pass is not None:
             hall_pass.set()
     
     async def press_up(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        self.blue.k.press(Keycode.UP_ARROW)
-        self.blue.k.release(Keycode.UP_ARROW)
+        DebugStream.println("UP")
+        #self.blue.k.press(Keycode.UP_ARROW)
+        #self.blue.k.release(Keycode.UP_ARROW)
         if hall_pass is not None:
             hall_pass.set()
     
     async def press_down(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        self.blue.k.press(Keycode.DOWN_ARROW)
-        self.blue.k.release(Keycode.DOWN_ARROW)
+        DebugStream.println("DOWN")
+        #self.blue.k.press(Keycode.DOWN_ARROW)
+        #self.blue.k.release(Keycode.DOWN_ARROW)
         if hall_pass is not None:
             hall_pass.set()
     
     async def press_left(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        self.blue.k.press(Keycode.LEFT_ARROW)
-        self.blue.k.release(Keycode.LEFT_ARROW)
+        DebugStream.println("LEFT")
+        #self.blue.k.press(Keycode.LEFT_ARROW)
+        #self.blue.k.release(Keycode.LEFT_ARROW)
         if hall_pass is not None:
             hall_pass.set()
     
     async def press_right(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        self.blue.k.press(Keycode.RIGHT_ARROW)
-        self.blue.k.release(Keycode.RIGHT_ARROW)
+        DebugStream.println("RIGHT")
+        #self.blue.k.press(Keycode.RIGHT_ARROW)
+        #self.blue.k.release(Keycode.RIGHT_ARROW)
         if hall_pass is not None:
             hall_pass.set()
 

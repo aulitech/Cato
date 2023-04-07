@@ -27,7 +27,7 @@ class StrCharacteristicService(Service):
     
     collGestUUID = StringCharacteristic(
         uuid = VendorUUID("528ff74b-fdb8-444c-9c64-3dd5da4135ae"),
-        properties = Characteristic.READ | Characteristic.WRITE
+        properties = Characteristic.READ | Characteristic.NOTIFY | Characteristic.WRITE
     )
 
     def __init__(self):
