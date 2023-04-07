@@ -275,7 +275,8 @@ class Cato:
         task = None
         prev_task = "noop"
         while True:
-            task_name = await self.interpret_event()
+            #task_name = await self.interpret_event()
+            task_name = await self.dummy_event()
 
             if(task_name != "noop"):
                 if(task != None):
@@ -289,7 +290,12 @@ class Cato:
                     prev_task = task_name
                 else:
                     prev_task = "noop"
-                
+    
+    async def dummy_event(self):
+        r = round(time.time()*100)
+        await asyncio.wait(3)
+        DebugStream.println(r,":\t",self.st_matrix[r][0])
+        return self.st_matrix[r][0]
     
     async def turbo_input(self, coro, rate, terminator: asyncio.Event):
         delay = rate[0]

@@ -145,14 +145,19 @@ class DebugStream:
 
     strBuff = ""
 
-    def print(*args):
-        for s in args:
-            print(s, end="")
-            SCS.debugUUID = str(s)
+    def print(*args, end = ''):
+        for a in args:
+            DebugStream.strBuff += str(a)
+        DebugStream.strBuff += end
+        
+        print(DebugStream.strBuff, end="")
+        while(len(DebugStream.strBuff) > 512):
+            SCS.debugUUID = DebugStream.strBuff[:512]
+            DebugStream.strBuff = DebugStream.strBuff[512:]
+        SCS.debugUUID = DebugStream.strBuff
+        DebugStream.strBuff = ""
     
     def println(*args):
-        DebugStream.print(*args)
-        print()
-        SCS.debugUUID ='\n'
+        DebugStream.print(*args, end = '\n')
 
 SCS = StrCharacteristicService()
