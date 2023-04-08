@@ -52,6 +52,9 @@ class StrCharacteristicService(Service):
             "UPDATE"        : self.update_config,
             "OVERWRITE"     : self.overwrite_config,
             "SAVE"          : self.save_config,
+
+            ""
+
             "REBOOT"        : self.reboot,
             "REBOOTRO"      : self.reboot_forceRO
         }
