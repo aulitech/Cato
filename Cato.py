@@ -759,9 +759,15 @@ class Cato:
                 DebugStream.println( f"WAIT FOR MOTION: EXIT : { exit_reason }" )
                 Events.wait_for_motion_done.set()
                 cycles = 0
-            # DebugStream.println("E: ", gc.mem_free())
-            # DebugStream.println("")
-            
+            # print("E: ", gc.mem_free())
+            # print("")
+                    
+    # NEEDS REWRITE
+    def collect_n_gestures(self, n=1):
+        """
+        while True:
+            await (SOME SIGNAL THAT IT"S TIME TO COLLECT DATA):
+            clear that signal
 
     async def collect_gestures(self, logName = "log.txt", n = 10, to_train = range(0,len(EV.gesture_key)), winSize = 76):
         from StrCharacteristicService import SCS
@@ -874,9 +880,34 @@ class Cato:
         await asyncio.sleep(2)
         gest_timer = asyncio.Event()
         for i in range(n):
-            hist = []
-            maxGest = list
-            maxAbs = float
+            my_file = "data/data{:02}.txt".format(i)
+            print("Ready to read into: {}".format(my_file))
+            print("    Waiting for motion")
+            self.wait_for_motion() # await motion, when triggered, do capture
+            print("Capturing")
+            self.read_gesture() # reads one full buffer into the history
+            print("Done")
+            my_string = ""
+            chunks = 0
+            chunksize = 10
+            with io.open(my_file, "w") as f:
+                temp = ""
+                print("{} opened".format(my_file))
+                for sample in range(self.specs["num_samples"]):
+                    b_pos = (self.buf + sample + 1) % self.specs["num_samples"]
+                    temp = "%d,%f,%f,%f,%f,%f,%f" % (self.time_hist[b_pos],    
+                                                    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],
+                                                    self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos])
+                    chunks += 1
+                    print(temp, file = f)
+                    if chunks % chunksize == 0:
+                        print('', file=f, flush=True, end='')
+                    # f.write("%d,%f,%f,%f,%f,%f,%f\r\n" % (self.time_hist[b_pos],    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],  \
+                    #    self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos]) )
+                #f.write(my_string)
+                #print(my_string)
+                f.close()
+            print("{} written".format(my_file))
 
             # gather data from imu for 5sec
             c = 0
@@ -933,6 +964,48 @@ class Cato:
         asyncio.create_task(self.countN(gest_timer, 5))
         await gest_timer.wait()
     
+
+    def bluType(self, str):
+        ##maybe a more robust version of this exists somewhere; worth looking into?
+        for c in str:
+            if(ord(c) >= 97):
+                c = ord(c) - 93
+            elif(ord(c) >= 65):
+                self.blue.k.press(225)  #LShift
+                c = ord(c) - 61
+            elif(c == ' '):
+                c = 44
+            elif(c == '\n'):
+                c = 40  #Enter
+            elif(c == '0'):
+                c = 39
+            else:
+                c = int(c) + 29
+            self.blue.k.press(c)
+            self.blue.k.release_all()
+    """
+
+    async def countN(self, ev, n):
+        await asyncio.sleep(n)
+        ev.set()
+
+
+    async def test_loop(self):
+        DebugStream.println("+ test_loop")
+        #await self.blue.is_connected.wait()
+        await asyncio.sleep(5)
+        i = 0
+        while(True):
+            #DebugStream.println("loop: "+str(i))
+            i += 1
+            try:
+                with open("config.json",'a') as f:
+                    DebugStream.print("RO\t")
+            except:
+                DebugStream.print("RW\t")
+            DebugStream.print(str(mc.nvm[0])+'\t'+str(mc.nvm[1])+'\n')
+            DebugStream.print(config["operation_mode"])
+            await asyncio.sleep(5)
 
     def bluType(self, str):
         ##maybe a more robust version of this exists somewhere; worth looking into?
