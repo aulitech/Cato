@@ -139,6 +139,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
                     if self.int1_ctrl == 0:
                         print(sp.ticks_ms() % 100)
                     interrupt.count = 0
+                    #print(": interrupt -> imu_ready.set(); (interrupt.count > 0)")
                     self.imu_ready.set()
 
     async def read(self):
@@ -168,6 +169,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             self.gz -= self.z_trim
             
             # print("D: ", gc.mem_free())
+            #print(": read -> self.data_ready.set()")
             self.data_ready.set()
             # print("" )
             # print("- end of read_imu -")
@@ -178,6 +180,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         
         await self.data_ready.wait()
         self.data_ready.clear()
+        #print("- wait")
 
     async def calibrate(self, num_calib_cycles):
         print("Calibrating HOLD STILL")
@@ -196,8 +199,9 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         print("Done Calibrating")
 
     async def stream(self):
+        #print("+ stream")
         while True:
-            # print("stream -- awaiting self.wait")
+            #print(": stream -> awaiting self.wait")
             await self.wait()
             print(f"{self.gx}, {self.gy}, {self.gz}")
 
@@ -210,6 +214,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         # print("SPARK!")
         for i in range(3):
             temp_g, temp_a = self.gyro, self.acceleration
+        #print("- spark")
 
 
     @property

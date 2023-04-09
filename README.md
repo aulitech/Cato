@@ -76,3 +76,20 @@ It detects "Yes" and "No"
     Standard operation
 
     TV Mode (coming soon)
+    
+# UUID Communication
+
+## Sending config.json to client
+
+Once a bluetooth connection is established, Cato will imediately begin sending config.json over uuid e077bdec-f18b-4944-9e9e-8b3a815162b4.
+
+config.json will be sent one line at a time, awaiting the stream to be updated to "NEXT" after every line.  After the file has been fully read, the stream will be updated to "SEND COMPLETE".
+
+## Update config.json
+
+(procedure goes here & error text)
+
+## Overwrite config.json
+
+(procedure goes here & error text)
+

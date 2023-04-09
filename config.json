@@ -15,17 +15,34 @@
         "high": 30950
     },
 
-    "operation_mode" : "pointer",
+    "operation_mode" : 1,
 
     "st_matrix" : [
-        [   "noop",                        "noop",                 "noop"          ],
-        [   "_move_mouse",                 "to_idle",              "to_idle"       ], 
-        [   "left_click",                  "left_click",           "press_enter"   ], 
-        [   "_scroll",                     "noop",                 "noop"          ], 
-        [   "_wait_for_motion",            "noop",                 "noop"          ], 
-        [   "_scroll_lr",                  "noop",                 "noop"          ], 
-        [   "_scroll_lr",                  "noop",                 "noop"          ], 
-        [   "double_click",                "noop",                 "noop"          ], 
-        [   "_wait_for_motion",            "noop",                 "noop"          ]
-    ]
-}
+        [
+            [   "noop",                        "noop",                 "noop"          ],
+            [   "_move_mouse",                 "to_idle",              "to_idle"       ], 
+            [   "left_click",                  "left_click",           "press_enter"   ], 
+            [   "_scroll",                     "noop",                 "noop"          ], 
+            [   "_wait_for_motion",            "noop",                 "noop"          ], 
+            [   "_scroll_lr",                  "noop",                 "noop"          ], 
+            [   "_scroll_lr",                  "noop",                 "noop"          ], 
+            [   "double_click",                "noop",                 "noop"          ], 
+            [   "_wait_for_motion",            "noop",                 "noop"          ]
+        ],
+        [
+            [   "noop"],
+            [   "up"],
+            [   "down"],
+            [   "left"],
+            [   "right"],
+            [   "noop"],
+            [   "noop"],
+            [   "enter"],
+            [   "esc"],
+            [   "meta"],
+            [   "noop"]
+        ]
+    ],
+
+    "turbo_rate" : [1, 0.2, 0.9]
+    }

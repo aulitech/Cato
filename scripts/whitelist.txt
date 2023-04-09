@@ -1,6 +1,7 @@
 .env
 battery.py
 BluetoothControl.py
+StrCharacteristicService.py
 boot.py
 Cato.py
 DummyBT.py
@@ -9,3 +10,4 @@ main.py
 mode.py
 CircularBuffer.py
 config.json
+tester.json
