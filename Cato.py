@@ -783,8 +783,11 @@ class Cato:
 
         await asyncio.sleep(3)
 
-        DebugStream.println("Collecting Gestures")
+        if(isinstance(to_train,int)):
+            to_train = (to_train,)
+
         gest_timer = asyncio.Event()
+        SCS.collGestUUID = "Collecting Gestures"
         DebugStream.println(SCS.collGestUUID)
         for gestID in to_train:
             for i in range(n):
