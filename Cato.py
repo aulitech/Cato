@@ -761,14 +761,8 @@ class Cato:
                 cycles = 0
             # print("E: ", gc.mem_free())
             # print("")
-                    
-    # NEEDS REWRITE
-    def collect_n_gestures(self, n=1):
-        """
-        while True:
-            await (SOME SIGNAL THAT IT"S TIME TO COLLECT DATA):
-            clear that signal
-
+    
+    
     async def collect_gestures(self, logName = "log.txt", n = 10, to_train = range(0,len(EV.gesture_key)), winSize = 76):
         from StrCharacteristicService import SCS
         DebugStream.println("+ collect_gestures")
@@ -964,48 +958,6 @@ class Cato:
         asyncio.create_task(self.countN(gest_timer, 5))
         await gest_timer.wait()
     
-
-    def bluType(self, str):
-        ##maybe a more robust version of this exists somewhere; worth looking into?
-        for c in str:
-            if(ord(c) >= 97):
-                c = ord(c) - 93
-            elif(ord(c) >= 65):
-                self.blue.k.press(225)  #LShift
-                c = ord(c) - 61
-            elif(c == ' '):
-                c = 44
-            elif(c == '\n'):
-                c = 40  #Enter
-            elif(c == '0'):
-                c = 39
-            else:
-                c = int(c) + 29
-            self.blue.k.press(c)
-            self.blue.k.release_all()
-    """
-
-    async def countN(self, ev, n):
-        await asyncio.sleep(n)
-        ev.set()
-
-
-    async def test_loop(self):
-        DebugStream.println("+ test_loop")
-        #await self.blue.is_connected.wait()
-        await asyncio.sleep(5)
-        i = 0
-        while(True):
-            #DebugStream.println("loop: "+str(i))
-            i += 1
-            try:
-                with open("config.json",'a') as f:
-                    DebugStream.print("RO\t")
-            except:
-                DebugStream.print("RW\t")
-            DebugStream.print(str(mc.nvm[0])+'\t'+str(mc.nvm[1])+'\n')
-            DebugStream.print(config["operation_mode"])
-            await asyncio.sleep(5)
 
     def bluType(self, str):
         ##maybe a more robust version of this exists somewhere; worth looking into?
