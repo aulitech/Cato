@@ -159,7 +159,7 @@ class Cato:
             }
         elif(mode == 1):
             self.tasks = {
-                "tv_loop"           : asyncio.create_task(self.tv_control())
+                "tv_control"        : asyncio.create_task(self.tv_control())
             }
         elif(mode == 20):
             self.tasks = {
@@ -265,7 +265,7 @@ class Cato:
     async def tv_control(self):
         turbo_terminate = asyncio.Event()
         task_dict = {
-            "noop"  :   0,
+            "noop"  :   None,
             "up"    :   (self.turbo_input,
                             (self.press_up, config["turbo_rate"], turbo_terminate)),
             "down"  :   (self.turbo_input,
@@ -411,11 +411,11 @@ class Cato:
         
         x_span = x_max - x_min
         y_span = y_max - y_min
-
+        
         scaled = (y_span / x_span) * (input - x_min)
         shifted = scaled + y_min
         return shifted
-    
+
 
     async def move_mouse(self, max_idle_cycles=80, mouse_type = "ACCEL"):
         '''
@@ -654,56 +654,56 @@ class Cato:
     async def press_enter(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         DebugStream.println("ENTER")
-        #self.blue.k.press(Keycode.ENTER)
-        #self.blue.k.release(Keycode.ENTER)
+        self.blue.k.press(Keycode.ENTER)
+        self.blue.k.release(Keycode.ENTER)
         if hall_pass is not None:
             hall_pass.set()
     
     async def press_esc(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        DebugStream.println("ESC")
-        #self.blue.k.press(Keycode.ESCAPE)
-        #self.blue.k.release(Keycode.ESCAPE)
+        DebugStream.println("ESC pressed")
+        self.blue.k.press(Keycode.ESCAPE)
+        self.blue.k.release(Keycode.ESCAPE)
         if hall_pass is not None:
             hall_pass.set()
 
     async def press_meta(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        DebugStream.println("META")
-        #self.blue.k.press(Keycode.GUI)
-        #self.blue.k.release(Keycode.GUI)
+        DebugStream.println("META pressed")
+        self.blue.k.press(Keycode.GUI)
+        self.blue.k.release(Keycode.GUI)
         if hall_pass is not None:
             hall_pass.set()
     
     async def press_up(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        DebugStream.println("UP")
-        #self.blue.k.press(Keycode.UP_ARROW)
-        #self.blue.k.release(Keycode.UP_ARROW)
+        DebugStream.println("UP pressed")
+        self.blue.k.press(Keycode.UP_ARROW)
+        self.blue.k.release(Keycode.UP_ARROW)
         if hall_pass is not None:
             hall_pass.set()
     
     async def press_down(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        DebugStream.println("DOWN")
-        #self.blue.k.press(Keycode.DOWN_ARROW)
-        #self.blue.k.release(Keycode.DOWN_ARROW)
+        DebugStream.println("DOWN pressed")
+        self.blue.k.press(Keycode.DOWN_ARROW)
+        self.blue.k.release(Keycode.DOWN_ARROW)
         if hall_pass is not None:
             hall_pass.set()
     
     async def press_left(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        DebugStream.println("LEFT")
-        #self.blue.k.press(Keycode.LEFT_ARROW)
-        #self.blue.k.release(Keycode.LEFT_ARROW)
+        DebugStream.println("LEFT pressed")
+        self.blue.k.press(Keycode.LEFT_ARROW)
+        self.blue.k.release(Keycode.LEFT_ARROW)
         if hall_pass is not None:
             hall_pass.set()
     
     async def press_right(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        DebugStream.println("RIGHT")
-        #self.blue.k.press(Keycode.RIGHT_ARROW)
-        #self.blue.k.release(Keycode.RIGHT_ARROW)
+        DebugStream.println("RIGHT pressed")
+        self.blue.k.press(Keycode.RIGHT_ARROW)
+        self.blue.k.release(Keycode.RIGHT_ARROW)
         if hall_pass is not None:
             hall_pass.set()
 
@@ -763,15 +763,15 @@ class Cato:
             # DebugStream.println("")
             
 
-    async def collect_gestures(self, logName = "log.txt", n = 10, to_train = range(0,len(EV.gesture_key)), winSize = 76):
+    async def collect_gestures(self, logName = "log.txt", n = 10, to_train = range(1,len(EV.gesture_key)), winSize = 76):
         from StrCharacteristicService import SCS
         DebugStream.println("+ collect_gestures")
         ##TEMP CODE
-        ''
+        ''''''
         #to_train = (1,2,3,4,7,8)
         try:
             with open(logName, 'w') as log:
-                log.write("")
+                pass
         except:
             pass
         #'''
@@ -962,11 +962,11 @@ class Cato:
     async def test_loop(self):
         DebugStream.println("+ test_loop")
         #await self.blue.is_connected.wait()
-        await asyncio.sleep(5)
         i = 0
         while(True):
-            #DebugStream.println("loop: "+str(i))
+            DebugStream.println("loop: "+str(i))
             i += 1
+            '''
             try:
                 with open("config.json",'a') as f:
                     DebugStream.print("RO\t")
@@ -974,4 +974,5 @@ class Cato:
                 DebugStream.print("RW\t")
             DebugStream.print(str(mc.nvm[0])+'\t'+str(mc.nvm[1])+'\n')
             DebugStream.print(config["operation_mode"])
-            await asyncio.sleep(5)
+            '''
+            await asyncio.sleep(1)
