@@ -470,7 +470,7 @@ class Cato:
         return shifted
 
 
-    async def move_mouse(self, max_idle_cycles=80, mouse_type = "ACCEL"):
+    async def move_mouse(self, max_idle_cycles=80, mouse_type = "ACCEL", forever: bool = False):
         '''
             move the mouse via bluetooth until sufficiently idle
         '''
@@ -527,6 +527,7 @@ class Cato:
             # isolate x and y axes so they can be changed later with different orientations
             x_mvmt = self.gy
             y_mvmt = self.gz
+
             # calculate magnitude and angle for linear scaling
             mag = sqrt(x_mvmt**2 + y_mvmt**2)
             ang = atan2(y_mvmt, x_mvmt)
@@ -538,6 +539,7 @@ class Cato:
             # mouse with dynamic acceleration for fine and coarse control
             if(mouse_type == "ACCEL"):
                 scale = Cato.translate(slow_thresh, fast_thresh, slow_scale, fast_scale, mag)
+
             # Begin idle checking -- only after minimum duration
             if(cycle_count >= min_run_cycles ):
                 if( mag <= idle_thresh ): # if too slow
@@ -562,7 +564,6 @@ class Cato:
             dx = int( scale * mag * cos(ang) )
             dy = int( scale * mag * sin(ang) )
 
-            # mi = gc.mem_free()
             self.blue.mouse.move(dx, dy, dscroll)
             # DebugStream.println("E: ", gc.mem_free() )
             # mf = gc.mem_free()
@@ -769,7 +770,6 @@ class Cato:
     async def _wait_for_motion(self, hall_pass: asyncio.Event = None):
         Events.wait_for_motion.set()
         await Events.wait_for_motion_done.wait()
-
         Events.wait_for_motion_done.clear()
         hall_pass.set()
 
@@ -931,9 +931,34 @@ class Cato:
         await asyncio.sleep(2)
         gest_timer = asyncio.Event()
         for i in range(n):
-            hist = []
-            maxGest = list
-            maxAbs = float
+            my_file = "data/data{:02}.txt".format(i)
+            print("Ready to read into: {}".format(my_file))
+            print("    Waiting for motion")
+            self.wait_for_motion() # await motion, when triggered, do capture
+            print("Capturing")
+            self.read_gesture() # reads one full buffer into the history
+            print("Done")
+            my_string = ""
+            chunks = 0
+            chunksize = 10
+            with io.open(my_file, "w") as f:
+                temp = ""
+                print("{} opened".format(my_file))
+                for sample in range(self.specs["num_samples"]):
+                    b_pos = (self.buf + sample + 1) % self.specs["num_samples"]
+                    temp = "%d,%f,%f,%f,%f,%f,%f" % (self.time_hist[b_pos],    
+                                                    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],
+                                                    self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos])
+                    chunks += 1
+                    print(temp, file = f)
+                    if chunks % chunksize == 0:
+                        print('', file=f, flush=True, end='')
+                    # f.write("%d,%f,%f,%f,%f,%f,%f\r\n" % (self.time_hist[b_pos],    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],  \
+                    #    self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos]) )
+                #f.write(my_string)
+                #print(my_string)
+                f.close()
+            print("{} written".format(my_file))
 
             # gather data from imu for 5sec
             c = 0
