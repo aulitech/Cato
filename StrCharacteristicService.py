@@ -21,7 +21,7 @@ class StrCharacteristicService(Service):
     )
 
     debugUUID = StringCharacteristic(
-            uuid = uuid,
+            uuid = VendorUUID("daba249c-3d15-465e-b0b6-f6162548e137"),
             properties = Characteristic.READ | Characteristic.NOTIFY
         )
     
@@ -52,8 +52,6 @@ class StrCharacteristicService(Service):
             "UPDATE"        : self.update_config,
             "OVERWRITE"     : self.overwrite_config,
             "SAVE"          : self.save_config,
-
-            ""
 
             "REBOOT"        : self.reboot,
             "REBOOTRO"      : self.reboot_forceRO

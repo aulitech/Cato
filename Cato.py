@@ -38,8 +38,6 @@ from neutonml import Neuton
 from StrCharacteristicService import config
 from StrCharacteristicService import DebugStream
 
-##TEMP IMPORTS
-from StrCharacteristicService import SCS
 
 #helpers and enums
 
@@ -299,6 +297,7 @@ class Cato:
                     prev_task = "noop"
     
     async def dummy_event(self):
+        from StrCharacteristicService import SCS
         SCS.collGestUUID = ""
         while(SCS.collGestUUID == ""):
             await asyncio.sleep(0.1)
