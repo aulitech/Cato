@@ -21,9 +21,9 @@ class StrCharacteristicService(Service):
     )
 
     debugUUID = StringCharacteristic(
-            uuid = VendorUUID("daba249c-3d15-465e-b0b6-f6162548e137"),
-            properties = Characteristic.READ | Characteristic.NOTIFY
-        )
+        uuid = VendorUUID("daba249c-3d15-465e-b0b6-f6162548e137"),
+        properties = Characteristic.READ | Characteristic.NOTIFY
+    )
     
     collGestUUID = StringCharacteristic(
         uuid = VendorUUID("528ff74b-fdb8-444c-9c64-3dd5da4135ae"),

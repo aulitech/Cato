@@ -253,7 +253,10 @@ class Cato:
 
             await self.shake_cursor()
 
-            target_name = await self.interpret_event()
+            # its ugly, i know, dont @ me
+            target_name = self.st_matrix[await self.gesture_interpreter()][self.state]
+            # i didnt want to create a new var used for a single line
+
             DebugStream.println(f"Detect Event -- Dispatching: self.{target_name}")
             await self.block_on(eval("self."+target_name, {"self":self}))
 
@@ -316,7 +319,7 @@ class Cato:
 
     
     # TODO: needs rework to accomodate new getsture collection
-    async def interpret_event(self):
+    async def gesture_interpreter(self):
         gesture = EV.NONE
         DebugStream.println("Detect Event: waiting for motion")
         await self.block_on(self._wait_for_motion)
@@ -350,8 +353,59 @@ class Cato:
         else:
             gesture = EV.NONE
 
-        return self.st_matrix[gesture][self.state]
+        return gesture
     
+    # TODO: feed gesture to neuton & check maths for max centering
+    async def itsmorbintimebebby(self):
+        infer = EV.NONE
+        gest = []
+        gestLen = config["gesture_length"]
+        maxAbs = 0
+        drift = (0,0,0)
+        minThresh = config["min_gesture_threshold"]
+
+        feedNeut : asyncio.Task = None
+        confThresh = config["confidence_threshold"]
+
+        while(len(gest) < gestLen/2):
+            await self.imu.wait()
+            gest.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz))
+            drift[0] += self.gx
+            drift[1] += self.gy
+            drift[2] += self.gz
+        
+        for i in range(len(drift)):
+            drift[i] /= gestLen/2
+
+        i = 0
+        sw = asyncio.create_task(Cato.stopwatch(config["gesture_window"]))
+        while(infer == EV.NONE)&((i <= gestLen/2)|(not sw.done())):
+            await self.imu.wait()
+            gest.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz))
+            if(len(gest) > gestLen):
+                gest.pop(0)
+            
+            currAbs = (self.gx-drift[0])**2 + (self.gy-drift[1])**2 + (self.gz-drift[2])**2
+            if(currAbs > maxAbs):
+                maxAbs = currAbs
+                i = 0
+            
+            if(maxAbs >= minThresh):
+                i += 1
+                if(i >= gestLen/2):
+                    feedNeut = asyncio.create_task(self.feed_neuton(gest.copy()))
+            
+            if(feedNeut is not None)&(feedNeut.done()):
+                if(max(neuton_outputs) >= confThresh):
+                    infer = self.n.inference()+1
+                feedNeut = None
+            
+        return infer
+
+    async def feed_neuton(self, log):
+        for data in log:
+            self.n.set_inputs(data)
+            await asyncio.sleep(0)
     
     # Cato Actions
     # CircuitPython Docs: https://docs.circuitpython.org/projects/hid/en/latest/api.html#adafruit-hid-mouse-mouse '''
@@ -762,7 +816,7 @@ class Cato:
             # DebugStream.println("")
             
 
-    async def collect_gestures(self, logName = "log.txt", n = 10, to_train = range(1,len(EV.gesture_key)), winSize = 76):
+    async def collect_gestures(self, to_train = range(1,len(EV.gesture_key)), n = 10, logName = "log.txt"):
         from StrCharacteristicService import SCS
         DebugStream.println("+ collect_gestures")
         ##TEMP CODE
@@ -775,6 +829,12 @@ class Cato:
             pass
         #'''
         ##TEMP END
+
+
+        if(isinstance(to_train,int)):
+            to_train = (to_train,)
+        gestLeng = config["gesture_length"]
+        
         await self.blue.is_connected.wait()
         if(mc.nvm[1]):
             SCS.collGestUUID = "WARNING: Cato did not boot selfwritable.  Values will not be recorded"
@@ -782,16 +842,13 @@ class Cato:
 
         await asyncio.sleep(3)
 
-        if(isinstance(to_train,int)):
-            to_train = (to_train,)
-
         gest_timer = asyncio.Event()
         SCS.collGestUUID = "Collecting Gestures"
         DebugStream.println(SCS.collGestUUID)
         for gestID in to_train:
             for i in range(n):
                 hist = []
-                offset = ()
+                drift = ()
                 maxGest = list
                 maxAbs = 0
 
@@ -811,22 +868,22 @@ class Cato:
                     #     DebugStream.println(",\t".join(str(v) for v in hist[len(hist)-1]))
                     # c = (c+1)%32
 
-                    if(len(hist) == winSize):
-                        offset = hist[winSize]
+                    if(len(hist) == gestLeng):
+                        drift = hist[gestLeng]
                         maxGest = hist.copy()
-                        maxAbs = maxGest[int(winSize/2)]
-                        maxAbs = (maxAbs[3]-offset[3])**2 + (maxAbs[4]-offset[4])**2 + (maxAbs[5]-offset[5])**2
-                        asyncio.create_task(self.countN(gest_timer, 5))  # Timer starts here
+                        maxAbs = maxGest[int(gestLeng/2)]
+                        maxAbs = (maxAbs[3]-drift[3])**2 + (maxAbs[4]-drift[4])**2 + (maxAbs[5]-drift[5])**2
+                        asyncio.create_task(Cato.stopwatch(3, ev = gest_timer))  # Timer starts here
                         start = time.time()
                         counter = 0
                         DebugStream.println("Perform Gesture: ", EV.gesture_key[gestID])
                         SCS.collGestUUID = "Perform Gesture: "+EV.gesture_key[gestID]+"("+str(gestID)+")"
                     
                     ##could check max acc as it's read to cut mem by 1/4 (would require splitting maxGest into pre/post queues)
-                    elif(len(hist) > winSize):
+                    elif(len(hist) > gestLeng):
                         hist.pop(0)
-                        currMid = hist[int(winSize/2)]
-                        currAbs = (currMid[3]-offset[3])**2 + (currMid[4]-offset[4])**2 + (currMid[5]-offset[5])**2
+                        currMid = hist[int(gestLeng/2)]
+                        currAbs = (currMid[3]-drift[3])**2 + (currMid[4]-drift[4])**2 + (currMid[5]-drift[5])**2
                         #DebugStream.println(currMid)
                         DebugStream.println(currAbs, "<", maxAbs)
                         if(currAbs > maxAbs):
@@ -851,12 +908,13 @@ class Cato:
                             log.write("\n")
                 except OSError as oser:
                     SCS.collGestUUID = "Gestures cannot be recorded"
+                    SCS.collGestUUID = str(oser)
                     continue
         
         SCS.collGestUUID = "Gesture Collection Completed"
         DebugStream.println("Gesture Collection Completed")
 
-        asyncio.create_task(self.countN(gest_timer, 5))
+        asyncio.create_task(self.stopwatch(gest_timer, 5))
         await gest_timer.wait()
 
     """
@@ -953,25 +1011,21 @@ class Cato:
             self.blue.k.release_all()
     """
 
-    async def countN(self, ev, n):
-        await asyncio.sleep(n)
-        ev.set()
+    async def stopwatch(n : float,ev : asyncio.Event = None):
+        if(n >= 0):
+            await asyncio.sleep(n)
+            if(ev is not None):
+                ev.set()
 
 
     async def test_loop(self):
         DebugStream.println("+ test_loop")
         #await self.blue.is_connected.wait()
         i = 0
+        t = Cato.stopwatch(asyncio.Event(), 10)
+
         while(True):
-            DebugStream.println("loop: "+str(i))
+            DebugStream.println("loop: ",i)
+            DebugStream.println(t.done())
             i += 1
-            '''
-            try:
-                with open("config.json",'a') as f:
-                    DebugStream.print("RO\t")
-            except:
-                DebugStream.print("RW\t")
-            DebugStream.print(str(mc.nvm[0])+'\t'+str(mc.nvm[1])+'\n')
-            DebugStream.print(config["operation_mode"])
-            '''
             await asyncio.sleep(1)
