@@ -356,36 +356,30 @@ class Cato:
         return gesture
     
     # TODO: feed gesture to neuton & check maths for max centering
-    async def itsmorbintimebebby(self):
+    async def gesture_interpreter_alt(self):
         infer = EV.NONE
         gest = []
         gestLen = config["gesture_length"]
         maxAbs = 0
-        drift = (0,0,0)
         minThresh = config["min_gesture_threshold"]
 
-        feedNeut : asyncio.Task = None
+        feedNeut : asyncio.Task
         confThresh = config["confidence_threshold"]
 
         while(len(gest) < gestLen/2):
             await self.imu.wait()
             gest.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz))
-            drift[0] += self.gx
-            drift[1] += self.gy
-            drift[2] += self.gz
-        
-        for i in range(len(drift)):
-            drift[i] /= gestLen/2
 
         i = 0
+        ##replace with alarm.time?
         sw = asyncio.create_task(Cato.stopwatch(config["gesture_window"]))
-        while(infer == EV.NONE)&((i <= gestLen/2)|(not sw.done())):
+        while(infer == EV.NONE)and((i <= gestLen/2)or(not sw.done())):
             await self.imu.wait()
             gest.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz))
             if(len(gest) > gestLen):
                 gest.pop(0)
             
-            currAbs = (self.gx-drift[0])**2 + (self.gy-drift[1])**2 + (self.gz-drift[2])**2
+            currAbs = self.gx**2 + self.gy**2 + self.gz**2
             if(currAbs > maxAbs):
                 maxAbs = currAbs
                 i = 0
