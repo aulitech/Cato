@@ -1,3 +1,5 @@
+
+
 from adafruit_ble.uuid import VendorUUID
 from adafruit_ble.services import Service
 from adafruit_ble.characteristics import Characteristic
@@ -12,7 +14,7 @@ config = dict
 with open("config.json",'r') as f:
     config = json.load(f)
 
-class StrCharacteristicService(Service):
+class StrUUIDService(Service):
     uuid = VendorUUID("51ad213f-e568-4e35-84e4-67af89c79ef0")
    
     configUUID = StringCharacteristic(
@@ -153,12 +155,12 @@ class DebugStream:
         
         print(DebugStream.strBuff, end="")
         while(len(DebugStream.strBuff) > 512):
-            SCS.debugUUID = DebugStream.strBuff[:512]
+            SUS.debugUUID = DebugStream.strBuff[:512]
             DebugStream.strBuff = DebugStream.strBuff[512:]
-        SCS.debugUUID = DebugStream.strBuff
+        SUS.debugUUID = DebugStream.strBuff
         DebugStream.strBuff = ""
     
     def println(*args):
         DebugStream.print(*args, end = '\n')
 
-SCS = StrCharacteristicService()
+SUS = StrUUIDService()
