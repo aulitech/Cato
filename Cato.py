@@ -815,6 +815,8 @@ class Cato:
     
     async def collect_gestures(self, to_train = range(1,len(EV.gesture_key)), n = 10, logName = "log.txt"):
         from StrUUIDService import SUS
+        await Events.gesture_collecting.wait()
+        Events.gesture_not_collecting.clear()
 
         DebugStream.println("+ collect_gestures")
         try:
@@ -848,20 +850,21 @@ class Cato:
 
                 SUS.collGestUUID = "Input when ready"
                 while(SUS.collGestUUID == "Input when ready"):
-                    await asyncio.sleep(0)
-                SUS.collGestUUID = "Beginning Recording "+str(i+1)
+                    await asyncio.sleep(0.1)
+                SUS.collGestUUID = "Beginning Recording "+str(i)
 
                 while(len(hist) < gestLeng):
                     await self.imu.wait()
                     hist.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz, gestID))
 
-                drift = hist[gestLeng]
+                drift = hist[gestLeng-1]
                 maxGest = hist.copy()
                 maxMag = maxGest[int(gestLeng/2)]
                 maxMag = (maxMag[3]-drift[3])**2 + (maxMag[4]-drift[4])**2 + (maxMag[5]-drift[5])**2
                 asyncio.create_task(Cato.stopwatch(3, ev = gest_timer))  # Timer starts here
                 DebugStream.println("Perform Gesture: ", EV.gesture_key[gestID])
                 SUS.collGestUUID = "Perform Gesture: "+EV.gesture_key[gestID]+"("+str(gestID)+")"
+                SUS.collGestUUID = str(maxMag)
                     
                 while(not gest_timer.is_set()):
                     await self.imu.wait()
@@ -882,7 +885,7 @@ class Cato:
                 # record data
                 SUS.collGestUUID = "Keep this input?(y/n)"
                 while(SUS.collGestUUID not in ('Y','y','N','n','S','s')):
-                    pass
+                    await asyncio.sleep(0)
                 if(SUS.collGestUUID in ('Y','y')):
                     try:
                         with open(logName, 'a') as log:
@@ -906,21 +909,23 @@ class Cato:
     
         SUS.collGestUUID = "Gesture Collection Completed"
         DebugStream.println("Gesture Collection Completed")
+        Events.gesture_collecting.clear()
+        Events.gesture_not_collecting.set()
     
     async def collect_gestures_modeless(self):
+        from StrUUIDService import SUS
+        
         mc.nvm[2] = 0
         Events.gesture_not_collecting.set()
-        from StrUUIDService import SUS
-        from random import shuffle
         while(True):
-            await Events.gesture_collecting.wait()
-            Events.gesture_not_collecting.clear()
             #SUS.collGestUUID = "What gestures will be trained"
             to_train = list(range(1,len(EV.gesture_key)))
-            shuffle(to_train)
+            Cato.shuffle(to_train)
+            DebugStream.println(to_train)
+
             await self.collect_gestures(to_train=to_train,n=5,logName=f"log{mc.nvm[2]:2}.txt")
-            Events.gesture_collecting.clear()
-            Events.gesture_not_collecting.set()
+            if(SUS.collGestUUID == "Gesture Collection Completed"):
+                mc.nvm[2] += 1
             
 
     """
@@ -1047,17 +1052,24 @@ class Cato:
             await asyncio.sleep(n)
             if(ev is not None):
                 ev.set()
-
+    
+    def shuffle(l : list):
+        from random import randint
+        for i in range(0,len(l)):
+            r = randint(i,len(l)-1)
+            if(i != r):
+                l[i],l[r] = l[r],l[i]
+        return
 
     async def test_loop(self):
         DebugStream.println("+ test_loop")
         #await self.blue.is_connected.wait()
         i = 0
-        t = Cato.stopwatch(asyncio.Event(), 10)
+        t = asyncio.create_task(Cato.stopwatch(10))
 
         while(True):
             await Events.gesture_not_collecting.wait()
-            DebugStream.println("loop: ",i)
-            DebugStream.println(t.done())
+            #DebugStream.println("loop: ",i)
+            #DebugStream.println(t.done())
             i += 1
             await asyncio.sleep(1)

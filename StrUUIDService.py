@@ -58,7 +58,7 @@ class StrUUIDService(Service):
             "REBOOT"        : self.reboot,
             "REBOOTRO"      : self.reboot_forceRO,
 
-            "CG"            : self.collGest_control
+            "CG"            : self.collGest_dispatch
         }
         while(True):
             ##test w different time lengths or async event triggers
@@ -141,12 +141,15 @@ class StrUUIDService(Service):
         self.configUUID = "REBOOTING READ ONLY"
         mc.nvm[0] = False
         mc.reset()
-    
 
-    async def collGest_control(self):
+    async def collGest_dispatch(self):
         from Cato import Events as E
-        await E.gesture_not_collecting.wait()
-        E.gesture_collecting.set()
+        if(E.gesture_not_collecting.is_set()):
+            E.gesture_collecting.set()
+            SUS.configUUID = "Collect Gestures Dispatched"
+        else:
+            SUS.configUUID = "Gesture Collection Already In Progress"
+
 
 
 # TODO: implement string buffer for larger/delayed inputs and only write once bluetooth is connected
