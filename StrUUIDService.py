@@ -40,11 +40,13 @@ class StrUUIDService(Service):
         DebugStream.println("+ characteristic_loop")
         with open("config.json",'r') as f:
             for l in f.readlines():
-                self.configUUID = l
-                # while(self.configUUID != "NEXT"):
-                #     await asyncio.sleep(0.1)
-                ##not needed till working interface app
-            self.configUUID = "SEND COMPLETE"
+                while(len(l) > 512):
+                    SUS.configUUID = l[:512]
+                    l = l[512:]
+                    # while(self.configUUID != "NEXT"):
+                    #     await asyncio.sleep(0)
+                    ##not needed till working interface app
+        self.configUUID = "SEND COMPLETE"
         
         ##return not necessary, but offloads control loop impl till finished w collGest 
         if(config["operation_mode"] >= 20):
