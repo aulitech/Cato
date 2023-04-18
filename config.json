@@ -3,19 +3,19 @@
         "idle_thresh"   : 5.0,
         "min_run_cycles": 30,
         "idle_duration" : 80,
-        "scale"         : 1.0,
-        "slow_thresh"   : 20.0,
-        "fast_thresh"   : 240.0,
-        "slow_scale"    : 0.2,
-        "fast_scale"    : 3.0
+        "scale"         : 1.2,
+        "slow_thresh"   : 30.0,
+        "fast_thresh"   : 200.0,
+        "slow_scale"    : 0.3,
+        "fast_scale"    : 4.0
     },
 
     "battery" : {
-        "low" : 22000,
+        "low" : 22100,
         "high": 30950
     },
 
-    "operation_mode" : 10,
+    "operation_mode" : 1,
 
     "st_matrix" : [
         [

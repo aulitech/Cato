@@ -145,19 +145,46 @@ class Cato:
 
         self.imu = LSM6DS3TRC()
 
-        # blocking functions enabled by events
+        # Mode-dependent task spawning
+        """ MODE CODE MEANINGS
+                0 - 9: USER MODES
+                    0:  Default Computer
+                    1:  Default Television
+                    2:  Forever Pointer (only pointer)
+                    3:  Forever Clicker (only clicker - tap detect)
+                10 - 19: Dev Test Modes:
+                    10: Test Loop -- bluetooth print test
+                20 - 29: Gesture Collection Modes
+                    20: Collect Gestures
+                    2#: Collect Gesture Number #
+                30 - 39: Unused
+                    30: There's nothing here
+                    31: Really, nothing
+        """
         if(mode == 0):
             self.tasks = {
                 "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
                 "move_mouse"        : asyncio.create_task(self.move_mouse()),
                 "mouse_event"       : asyncio.create_task(self.mouse_event()),
-                "monitor_battery"   : asyncio.create_task(self.monitor_battery()),
                 "scroll"            : asyncio.create_task(self.scroll()),
-                "sleep"             : asyncio.create_task(self.go_to_sleep()),
+                # "sleep"             : asyncio.create_task(self.go_to_sleep()),
             }
         elif(mode == 1):
             self.tasks = {
-                "tv_control"        : asyncio.create_task(self.tv_control())
+                "tv_control"        : asyncio.create_task(self.tv_control()),
+                "wait_for_motion"   : asyncio.create_task(self.wait_for_motion())
+            }
+        elif(mode == 2):
+            self.tasks = {
+                "point" : asyncio.create_task(self.move_mouse(forever = True))
+            }
+        elif(mode == 3):
+            self.tasks = {
+                "clicker" : asyncio.create_task(self.clicker_task())
+            }
+        elif(mode == 10):
+            self.tasks = {
+                "test_loop"         : asyncio.create_task(self.test_loop())
             }
         elif(mode == 20):
             self.tasks = {
@@ -169,11 +196,9 @@ class Cato:
                 "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
                 "collect_gestures"  : asyncio.create_task(self.collect_gestures(to_train = (config["operation_mode"]-20,)))
             }
-        elif(mode == 10):
-            self.tasks = {
-                "test_loop"         : asyncio.create_task(self.test_loop())
-            }
-        self.tasks.update(self.imu.tasks)   # functions for the imu
+        _bat_task = {"monitor_battery"   : asyncio.create_task(self.monitor_battery())}
+        self.tasks.update(_bat_task)
+        self.tasks.update(self.imu.tasks)   # functions for t1he imu
         self.tasks.update(self.blue.tasks)  # functions for bluetooth
 
         self.n = Neuton(outputs=neuton_outputs)
@@ -208,24 +233,34 @@ class Cato:
     
     
     async def go_to_sleep(self):
+        # This method sets a Cato to go to sleep - presently after exactly 15 seconds, soon to be based on inactivity
+
         await asyncio.sleep(15)
-        self.imu.single_tap_cfg()
-        self.tasks['interrupt'].cancel()
-        await asyncio.sleep(1)
-        pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True)
+        self.tasks['interrupt'].cancel() #release pin int1
+        
+        self.imu.single_tap_cfg() # set wakeup condn to single tap detection
+
+        pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
         print("LIGHT SLEEP")
         alarm.light_sleep_until_alarms(pin_alarm)
         print("WOKE UP")
-        self.imu.data_ready_on_int1_setup()
+
         del(pin_alarm) # release imu_int1
-        await asyncio.sleep(1)
+
+        self.imu.data_ready_on_int1_setup() #setup imu data ready
+
         self.tasks['interrupt'] = asyncio.create_task( self.imu.interrupt() )
+
         while True:
             await asyncio.sleep(10)
 
     async def monitor_battery(self):
         while True:
-            await asyncio.sleep(10)
+            await asyncio.sleep(3)
+            temp = self.battery.raw_value
+            # DebugStream.println(f"bat_ena True: {temp[0]}")
+            await asyncio.sleep(0.1)
+            # uDebugStream.println(f"bat_ena False: {temp[1]}")
             self.blue.battery_service.level = self.battery.level
 
     async def _move_mouse(self, hall_pass: asyncio.Event = None):
@@ -261,6 +296,7 @@ class Cato:
             Events.control_loop.set()
     
     async def tv_control(self):
+        self.imu.data_ready_on_int1_setup()
         turbo_terminate = asyncio.Event()
         task_dict = {
             "noop"  :   None,
@@ -280,8 +316,8 @@ class Cato:
         prev_task = "noop"
         DebugStream.println("tv_control")
         while True:
-            #task_name = await self.interpret_event()
-            task_name = await self.dummy_event()
+            task_name = await self.interpret_event()
+            #task_name = await self.dummy_event()
 
             if(task_name != "noop"):
                 if(task != None):
@@ -349,7 +385,7 @@ class Cato:
 
         else:
             gesture = EV.NONE
-
+        # self.state
         return self.st_matrix[gesture][self.state]
     
     
@@ -414,6 +450,13 @@ class Cato:
         scaled = (y_span / x_span) * (input - x_min)
         shifted = scaled + y_min
         return shifted
+
+    async def clicker_task(self):
+        self.imu.single_tap_cfg()
+        while True:
+            await self.imu.wait()
+            print("Click")
+            self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
 
 
     async def move_mouse(self, max_idle_cycles=80, mouse_type = "ACCEL", forever: bool = False):
@@ -487,7 +530,7 @@ class Cato:
                 scale = Cato.translate(slow_thresh, fast_thresh, slow_scale, fast_scale, mag)
 
             # Begin idle checking -- only after minimum duration
-            if(cycle_count >= min_run_cycles ):
+            if(cycle_count >= min_run_cycles and not forever):
                 if( mag <= idle_thresh ): # if too slow
                     # if (idle_count == 0): # count time of idle to finish (design util)
                         # DebugStream.println("\tidle detected, count begun")
@@ -653,7 +696,7 @@ class Cato:
     # cato keyboard actions
     async def press_enter(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        DebugStream.println("ENTER")
+        DebugStream.println("ENTER") 
         self.blue.k.press(Keycode.ENTER)
         self.blue.k.release(Keycode.ENTER)
         if hall_pass is not None:
@@ -988,7 +1031,7 @@ class Cato:
         #await self.blue.is_connected.wait()
         i = 0
         while(True):
-            DebugStream.println("loop: "+str(i))
+            #DebugStream.println("loop: "+str(i))
             i += 1
             '''
             try:
@@ -999,4 +1042,4 @@ class Cato:
             DebugStream.print(str(mc.nvm[0])+'\t'+str(mc.nvm[1])+'\n')
             DebugStream.print(config["operation_mode"])
             '''
-            await asyncio.sleep(1)
+            await asyncio.sleep(5)
