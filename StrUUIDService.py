@@ -38,21 +38,9 @@ class StrUUIDService(Service):
     
     async def config_loop(self):
         DebugStream.println("+ characteristic_loop")
-        with open("config.json",'r') as f:
-            for l in f.readlines():
-                while(len(l) > 512):
-                    SUS.configUUID = l[:512]
-                    l = l[512:]
-                    # while(self.configUUID != "NEXT"):
-                    #     await asyncio.sleep(0)
-                    ##not needed till working interface app
-        self.configUUID = "SEND COMPLETE"
-        
-        ##return not necessary, but offloads control loop impl till finished w collGest 
-        if(config["operation_mode"] >= 20):
-            return
 
         SIGNAL_STRING = {
+            "SEND"          : self.send_config,
             "UPDATE"        : self.update_config,
             "OVERWRITE"     : self.overwrite_config,
             "SAVE"          : self.save_config,
@@ -62,6 +50,8 @@ class StrUUIDService(Service):
 
             "CG"            : self.collGest_dispatch
         }
+
+        self.configUUID = "AWAITING INTERACTION"
         while(True):
             ##test w different time lengths or async event triggers
             await asyncio.sleep(0.2)
@@ -70,7 +60,16 @@ class StrUUIDService(Service):
             except:
                 continue
             await coro()
-            ##code to update config.json goes here
+
+    async def send_config(self):
+        l = str(config)
+        while(len(l) > 512):
+            SUS.configUUID = l[:512]
+            l = l[512:]
+            while(self.configUUID != "NEXT"):
+                await asyncio.sleep(0)
+        self.configUUID = "SEND COMPLETE"
+        return
 
     async def update_config(self):
         self.configUUID = "READY"
