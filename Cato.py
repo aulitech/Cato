@@ -255,7 +255,7 @@ class Cato:
 
             await self.shake_cursor()
 
-            target_name = await self.gesture_interpreter
+            target_name = await self.gesture_interpreter()
             DebugStream.println(f"Detect Event -- Dispatching: self.{target_name}")
             await self.block_on(eval("self."+target_name, {"self":self}))
             
