@@ -34,8 +34,6 @@ class Appearances:
     hid = 0x03C0 # 0x03C0 to 0x03FF
     control_device = 0x04C0 # 0x04C0 to 0x04FF
 
-
-
 class BluetoothControl():
     # BLERadio can toggle advertising state
     ble = adafruit_ble.BLERadio()
@@ -55,19 +53,19 @@ class BluetoothControl():
             hardware_revision = "v0.0",
             service = None
         )
-
+        name = "Cato_Remote_Glasses"
         self.advertisement = ProvideServicesAdvertisement( self.hid )
-        self.advertisement.appearance = Appearances.hid
-        self.advertisement.short_name = "Cato"
+        self.advertisement.appearance = Appearances.remote
+        self.advertisement.short_name = name
         # self.advertisement.flags.general_discovery = False
         # self.advertisement.flags.limited_discovery = True
         # self.advertisement.flags.general_discovery = AdvertisingFlag(1)
         # mem("BTC, advertisement created")
 
         self.scan_response = Advertisement(  )
-        self.scan_response.short_name = "Cato"
-        self.scan_response.appearance = Appearances.hid
-        # mem("BTC, scan_response created")
+        self.scan_response.short_name = name
+        self.scan_response.appearance = Appearances.remote
+        # # mem("BTC, scan_response created")
         
         
         # HID handles
@@ -97,7 +95,7 @@ class BluetoothControl():
             # First, wait for advertisement enable
             await self.ena_adv.wait()
             DebugStream.println("Bluetooth: Advertising")
-            BluetoothControl.ble.start_advertising(self.advertisement, self.scan_response)
+            BluetoothControl.ble.start_advertising(self.advertisement)
             
             # Then, wait for a connection
             await self.is_connected.wait()
