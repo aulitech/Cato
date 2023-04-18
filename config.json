@@ -15,9 +15,7 @@
         "high": 30950
     },
 
-    "operation_mode" : 10,
-
-    "gesture_window" : 8,
+    "operation_mode" : 0,
 
     "st_matrix" : [
         [
@@ -32,22 +30,23 @@
             [   "_wait_for_motion",            "noop",                 "noop"          ]
         ],
         [
-            [   "noop"],
-            [   "up"],
-            [   "down"],
-            [   "left"],
-            [   "right"],
-            [   "noop"],
-            [   "noop"],
-            [   "enter"],
-            [   "esc"],
-            [   "meta"],
-            [   "noop"]
+            [   "noop"  ],
+            [   "up"    ],
+            [   "down"  ],
+            [   "left"  ],
+            [   "right" ],
+            [   "noop"  ],
+            [   "noop"  ],
+            [   "enter" ],
+            [   "esc"   ],
+            [   "meta"  ],
+            [   "noop"  ]
         ]
     ],
 
     "turbo_rate" : [1, 0.2, 0.9],
 
+    "gesture_window" : 8,
     "gesture_length" : 76,
     "min_gesture_threshold" : 0
     }

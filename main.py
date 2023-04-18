@@ -54,10 +54,8 @@ async def control_loop(c : Cato.Cato):
         await Events.control_loop.wait() #await permission to start
         Events.control_loop.clear()
 
-        Events.collect_gestures.set()
-
         await c.block_on( c._move_mouse )
-        Events.detect_event.set()
+        Events.mouse_event.set()
 
 
 async def main():

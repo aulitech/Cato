@@ -38,26 +38,20 @@ class StrUUIDService(Service):
     
     async def config_loop(self):
         DebugStream.println("+ characteristic_loop")
-        with open("config.json",'r') as f:
-            for l in f.readlines():
-                self.configUUID = l
-                # while(self.configUUID != "NEXT"):
-                #     await asyncio.sleep(0.1)
-                ##not needed till working interface app
-            self.configUUID = "SEND COMPLETE"
-        
-        ##return not necessary, but offloads control loop impl till finished w collGest 
-        if(config["operation_mode"] >= 20):
-            return
 
         SIGNAL_STRING = {
+            "SEND"          : self.send_config,
             "UPDATE"        : self.update_config,
             "OVERWRITE"     : self.overwrite_config,
             "SAVE"          : self.save_config,
 
             "REBOOT"        : self.reboot,
-            "REBOOTRO"      : self.reboot_forceRO
+            "REBOOTRO"      : self.reboot_forceRO,
+
+            "CG"            : self.collGest_dispatch
         }
+
+        self.configUUID = "AWAITING INTERACTION"
         while(True):
             ##test w different time lengths or async event triggers
             await asyncio.sleep(0.2)
@@ -66,7 +60,16 @@ class StrUUIDService(Service):
             except:
                 continue
             await coro()
-            ##code to update config.json goes here
+
+    async def send_config(self):
+        l = str(config)
+        while(len(l) > 512):
+            SUS.configUUID = l[:512]
+            l = l[512:]
+            while(self.configUUID != "NEXT"):
+                await asyncio.sleep(0)
+        self.configUUID = "SEND COMPLETE"
+        return
 
     async def update_config(self):
         self.configUUID = "READY"
@@ -139,8 +142,15 @@ class StrUUIDService(Service):
         self.configUUID = "REBOOTING READ ONLY"
         mc.nvm[0] = False
         mc.reset()
-    
-    # async def 
+
+    async def collGest_dispatch(self):
+        from Cato import Events as E
+        if(E.gesture_not_collecting.is_set()):
+            E.gesture_collecting.set()
+            SUS.configUUID = "Collect Gestures Dispatched"
+        else:
+            SUS.configUUID = "Gesture Collection Already In Progress"
+
 
 
 # TODO: implement string buffer for larger/delayed inputs and only write once bluetooth is connected
