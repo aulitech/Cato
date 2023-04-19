@@ -927,7 +927,6 @@ class Cato:
                     while(SUS.collGestUUID not in ('Y','y','N','n','S','s')):
                         await asyncio.sleep(0)
                     if(SUS.collGestUUID in ('Y','y')):
-                        ''''''
                         # write to local log until app is functional
                         try:
                             with open(logName, 'a') as log:
@@ -940,7 +939,7 @@ class Cato:
                             SUS.collGestUUID = "Gestures cannot be logged"
                             SUS.collGestUUID = str(oser)
                             continue
-                        '''
+                        ''''''
                         # send gesture data over uuid for app
                         while(len(maxGest) > 0):
                             d = maxGest.pop(0)
@@ -972,7 +971,7 @@ class Cato:
             await Events.gesture_collecting.wait()
             Events.gesture_not_collecting.clear()
 
-            '''''
+            ''''''
             # query uuid for collGest args
             SUS.collGestUUID = "INPUT GESTURES TO TRAIN"
             while(SUS.collGestUUID == "INPUT GESTURES TO TRAIN"):
@@ -1012,126 +1011,7 @@ class Cato:
             
             Events.gesture_collecting.clear()
             Events.gesture_not_collecting.set()
-            
-
-    """
-    async def collect_gestures_keyb(self, logName = "log.txt", n = 2, gestID = 0, winSize = 76):
-        await self.blue.is_connected.wait()
-        #await self.events.collect_gestures.wait()
-        DebugStream.println("Bluetooth Connected!")
-        await asyncio.sleep(2)
-        with open(logName,"w"):     # open log as w to clear previous data
-            pass
-        
-        self.bluType("Collecting Gestures")
-        DebugStream.println("Collecting Gestures")
-        await asyncio.sleep(2)
-        gest_timer = asyncio.Event()
-        for i in range(n):
-            my_file = "data/data{:02}.txt".format(i)
-            print("Ready to read into: {}".format(my_file))
-            print("    Waiting for motion")
-            self.wait_for_motion() # await motion, when triggered, do capture
-            print("Capturing")
-            self.read_gesture() # reads one full buffer into the history
-            print("Done")
-            my_string = ""
-            chunks = 0
-            chunksize = 10
-            with io.open(my_file, "w") as f:
-                temp = ""
-                print("{} opened".format(my_file))
-                for sample in range(self.specs["num_samples"]):
-                    b_pos = (self.buf + sample + 1) % self.specs["num_samples"]
-                    temp = "%d,%f,%f,%f,%f,%f,%f" % (self.time_hist[b_pos],    
-                                                    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],
-                                                    self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos])
-                    chunks += 1
-                    print(temp, file = f)
-                    if chunks % chunksize == 0:
-                        print('', file=f, flush=True, end='')
-                    # f.write("%d,%f,%f,%f,%f,%f,%f\r\n" % (self.time_hist[b_pos],    self.ax_hist[b_pos],    self.ay_hist[b_pos],    self.az_hist[b_pos],  \
-                    #    self.gx_hist[b_pos],    self.gy_hist[b_pos],    self.gz_hist[b_pos]) )
-                #f.write(my_string)
-                #print(my_string)
-                f.close()
-            print("{} written".format(my_file))
-
-            # gather data from imu for 5sec
-            c = 0
-            start = 0
-            counter = int
-            while(not gest_timer.is_set()):
-                await self.imu.wait()
-                hist.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz, gestID))
-
-                if(len(hist) == winSize):
-                    maxGest = hist.copy()
-                    maxAbs = maxGest[int(winSize/2)]
-                    maxAbs = maxAbs[0]**2 + maxAbs[1]**2+maxAbs[2]**2
-                    asyncio.create_task(self.countN(gest_timer, 5))  # Timer starts here
-                    start = time.time()
-                    counter = 0
-                    DebugStream.println("Perform Gesture: ",gestID)
-                    self.bluType("Perform Gesture "+str(gestID)+"\n")
-                    self.blue.k.send(34)    # type 5
-                
-                ##could check max acc as it's read to cut mem by 1/4 (would require splitting maxGest into pre/post queues)
-                elif(len(hist) > winSize):
-                    hist.pop(0)
-                    currMid = hist[int(winSize/2)]                    
-                    currAbs = currMid[3]**2 + currMid[4]**2 + currMid[5]**2
-                    if(currAbs > maxAbs):
-                        maxAbs = currAbs
-                        maxGest = hist.copy()
-
-                    if(counter < round(time.time() -start)):
-                        counter = round(time.time()-start)
-                        DebugStream.println(counter)
-                        self.blue.k.send(42)    # Backspace
-                        if(counter <= 5):
-                            self.bluType(str(5-counter))
-            gest_timer.clear()
-            self.blue.k.send(42)    # Backspace
-            self.bluType("Gesture Collected\nLogging Max\n")
-                
-            # record data
-            try:
-                with open(logName,"a") as log:       ##swap to append for final?
-                    DebugStream.println("Writing to",logName)
-                    while(len(maxGest) > 0):
-                        d = maxGest.pop(0)
-                        log.write(",".join(str(v) for v in d))
-                        log.write("\n")
-            except:
-                continue
-            
-        DebugStream.println("Gesture Collection Completed")
-        self.bluType("Gesture Collection Completed\n")
-
-        asyncio.create_task(self.countN(gest_timer, 5))
-        await gest_timer.wait()
     
-
-    def bluType(self, str):
-        ##maybe a more robust version of this exists somewhere; worth looking into?
-        for c in str:
-            if(ord(c) >= 97):
-                c = ord(c) - 93
-            elif(ord(c) >= 65):
-                self.blue.k.press(225)  #LShift
-                c = ord(c) - 61
-            elif(c == ' '):
-                c = 44
-            elif(c == '\n'):
-                c = 40  #Enter
-            elif(c == '0'):
-                c = 39
-            else:
-                c = int(c) + 29
-            self.blue.k.press(c)
-            self.blue.k.release_all()
-    """
 
     async def stopwatch(n : float,ev : asyncio.Event = None):
         if(n >= 0):
