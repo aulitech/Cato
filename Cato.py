@@ -322,12 +322,13 @@ class Cato:
             await Events.gesture_not_collecting.wait()
             task_name = await self.gesture_interpreter()
 
-            if(task_name != "noop"):
-                if(task != None):
-                    turbo_terminate.set()
-                    await task
-                    turbo_terminate.clear()
-                
+            # needs a check for sigMotion upon new gestInterpreter
+            if(Events.sig_motion.is_set())and(task != None):
+                turbo_terminate.set()
+                await task
+                turbo_terminate.clear()
+
+            if(task_name != "noop"):                
                 func_tuple = task_dict[task_name]
                 if((func_tuple[0].__name__ != self.turbo_input.__name__) or (task_name != prev_task)):
                     task = asyncio.create_task(func_tuple[0](*func_tuple[1]))
@@ -354,7 +355,6 @@ class Cato:
         motion_detected = Events.sig_motion.is_set()
         
         if motion_detected:
-            Events.sig_motion.clear()
 
             neuton_needs_more_data = True
             arr = array.array( 'f', [0]*6 )
@@ -826,6 +826,7 @@ class Cato:
             # DebugStream.println("A: ", gc.mem_free())
             
             await Events.wait_for_motion.wait()
+            Events.sig_motion.clear()
             # DebugStream.println("wait_for_motion triggered")
             # DebugStream.println("B: ", gc.mem_free())
             
