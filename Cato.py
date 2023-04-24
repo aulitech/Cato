@@ -1034,7 +1034,7 @@ class Cato:
                 maxMag = (maxMag[3]-drift[3])**2 + (maxMag[4]-drift[4])**2 + (maxMag[5]-drift[5])**2
                 sw = asyncio.create_task(Cato.stopwatch(timeLimit))  # Timer starts here
                 DebugStream.println("Perform Gesture: ", EV.gesture_key[gestID],"(",str(gestID),")")
-                    
+                
                 while(not sw.done()):
                     await Cato.imu.wait()
                     hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
