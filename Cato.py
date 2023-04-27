@@ -104,6 +104,7 @@ class Cato:
 
     ''' Main Class of Cato Gesture Mouse '''
     imu = LSM6DS3TRC()
+    n = Neuton(outputs=neuton_outputs)
 
     def __init__(self, bt:bool = True, do_calib = True):
         '''
@@ -201,7 +202,6 @@ class Cato:
         self.tasks.update(Cato.imu.tasks)   # functions for t1he imu
         self.tasks.update(self.blue.tasks)  # functions for bluetooth
 
-        self.n = Neuton(outputs=neuton_outputs)
         self.gesture = EV.NONE
     
     async def reboot():
@@ -322,12 +322,13 @@ class Cato:
             await Events.gesture_not_collecting.wait()
             task_name = await self.gesture_interpreter()
 
-            if(task_name != "noop"):
-                if(task != None):
-                    turbo_terminate.set()
-                    await task
-                    turbo_terminate.clear()
-                
+            # needs a check for sigMotion upon new gestInterpreter
+            if(Events.sig_motion.is_set())and(task != None):
+                turbo_terminate.set()
+                await task
+                turbo_terminate.clear()
+
+            if(task_name != "noop"):                
                 func_tuple = task_dict[task_name]
                 if((func_tuple[0].__name__ != self.turbo_input.__name__) or (task_name != prev_task)):
                     task = asyncio.create_task(func_tuple[0](*func_tuple[1]))
@@ -352,9 +353,9 @@ class Cato:
         DebugStream.println("Detect Event: Motion recieved")
 
         motion_detected = Events.sig_motion.is_set()
+
         
         if motion_detected:
-            Events.sig_motion.clear()
 
             neuton_needs_more_data = True
             arr = array.array( 'f', [0]*6 )
@@ -367,9 +368,9 @@ class Cato:
                 arr[3] = self.gx
                 arr[4] = self.gy
                 arr[5] = self.gz
-                neuton_needs_more_data = self.n.set_inputs( arr )
+                neuton_needs_more_data = Cato.n.set_inputs( arr )
 
-            gesture = self.n.inference() + 1 # plus one ensures that 0 event is "none"
+            gesture = Cato.n.inference() + 1 # plus one ensures that 0 event is "none"
             confidence = max(neuton_outputs)
 
             confidence_thresh = 0.80
@@ -416,7 +417,7 @@ class Cato:
             
             if(feedNeut is not None)&(feedNeut.done()):
                 if(max(neuton_outputs) >= confThresh):
-                    infer = self.n.inference()+1
+                    infer = Cato.n.inference()+1
                 feedNeut = None
             
         return infer
@@ -424,7 +425,7 @@ class Cato:
     
     async def feed_neuton(self, log):
         for data in log:
-            self.n.set_inputs(data)
+            Cato.n.set_inputs(data)
             await asyncio.sleep(0)
     
     
@@ -826,6 +827,7 @@ class Cato:
             # DebugStream.println("A: ", gc.mem_free())
             
             await Events.wait_for_motion.wait()
+            Events.sig_motion.clear()
             # DebugStream.println("wait_for_motion triggered")
             # DebugStream.println("B: ", gc.mem_free())
             
@@ -892,7 +894,7 @@ class Cato:
 
         if(isinstance(to_train,int)):
             to_train = (to_train,)
-        gestLeng = config["gesture_length"]
+        gestLeng = Cato.n.window_size
         
         if(mc.nvm[1]):
             SUS.collGestUUID = "WARNING: Cato did not boot selfwritable.  Values will not be recorded"
@@ -905,6 +907,7 @@ class Cato:
         DebugStream.println(SUS.collGestUUID)
         try:
             for gestID in to_train:
+                SUS.collGestUUID = "Gesture: "+EV.gesture_key[gestID]+"("+str(gestID)+")"
                 i = 0
                 while(i < n):
                     i += 1
@@ -964,14 +967,6 @@ class Cato:
                             SUS.collGestUUID = "Gestures cannot be logged"
                             SUS.collGestUUID = str(oser)
                             continue
-                        '''
-                        # send gesture data over uuid for app
-                        while(len(maxGest) > 0):
-                            d = maxGest.pop(0)
-                            SUS.collGestUUID = ','.join(str(v) for v in d) +'\n'
-                            while(SUS.collGestUUID != "NEXT"):
-                                await asyncio.sleep(0)
-                        #'''
                         
                     elif(SUS.collGestUUID in ('N','n')):
                         SUS.collGestUUID = "Rerecording Gesture"
@@ -986,7 +981,6 @@ class Cato:
         except Exception as er:
             SUS.collGestUUID = "An Error Ocurred Durring Gesture Collection"
             DebugStream.println(er)
-
 
     async def stopwatch(n : float,ev : asyncio.Event = None):
         if(n >= 0):
