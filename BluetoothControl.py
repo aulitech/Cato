@@ -17,7 +17,6 @@ from StrUUIDService import SUS
 from StrUUIDService import config
 from StrUUIDService import StrUUIDService
 from StrUUIDService import DebugStream
-##maybe this should be in a new class file allowing bt services to loaded seperately
 
 import asyncio
 
@@ -53,7 +52,7 @@ class BluetoothControl():
             hardware_revision = "v0.0",
             service = None
         )
-        name = "Cato_Remote_Glasses"
+        name = "Cato"
         self.advertisement = ProvideServicesAdvertisement( self.hid )
         self.advertisement.appearance = Appearances.remote
         self.advertisement.short_name = name

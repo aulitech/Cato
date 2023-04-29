@@ -103,6 +103,7 @@ def mem( loc = "" ):
 class Cato:
 
     ''' Main Class of Cato Gesture Mouse '''
+    imu = LSM6DS3TRC()
 
     def __init__(self, bt:bool = True, do_calib = True):
         '''
@@ -138,10 +139,6 @@ class Cato:
         if(mode < len(config["st_matrix"])):
             self.st_matrix = config["st_matrix"][mode]
 
-        self.gx_trim, self.gy_trim, self.gz_trim = 0, 0, 0
-
-        self.imu = LSM6DS3TRC()
-
         # Mode-dependent task spawning
         """ MODE CODE MEANINGS
                 0 - 9: USER MODES
@@ -165,41 +162,43 @@ class Cato:
                 "mouse_event"       : asyncio.create_task(self.mouse_event()),
                 "scroll"            : asyncio.create_task(self.scroll()),
                 # "sleep"             : asyncio.create_task(self.go_to_sleep()),
-                "collect_gestures"  : asyncio.create_task(self.collect_gestures_control())
+                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
             }
         elif(mode == 1):
             self.tasks = {
                 "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
                 "tv_control"        : asyncio.create_task(self.tv_control()),
-                "collect_gestures"  : asyncio.create_task(self.collect_gestures_control())
+                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
             }
         elif(mode == 2):
             self.tasks = {
-                "point" : asyncio.create_task(self.move_mouse(forever = True))
+                "point"             : asyncio.create_task(self.move_mouse(forever = True)),
+                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
             }
         elif(mode == 3):
             self.tasks = {
-                "clicker" : asyncio.create_task(self.clicker_task())
+                "clicker"           : asyncio.create_task(self.clicker_task()),
+                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
             }
         elif(mode == 10):
             self.tasks = {
                 "test_loop"         : asyncio.create_task(self.test_loop()),
-                "collect_gestures"  : asyncio.create_task(self.collect_gestures_control())
+                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
 
             }
         elif(mode == 20):
             self.tasks = {
                 "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
-                "collect_gestures"  : asyncio.create_task(self.collect_gestures())
+                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures())
             }
         elif(mode > 20):
             self.tasks = {
                 "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
-                "collect_gestures"  : asyncio.create_task(self.collect_gestures(to_train = (config["operation_mode"]-20,)))
+                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures(to_train = (config["operation_mode"]-20,)))
             }
         
         self.tasks.update( {"monitor_battery"   : asyncio.create_task(self.monitor_battery())} )
-        self.tasks.update(self.imu.tasks)   # functions for t1he imu
+        self.tasks.update(Cato.imu.tasks)   # functions for t1he imu
         self.tasks.update(self.blue.tasks)  # functions for bluetooth
 
         self.n = Neuton(outputs=neuton_outputs)
@@ -208,29 +207,30 @@ class Cato:
     async def reboot():
         mc.reset()
 
+
     @property
     def gx(self):
-        return self.imu.gx
+        return Cato.imu.gx
     
     @property
     def gy(self):
-        return self.imu.gy
+        return Cato.imu.gy
 
     @property
     def gz(self):
-        return self.imu.gz
+        return Cato.imu.gz
 
     @property
     def ax(self):
-        return self.imu.ax
+        return Cato.imu.ax
 
     @property
     def ay(self):
-        return self.imu.ay
+        return Cato.imu.ay
 
     @property
     def az(self):
-        return self.imu.az
+        return Cato.imu.az
     
     
     async def go_to_sleep(self):
@@ -239,7 +239,7 @@ class Cato:
         await asyncio.sleep(15)
         self.tasks['interrupt'].cancel() #release pin int1
         
-        self.imu.single_tap_cfg() # set wakeup condn to single tap detection
+        Cato.imu.single_tap_cfg() # set wakeup condn to single tap detection
 
         pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
         print("LIGHT SLEEP")
@@ -248,9 +248,9 @@ class Cato:
 
         del(pin_alarm) # release imu_int1
 
-        self.imu.data_ready_on_int1_setup() #setup imu data ready
+        Cato.imu.data_ready_on_int1_setup() #setup imu data ready
 
-        self.tasks['interrupt'] = asyncio.create_task( self.imu.interrupt() )
+        self.tasks['interrupt'] = asyncio.create_task( Cato.imu.interrupt() )
 
         while True:
             await asyncio.sleep(10)
@@ -299,7 +299,7 @@ class Cato:
             Events.control_loop.set()
     
     async def tv_control(self):
-        self.imu.data_ready_on_int1_setup()
+        Cato.imu.data_ready_on_int1_setup()
         turbo_terminate = asyncio.Event()
         task_dict = {
             "noop"  :   None,
@@ -322,12 +322,13 @@ class Cato:
             await Events.gesture_not_collecting.wait()
             task_name = await self.gesture_interpreter()
 
-            if(task_name != "noop"):
-                if(task != None):
-                    turbo_terminate.set()
-                    await task
-                    turbo_terminate.clear()
-                
+            # needs a check for sigMotion upon new gestInterpreter
+            if(Events.sig_motion.is_set())and(task != None):
+                turbo_terminate.set()
+                await task
+                turbo_terminate.clear()
+
+            if(task_name != "noop"):                
                 func_tuple = task_dict[task_name]
                 if((func_tuple[0].__name__ != self.turbo_input.__name__) or (task_name != prev_task)):
                     task = asyncio.create_task(func_tuple[0](*func_tuple[1]))
@@ -354,13 +355,12 @@ class Cato:
         motion_detected = Events.sig_motion.is_set()
         
         if motion_detected:
-            Events.sig_motion.clear()
 
             neuton_needs_more_data = True
             arr = array.array( 'f', [0]*6 )
             
             while( neuton_needs_more_data ):
-                await self.imu.wait()
+                await Cato.imu.wait()
                 arr[0] = self.ax
                 arr[1] = self.ay
                 arr[2] = self.az
@@ -393,18 +393,18 @@ class Cato:
         confThresh = config["confidence_threshold"]
 
         while(len(gest) < gestLen/2):
-            await self.imu.wait()
-            gest.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz))
+            await Cato.imu.wait()
+            gest.append((Cato.imu.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz))
 
         i = 0
         sw = asyncio.create_task(Cato.stopwatch(config["gesture_window"]))
         while(infer == EV.NONE)and((i <= gestLen/2)or(not sw.done())):
-            await self.imu.wait()
-            gest.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz))
+            await Cato.imu.wait()
+            gest.append((self.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz))
             if(len(gest) > gestLen):
                 gest.pop(0)
             
-            currAbs = self.gx**2 + self.gy**2 + self.gz**2
+            currAbs = Cato.imu.gx**2 + Cato.imu.gy**2 + Cato.imu.gz**2
             if(currAbs > maxMag):
                 maxMag = currAbs
                 i = 0
@@ -501,10 +501,10 @@ class Cato:
         return shifted
 
     async def clicker_task(self):
-        self.imu.single_tap_cfg()
+        Cato.imu.single_tap_cfg()
         while True:
-            await self.imu.wait()
-            print("Click")
+            await Cato.imu.wait()
+            DebugStream.println("Click")
             self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
 
 
@@ -552,7 +552,7 @@ class Cato:
             await Events.move_mouse.wait() # only execute when move_mouse is set
             await Events.gesture_not_collecting.wait()
             # DebugStream.println("B: ", gc.mem_free() )
-            await self.imu.wait()
+            await Cato.imu.wait()
             # print("2")
             # DebugStream.println("C: ", gc.mem_free() )
             # DebugStream.println("C2: ", gc.mem_free() )
@@ -629,7 +629,7 @@ class Cato:
             await Events.scroll.wait() # block if not set
             slow_down = 10
             for i in range(slow_down):
-                await self.imu.wait()
+                await Cato.imu.wait()
             
             z += (-1) * scale * self.gz * dt
 
@@ -747,7 +747,7 @@ class Cato:
     async def press_enter(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         DebugStream.println("ENTER") 
-        self.blue.k.press(Keycode.ENTER)
+        #self.blue.k.press(Keycode.ENTER)
         self.blue.k.release(Keycode.ENTER)
         if hall_pass is not None:
             hall_pass.set()
@@ -755,7 +755,7 @@ class Cato:
     async def press_esc(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         DebugStream.println("ESC pressed")
-        self.blue.k.press(Keycode.ESCAPE)
+        #self.blue.k.press(Keycode.ESCAPE)
         self.blue.k.release(Keycode.ESCAPE)
         if hall_pass is not None:
             hall_pass.set()
@@ -812,7 +812,7 @@ class Cato:
         Events.wait_for_motion_done.clear()
         hall_pass.set()
 
-    async def wait_for_motion(self, thresh = 105, *, num = -1):
+    async def wait_for_motion(self, thresh = 150, *, num = -1):
         #NOTE: THIS COULD BE MADE MUCH CHEAPER WITH THE INT1_SIGN_MOT INTERRUPT!
         """
             thresh      = threshold of motion to break loop             \n
@@ -826,10 +826,11 @@ class Cato:
             # DebugStream.println("A: ", gc.mem_free())
             
             await Events.wait_for_motion.wait()
+            Events.sig_motion.clear()
             # DebugStream.println("wait_for_motion triggered")
             # DebugStream.println("B: ", gc.mem_free())
             
-            await self.imu.wait()
+            await Cato.imu.wait()
             # DebugStream.println("C: ", gc.mem_free())
             cycles += 1
 
@@ -853,9 +854,34 @@ class Cato:
                 cycles = 0
             # DebugStream.println("E: ", gc.mem_free())
             # DebugStream.println("")
-            
     
-    async def collect_gestures(self, to_train = range(1,len(EV.gesture_key)), n = 10, logName = "log.txt"):
+
+    async def collect_gestures_control():
+        from StrUUIDService import SUS
+        
+        mc.nvm[2] = 0
+        Events.gesture_not_collecting.set()
+        while(True):
+            await Events.gesture_collecting.wait()
+            Events.gesture_not_collecting.clear()
+
+            # record five of each gesture in random order
+            to_train = list(range(1,len(EV.gesture_key)))
+            Cato.shuffle(to_train)
+            DebugStream.println(to_train)
+            n = 5
+            logName = f"log{mc.nvm[2]:2}.txt"
+
+            await Cato.collect_gestures(to_train=to_train,n=n,logName=logName)
+
+            
+            if(SUS.collGestUUID == "Gesture Collection Completed"):
+                mc.nvm[2] += 1
+            
+            Events.gesture_collecting.clear()
+            Events.gesture_not_collecting.set()
+    
+    async def collect_gestures(to_train = range(1,len(EV.gesture_key)), n = 10, logName = "log.txt"):
         from StrUUIDService import SUS
 
         DebugStream.println("+ collect_gestures")
@@ -869,7 +895,6 @@ class Cato:
             to_train = (to_train,)
         gestLeng = config["gesture_length"]
         
-        await self.blue.is_connected.wait()
         if(mc.nvm[1]):
             SUS.collGestUUID = "WARNING: Cato did not boot selfwritable.  Values will not be recorded"
             DebugStream.println("WARNING: Cato did not boot selfwritable.  Values will not be recorded")
@@ -895,8 +920,8 @@ class Cato:
                     SUS.collGestUUID = "Recording "+str(i)
 
                     while(len(hist) < gestLeng):
-                        await self.imu.wait()
-                        hist.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz, gestID))
+                        await Cato.imu.wait()
+                        hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
 
                     drift = hist[gestLeng-1]
                     maxGest = hist.copy()
@@ -908,8 +933,8 @@ class Cato:
                     SUS.collGestUUID = str(maxMag)
                         
                     while(not gest_timer.is_set()):
-                        await self.imu.wait()
-                        hist.append((self.ax, self.ay, self.az, self.gx, self.gy, self.gz, gestID))
+                        await Cato.imu.wait()
+                        hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
                         hist.pop(0)
 
                         currMid = hist[int(gestLeng/2)]
@@ -962,56 +987,84 @@ class Cato:
             SUS.collGestUUID = "An Error Ocurred Durring Gesture Collection"
             DebugStream.println(er)
     
-    async def collect_gestures_control(self):
+    async def collect_gestures_app():
         from StrUUIDService import SUS
-        
-        mc.nvm[2] = 0
+        SUS.collGestUUID = "AWAITING INTERACTION"
         Events.gesture_not_collecting.set()
         while(True):
-            await Events.gesture_collecting.wait()
-            Events.gesture_not_collecting.clear()
+            if(SUS.collGestUUID[:2] == "CG"):
+                Events.gesture_collecting.set()
+                Events.gesture_not_collecting.clear()
+                DebugStream.println("Collecting Gesture (app)")
+                #try:
+                gestID : int
+                gestLength = config["gesture_length"]
+                timeLimit = 3
+                args = SUS.collGestUUID[2:].split(',')
+                if(len(args) > 3):
+                    raise Exception("Too many input args (expects 1-3 ints)")
+                gestID = int(args[0])
+                if(gestID < 0)or(gestID >= len(EV.gesture_key)):
+                    raise Exception("Gesture ID "+gestID+" does not exist")
+                
+                if(len(args) >= 2):
+                    gestLength = int(args[1])
+                if(len(args) == 3):
+                    timeLimit = int(args[2])
+                del(args)
+                
 
-            ''''''
-            # query uuid for collGest args
-            SUS.collGestUUID = "INPUT GESTURES TO TRAIN"
-            while(SUS.collGestUUID == "INPUT GESTURES TO TRAIN"):
-                await asyncio.sleep(0)
-            to_train = SUS.collGestUUID.split(',')
-            for i in range(0,len(to_train))
-                to_train[i] = int(to_train[i])
-            
-            SUS.collGestUUID = "RECORDINGS PER GESTURE:"
-            while(SUS.collGestUUID == "RECORDINGS PER GESTURE:"):
-                await asyncio.sleep(0)
-            n = int(SUS.collGestUUID)
+                hist = []
+                maxGest = []
+                maxMag = 0
+                drift : tuple
 
-            logName = f"log{mc.nvm[2]:2}.txt"
-            '''
-            # record five of each gesture in random order
-            to_train = list(range(1,len(EV.gesture_key)))
-            Cato.shuffle(to_train)
-            DebugStream.println(to_train)
-            n = 5
-            logName = f"log{mc.nvm[2]:2}.txt"
-            #'''
+                DebugStream.println("Recording")
 
-            await self.collect_gestures(to_train=to_train,n=n,logName=logName)
+                while(len(hist) < gestLength):
+                    await Cato.imu.wait()
+                    hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
 
-            
-            if(SUS.collGestUUID == "Gesture Collection Completed"):
-                mc.nvm[2] += 1
-                # extra code if sending after each recording causes issues
-                '''''
-                with open(logName,'r') as log:
-                    for l in log:
-                        SUS.collGestUUID = l
-                        while(SUS.collGestUUID != "NEXT"):
-                            await asyncio.sleep(0)
-                #'''
-            
-            Events.gesture_collecting.clear()
-            Events.gesture_not_collecting.set()
-    
+                drift = hist[gestLength-1]
+                maxGest = hist.copy()
+                maxMag = maxGest[int(gestLength/2)]
+                DebugStream.println(maxMag)
+                for g in maxMag:
+                    DebugStream.println(type(g))
+                maxMag = (maxMag[3]-drift[3])**2 + (maxMag[4]-drift[4])**2 + (maxMag[5]-drift[5])**2
+                sw = asyncio.create_task(Cato.stopwatch(timeLimit))  # Timer starts here
+                DebugStream.println("Perform Gesture: ", EV.gesture_key[gestID],"(",str(gestID),")")
+                
+                while(not sw.done()):
+                    await Cato.imu.wait()
+                    hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
+                    hist.pop(0)
+
+                    currMid = hist[int(gestLength/2)]
+                    currMag = (currMid[3]-drift[3])**2 + (currMid[4]-drift[4])**2 + (currMid[5]-drift[5])**2
+                    if(currMag > maxMag):
+                        DebugStream.println("New Max Read")
+                        DebugStream.println(currMag, ">", maxMag)
+                        maxMag = currMag
+                        maxGest = hist.copy()
+
+                DebugStream.println("Gesture Recording Completed")
+
+                while(len(maxGest) > 0):
+                    d = maxGest.pop(0)
+                    SUS.collGestUUID = ','.join(str(v) for v in d)
+                    await asyncio.sleep(0)  ##prob dont need sleep but leaving in for safety
+
+                # except Exception as ex:
+                #     SUS.collGestUUID = "EX: "+str(ex)
+                #     DebugStream.println(ex)
+                
+                Events.gesture_collecting.clear()
+                Events.gesture_not_collecting.set()
+            else:
+                await asyncio.sleep(0.1)
+
+
 
     async def stopwatch(n : float,ev : asyncio.Event = None):
         if(n >= 0):
@@ -1038,13 +1091,5 @@ class Cato:
             #DebugStream.println("loop: ",i)
             #DebugStream.println(t.done())
             i += 1
-            '''
-            try:
-                with open("config.json",'a') as f:
-                    DebugStream.print("RO\t")
-            except:
-                DebugStream.print("RW\t")
-            DebugStream.print(str(mc.nvm[0])+'\t'+str(mc.nvm[1])+'\n')
-            DebugStream.print(config["operation_mode"])
-            '''
-            await asyncio.sleep(5)
+            DebugStream.println(self.gx,', ',Cato.imu.gx)
+            await asyncio.sleep(1)
