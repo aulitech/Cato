@@ -504,7 +504,7 @@ class Cato:
         Cato.imu.single_tap_cfg()
         while True:
             await Cato.imu.wait()
-            print("Click")
+            DebugStream.println("Click")
             self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
 
 
@@ -747,7 +747,7 @@ class Cato:
     async def press_enter(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         DebugStream.println("ENTER") 
-        self.blue.k.press(Keycode.ENTER)
+        #self.blue.k.press(Keycode.ENTER)
         self.blue.k.release(Keycode.ENTER)
         if hall_pass is not None:
             hall_pass.set()
@@ -755,7 +755,7 @@ class Cato:
     async def press_esc(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         DebugStream.println("ESC pressed")
-        self.blue.k.press(Keycode.ESCAPE)
+        #self.blue.k.press(Keycode.ESCAPE)
         self.blue.k.release(Keycode.ESCAPE)
         if hall_pass is not None:
             hall_pass.set()
@@ -812,7 +812,7 @@ class Cato:
         Events.wait_for_motion_done.clear()
         hall_pass.set()
 
-    async def wait_for_motion(self, thresh = 105, *, num = -1):
+    async def wait_for_motion(self, thresh = 150, *, num = -1):
         #NOTE: THIS COULD BE MADE MUCH CHEAPER WITH THE INT1_SIGN_MOT INTERRUPT!
         """
             thresh      = threshold of motion to break loop             \n
