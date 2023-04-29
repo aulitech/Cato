@@ -952,7 +952,6 @@ class Cato:
                     while(SUS.collGestUUID not in ('Y','y','N','n','S','s')):
                         await asyncio.sleep(0)
                     if(SUS.collGestUUID in ('Y','y')):
-                        ''''''
                         # write to local log until app is functional
                         try:
                             with open(logName, 'a') as log:
@@ -965,7 +964,7 @@ class Cato:
                             SUS.collGestUUID = "Gestures cannot be logged"
                             SUS.collGestUUID = str(oser)
                             continue
-                        '''
+                        ''''''
                         # send gesture data over uuid for app
                         while(len(maxGest) > 0):
                             d = maxGest.pop(0)
@@ -1064,6 +1063,7 @@ class Cato:
                 Events.gesture_not_collecting.set()
             else:
                 await asyncio.sleep(0.1)
+
 
 
     async def stopwatch(n : float,ev : asyncio.Event = None):
