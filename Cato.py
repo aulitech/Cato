@@ -335,6 +335,9 @@ class Cato:
                     prev_task = task_name
                 else:
                     prev_task = "noop"
+                await asyncio.sleep(0.3)
+            elif(Events.sig_motion.is_set()):
+                prev_task = "noop"
     
     async def dummy_event(self):
         from StrUUIDService import SUS
