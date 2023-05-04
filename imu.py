@@ -8,15 +8,19 @@ This module provides the `adafruit_lsm6ds.ism330dhcx` subclass of LSM6DS sensors
 from time import sleep
 
 from adafruit_lsm6ds import LSM6DS, LSM6DS_DEFAULT_ADDRESS, RWBit, RWBits, const, ROUnaryStruct
+
 import digitalio
-import board
-import busio 
 import asyncio
-import time
+import busio 
 import countio
-from math import pi
+
+import time
+import board
 import gc
 import supervisor as sp
+
+from math import pi
+
 try:
     import typing  # pylint: disable=unused-import
     from busio import I2C
@@ -40,6 +44,8 @@ _LSM6DS_WAKE_UP_DUR = const(0x5C)
 
 _LSM6DS_MD1_CFG     = const(0x5E)
 
+_LSM6DS_SM_THS      = const(0x13)
+
 class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     CHIP_ID = 0x6A
     # config info at:
@@ -56,12 +62,15 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     _int_dur2       = RWBits(7,     _LSM6DS_INT_DUR2,       0   )
     _wake_up_ths    = RWBits(7,     _LSM6DS_WAKE_UP_THS,    0   )
     _wake_up_dur    = RWBits(7,     _LSM6DS_WAKE_UP_DUR,    0   )
-    
+    _sm_ths         = RWBits(7,     _LSM6DS_SM_THS,         0   ) # Significant Motn threshold [7:0] (Default 0x06)
     _md1_cfg        = RWBits(7,     _LSM6DS_MD1_CFG,        0   )
 
     def __init__(self, address: int = LSM6DS_DEFAULT_ADDRESS) -> None:
         # print("imu init -- start")
         # enable imu
+
+        from Cato import WakeDog # Python jank?
+
         self._pwr = digitalio.DigitalInOut(board.IMU_PWR)
         self._pwr.direction = digitalio.Direction.OUTPUT
         self._pwr.value = True
@@ -84,7 +93,6 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self.z_trim = 0
         print(self.int1_ctrl)
         self.data_ready_on_int1_setup()
-
         self.tasks = {
             "interrupt" : asyncio.create_task(self.interrupt()),
             "read"      : asyncio.create_task(self.read()),
@@ -93,14 +101,20 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     
     def data_ready_on_int1_setup(self):
         self.int1_ctrl = 0x02
-    
+ 
+    def sign_motn_ena(self):
+        self._sm_ths        = 0x06 # significant motion threshold [7:0] (default 0x06)
+        self.int1_ctrl      = 0x40 # step_detector, int1_Sign_motn, int1FullFlag, int1FIFO_OVR, int1_Fth, int1_Boot, int1DrdyG, int1DrdyXL
+        self._ctrl10_c      = 0x05 # WristTiltEn, 0, TimerEn, PedoEn, TiltEn, FuncEn, PedoRST_Step, Sign_Motn_En
+
     def tap_ena(self):
-        self.int1_ctrl      = 0x00
+        self.int1_ctrl      = 0x00 # step_detector, int1_Sign_motn, int1FullFlag, int1FIFO_OVR, int1_Fth, int1_Boot, int1DrdyG, int1DrdyXL
         self._ctrl1_xl      = 0x60 # accelerometer ODR (output data rate) control
         self._tap_cfg       = 0x8E # timer, pedo, tilt, slope_fds, tap_x, tap_y, tap_z, latched interrupt
         self._tap_ths_6d    = 0x8B # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
         self._int_dur2      = 0x13 # Dur[3:0], Quiet[1:0], Shock[1:0]
-        self._wake_up_ths   = 0x80 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
+        # self._wake_up_ths   = 0x80 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
+        # self._ctrl10_c     = 0x05 # WristTiltEn, 0, TimerEn, PedoEn, TiltEn, FuncEn, PedoRST_Step, Sign_Motn_En
         # SELECT A TAP WITH SINGLE OR DOUBLE
 
     def single_tap_cfg(self):
@@ -149,6 +163,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         cycles = 0
         collect_spacer = 10 # collect garbage every n cycles
         rad_to_deg = 360.0 / (2*3.1416)
+        from Cato import WakeDog
         while True:
             await self.imu_ready.wait()
             cycles = (cycles + 1) % collect_spacer
@@ -167,6 +182,11 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             self.gx -= self.x_trim
             self.gy -= self.y_trim
             self.gz -= self.z_trim
+
+            mag = self.gx**2 + self.gy**2 + self.gz**2
+            thresh = 40
+            if mag > thresh:
+                WakeDog.feed()
             
             # print("D: ", gc.mem_free())
             #print(": read -> self.data_ready.set()")
