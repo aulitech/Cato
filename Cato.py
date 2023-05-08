@@ -146,14 +146,9 @@ class Cato:
                     1:  Default Television
                     2:  Forever Pointer (only pointer)
                     3:  Forever Clicker (only clicker - tap detect)
-                10 - 19: Dev Test Modes:
+                10-19: Dev Test Modes:
                     10: Test Loop -- bluetooth print test
-                20 - 29: Gesture Collection Modes
-                    20: Collect Gestures
-                    2#: Collect Gesture Number #
-                30 - 39: Unused
-                    30: There's nothing here
-                    31: Really, nothing
+                x>=20: unused
         """
         if(mode == 0):
             self.tasks = {
@@ -184,17 +179,11 @@ class Cato:
             self.tasks = {
                 "test_loop"         : asyncio.create_task(self.test_loop()),
                 "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
-
             }
-        elif(mode == 20):
+        elif(mode == 11):
             self.tasks = {
-                "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
-                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures())
-            }
-        elif(mode > 20):
-            self.tasks = {
-                "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
-                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures(to_train = (config["operation_mode"]-20,)))
+                "test_loop"         : asyncio.create_task(self.test_loop()),
+                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_control())
             }
         
         self.tasks.update( {"monitor_battery"   : asyncio.create_task(self.monitor_battery())} )
