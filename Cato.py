@@ -401,7 +401,7 @@ class Cato:
             gest.append((Cato.imu.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz))
 
         i = 0
-        sw = asyncio.create_task(Cato.stopwatch(config["gesture_window"]))
+        sw = asyncio.create_task(Cato.stopwatch(config["input_window"]))
         while(infer == EV.NONE)and((i <= gestLen/2)or(not sw.done())):
             await Cato.imu.wait()
             gest.append((self.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz))
@@ -955,7 +955,7 @@ class Cato:
                     # record data
                     SUS.collGestUUID = "Keep this input?(y/n)"
                     while(SUS.collGestUUID not in ('Y','y','N','n','S','s')):
-                        await asyncio.sleep(0)
+                        await asyncio.sleep(0.1)
                     if(SUS.collGestUUID in ('Y','y')):
                         ''''''
                         # write to local log until app is functional
@@ -1011,4 +1011,4 @@ class Cato:
             #DebugStream.println(t.done())
             i += 1
             DebugStream.println(self.gx,', ',Cato.imu.gx)
-            await asyncio.sleep(1)
+            await asyncio.sleep(5)
