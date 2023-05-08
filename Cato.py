@@ -323,6 +323,7 @@ class Cato:
             task_name = await self.gesture_interpreter()
 
             # needs a check for sigMotion upon new gestInterpreter
+            # needs a check for sigMotion upon new gestInterpreter
             if(Events.sig_motion.is_set())and(task != None):
                 turbo_terminate.set()
                 await task
@@ -335,6 +336,9 @@ class Cato:
                     prev_task = task_name
                 else:
                     prev_task = "noop"
+                await asyncio.sleep(0.3)
+            elif(Events.sig_motion.is_set()):
+                prev_task = "noop"
     
     async def dummy_event(self):
         from StrUUIDService import SUS
