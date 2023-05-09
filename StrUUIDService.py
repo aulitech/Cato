@@ -153,7 +153,6 @@ class StrUUIDService(Service):
 
 
 
-# TODO: implement string buffer for larger/delayed inputs and only write once bluetooth is connected
 class DebugStream:
 
     strBuff = ""
