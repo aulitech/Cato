@@ -17,7 +17,7 @@
         "high": 30950
     },
 
-    "operation_mode" : 0,
+    "operation_mode" : 1,
 
     "st_matrix" : [
         [
@@ -50,5 +50,5 @@
 
     "gesture_window" : 8,
     "gesture_length" : 76,
-    "min_gesture_threshold" : 0
+    "min_gesture_threshold" : 200
     }
