@@ -14,6 +14,8 @@ import asyncio
 import busio 
 import countio
 
+from WakeDog import WakeDog
+
 import time
 import board
 import gc
@@ -68,8 +70,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     def __init__(self, address: int = LSM6DS_DEFAULT_ADDRESS) -> None:
         # print("imu init -- start")
         # enable imu
-
-        from Cato import WakeDog # Python jank?
+        # Python jank?
 
         self._pwr = digitalio.DigitalInOut(board.IMU_PWR)
         self._pwr.direction = digitalio.Direction.OUTPUT
