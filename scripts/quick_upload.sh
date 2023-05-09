@@ -1,5 +1,5 @@
 ﻿
-auli_cato_loc=/d/
+auli_cato_loc=/e/
 
 echo "Checking connection"
 while [ ! -d $auli_cato_loc ]

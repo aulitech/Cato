@@ -57,7 +57,6 @@ async def control_loop(c : Cato.Cato):
         await c.block_on( c._move_mouse )
         Events.mouse_event.set()
 
-
 async def main():
     ##once remount process is confirmed to work consistently, only try/except is necessary
     if(mc.nvm[1]):
@@ -74,7 +73,7 @@ async def main():
     c.imu.imu_enable.set()
     
     tasks = {
-        "dog"           : asyncio.create_task(feed_dog()),
+        # "dog"           : asyncio.create_task(feed_dog()),
         "control_loop"  : asyncio.create_task(control_loop( c )),
     }
     tasks.update(c.tasks)

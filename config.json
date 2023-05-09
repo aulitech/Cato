@@ -2,13 +2,15 @@
     "mouse" : {
         "idle_thresh"   : 5.0,
         "min_run_cycles": 30,
-        "idle_duration" : 80,
+        "idle_duration" : 50,
         "scale"         : 1.2,
-        "slow_thresh"   : 30.0,
-        "fast_thresh"   : 200.0,
+        "slow_thresh"   : 20.0,
+        "fast_thresh"   : 100.0,
         "slow_scale"    : 0.3,
-        "fast_scale"    : 4.0
+        "fast_scale"    : 2.5
     },
+
+    "screen_size" : [1920, 1080],
 
     "battery" : {
         "low" : 22100,
