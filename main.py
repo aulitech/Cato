@@ -23,8 +23,7 @@ import time
 
 from imu import LSM6DS3TRC
 
-import Cato
-from Cato import Events
+from Cato import Cato,Events
 import battery
 import mode
 
@@ -47,17 +46,15 @@ async def feed_dog():
         w.feed()
         await asyncio.sleep(8)
 
-async def control_loop(c : Cato.Cato):
+async def control_loop(c : Cato):
     """Control loop for Cato standard operation"""
     while True:
         print("control -- top")
         await Events.control_loop.wait() #await permission to start
         Events.control_loop.clear()
 
-        Events.collect_gestures.set()
-
         await c.block_on( c._move_mouse )
-        Events.detect_event.set()
+        Events.mouse_event.set()
 
 async def main():
     ##once remount process is confirmed to work consistently, only try/except is necessary
@@ -71,8 +68,8 @@ async def main():
     else:
         DBS.println("No remount necessary")
 
-    c = Cato.Cato( bt = True, do_calib = True)
-    c.imu.imu_enable.set()
+    c = Cato( bt = True, do_calib = True)
+    Cato.imu.imu_enable.set()
     
     tasks = {
         # "dog"           : asyncio.create_task(feed_dog()),
@@ -80,7 +77,7 @@ async def main():
     }
     tasks.update(c.tasks)
     await asyncio.sleep(0.3)
-    c.imu.imu_enable.set()
+    Cato.imu.imu_enable.set()
     Events.control_loop.set()
     await asyncio.gather(*tasks.values())
 

@@ -1,7 +1,7 @@
 .env
 battery.py
 BluetoothControl.py
-StrCharacteristicService.py
+StrUUIDService.py
 boot.py
 Cato.py
 DummyBT.py

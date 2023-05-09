@@ -13,11 +13,10 @@ from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
 from adafruit_hid.keycode import Keycode as Keycode
 from adafruit_hid.mouse import Mouse
 
-from StrCharacteristicService import SCS
-from StrCharacteristicService import config
-from StrCharacteristicService import StrCharacteristicService
-from StrCharacteristicService import DebugStream
-## maybe this should be in a new class file allowing bt services to loaded seperately
+from StrUUIDService import SUS
+from StrUUIDService import config
+from StrUUIDService import StrUUIDService
+from StrUUIDService import DebugStream
 
 import asyncio
 
@@ -53,7 +52,7 @@ class BluetoothControl():
             hardware_revision = "v0.0",
             service = None
         )
-        name = "Cato_Remote_Glasses"
+        name = "Cato"
         self.advertisement = ProvideServicesAdvertisement( self.hid )
         self.advertisement.appearance = Appearances.eyeglasses
         self.advertisement.short_name = name
@@ -83,7 +82,7 @@ class BluetoothControl():
         self.is_disconnected.set() #board starts without connection
 
         self.tasks = {  # tasks
-            "characteristic_loop"   : asyncio.create_task(SCS.config_loop()),
+            "characteristic_loop"   : asyncio.create_task(SUS.config_loop()),
             "manage_connection"     : asyncio.create_task(self.manage_connection()),
             "monitor_connections"   : asyncio.create_task(self.monitor_connections()),
             "reconnect"             : asyncio.create_task(self.reconnect())
