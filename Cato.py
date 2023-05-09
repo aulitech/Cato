@@ -83,6 +83,7 @@ class Events:
     scroll_done             = asyncio.Event()   # indicates scroll has finished
     scroll_lr               = asyncio.Event()   # scroll left to right
     scroll_lr_done          = asyncio.Event()   # indicates that scroll_lr has completed
+    sleep                   = asyncio.Event()   # indicates time to go to sleep
     wait_for_motion         = asyncio.Event()   # wait_for_motion
     wait_for_motion_done    = asyncio.Event()   # wait-for-motion exit indicator
     sig_motion              = asyncio.Event()   # indicates that there has been significant motion during wait_for_motion's window
@@ -165,10 +166,11 @@ class Cato:
                 "tv_control"        : asyncio.create_task(self.tv_control()),
                 "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
             }
+        
         elif(mode == 2):
             self.tasks = {
-                "point"             : asyncio.create_task(self.move_mouse(forever = True)),
-                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
+                "point" : asyncio.create_task(self.move_mouse(forever = True)),
+                "sleep" : asyncio.create_task(self.go_to_sleep())
             }
         elif(mode == 3):
             self.tasks = {
@@ -189,6 +191,7 @@ class Cato:
         self.tasks.update( {"monitor_battery"   : asyncio.create_task(self.monitor_battery())} )
         self.tasks.update(Cato.imu.tasks)   # functions for t1he imu
         self.tasks.update(self.blue.tasks)  # functions for bluetooth
+        self.tasks.update(WakeDog.tasks)    # functions for waking / sleeping monitoring
 
         self.n = Neuton(outputs=neuton_outputs)
         self.gesture = EV.NONE
@@ -224,6 +227,12 @@ class Cato:
     
     async def go_to_sleep(self):
         # This method sets a Cato to go to sleep - presently after exactly 15 seconds, soon to be based on inactivity
+        while True:
+            # await asyncio.sleep(1) # TAKE IMU READINGS BEFORE TRYING TO GO BACK TO SLEEP?
+            await Events.sleep.wait()
+            self.tasks['interrupt'].cancel() #release pin int1
+            await asyncio.sleep(0.1)
+            self.imu.single_tap_cfg() # set wakeup condn to single tap detection
 
         await asyncio.sleep(15)
         self.tasks['interrupt'].cancel() #release pin int1
@@ -234,19 +243,27 @@ class Cato:
         print("LIGHT SLEEP")
         alarm.light_sleep_until_alarms(pin_alarm)
         print("WOKE UP")
-
+        Events.sleep.clear()
         del(pin_alarm) # release imu_int1
 
         Cato.imu.data_ready_on_int1_setup() #setup imu data ready
 
         self.tasks['interrupt'] = asyncio.create_task( Cato.imu.interrupt() )
-
-        while True:
-            await asyncio.sleep(10)
+        WakeDog.feed()
+        #await asyncio.sleep(1) # TAKE IMU READINGS BEFORE TRYING TO GO BACK TO SLEEP?
 
     async def monitor_battery(self):
+        led_pin = board.LED_GREEN
+        led = digitalio.DigitalInOut(led_pin)
+        led.direction = digitalio.Direction.OUTPUT
+        
         while True:
-            await asyncio.sleep(3)
+            for i in range(3):
+                await asyncio.sleep(0.2)
+                led.value = False
+                await asyncio.sleep(0.2)
+                led.value = True
+            await asyncio.sleep(5)
             temp = self.battery.raw_value
             # DebugStream.println(f"bat_ena True: {temp[0]}")
             await asyncio.sleep(0.1)
@@ -258,6 +275,12 @@ class Cato:
         await Events.mouse_done.wait()
         Events.mouse_done.clear()
         hall_pass.set()
+
+    async def center_mouse_cursor(self):
+        x = self.config["screen_size"][0]
+        y = self.config["screen_size"][1]
+        self.blue.mouse.move(-2 * x, -2 * y)
+        self.blue.mouse.move(int(0.5*x), int(0.5*y))
     
     async def block_on(self, coro):
         '''
@@ -513,10 +536,12 @@ class Cato:
         min_run_cycles = cfg['min_run_cycles']
         
         #scale is "base" for acceleration - do adjustments here
+        screen_size = config['screen_size']
+        screen_mag = sqrt(screen_size[0] ** 2 + screen_size[1] ** 2)
+        screen_scale = screen_mag / sqrt(1920**2 + 1080**2) # default scale to 1920 * 1080 - use diagonal number of pixels as scalar
         scale = 1.0
         usr_scale = cfg['scale'] #user multiplier
 
-        """ TODO: have these values arise out of config """
         # dps limits for slow vs mid vs fast movement        
         slow_thresh = cfg['slow_thresh']
         fast_thresh = cfg['fast_thresh']
@@ -571,6 +596,7 @@ class Cato:
             # mouse with dynamic acceleration for fine and coarse control
             if(mouse_type == "ACCEL"):
                 scale = Cato.translate(slow_thresh, fast_thresh, slow_scale, fast_scale, mag)
+                scale *= screen_scale
 
             # Begin idle checking -- only after minimum duration
             if(cycle_count >= min_run_cycles and not forever):
@@ -833,6 +859,10 @@ class Cato:
             if val > thresh:
                 Events.wait_for_motion.clear()
                 Events.sig_motion.set()
+            # if cycles > 60*104:
+            #     Events.sleep.set()
+            #     await asyncio.sleep(0)
+                Events.sleep.clear()
             #Break CONDN 2: TIMEOUT
             if num != -1:
                 if cycles > num:
@@ -1084,5 +1114,41 @@ class Cato:
             #DebugStream.println("loop: ",i)
             #DebugStream.println(t.done())
             i += 1
-            DebugStream.println(self.gx,', ',Cato.imu.gx)
+            '''
+            try:
+                with open("config.json",'a') as f:
+                    DebugStream.print("RO\t")
+            except:
+                DebugStream.print("RW\t")
+            DebugStream.print(str(mc.nvm[0])+'\t'+str(mc.nvm[1])+'\n')
+            DebugStream.print(config["operation_mode"])
+            '''
+            await asyncio.sleep(5)
+
+
+# This class is like a watchdog, but will monitor Cato and help it go to sleep and wake up.
+class WakeDog:
+    max_time = 4
+    curr_time = 0
+    def feed():
+        WakeDog.curr_time = 0
+    
+    async def tick():
+        while True:
             await asyncio.sleep(1)
+            WakeDog.curr_time += 1
+            if(WakeDog.curr_time % 1 == 0):
+                pass
+                #print(f"Bark?{WakeDog.curr_time}")
+        
+    async def watch():
+        while True:
+            await asyncio.sleep(0)
+            if( WakeDog.curr_time >= WakeDog.max_time):
+                Events.sleep.set()
+    
+    tasks = {
+        "tick" : asyncio.create_task(tick()),
+        "watch": asyncio.create_task(watch())
+    }
+

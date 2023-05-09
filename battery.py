@@ -4,8 +4,6 @@ import analogio
 import digitalio
 import asyncio
 import json
-
-from CircularBuffer import CircBuf
 class Battery:
     def __init__(self):
         with open('config.json', 'r') as f:

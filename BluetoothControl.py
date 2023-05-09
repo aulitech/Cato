@@ -54,7 +54,7 @@ class BluetoothControl():
         )
         name = "Cato"
         self.advertisement = ProvideServicesAdvertisement( self.hid )
-        self.advertisement.appearance = Appearances.remote
+        self.advertisement.appearance = Appearances.eyeglasses
         self.advertisement.short_name = name
         # self.advertisement.flags.general_discovery = False
         # self.advertisement.flags.limited_discovery = True
