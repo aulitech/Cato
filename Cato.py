@@ -239,18 +239,18 @@ class Cato:
         
         Cato.imu.single_tap_cfg() # set wakeup condn to single tap detection
 
-            pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
-            print("LIGHT SLEEP")
-            alarm.light_sleep_until_alarms(pin_alarm)
-            print("WOKE UP")
-            Events.sleep.clear()
-            del(pin_alarm) # release imu_int1
+        pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
+        print("LIGHT SLEEP")
+        alarm.light_sleep_until_alarms(pin_alarm)
+        print("WOKE UP")
+        Events.sleep.clear()
+        del(pin_alarm) # release imu_int1
 
         Cato.imu.data_ready_on_int1_setup() #setup imu data ready
 
-            self.tasks['interrupt'] = asyncio.create_task( Cato.imu.interrupt() )
-            WakeDog.feed()
-            #await asyncio.sleep(1) # TAKE IMU READINGS BEFORE TRYING TO GO BACK TO SLEEP?
+        self.tasks['interrupt'] = asyncio.create_task( Cato.imu.interrupt() )
+        WakeDog.feed()
+        #await asyncio.sleep(1) # TAKE IMU READINGS BEFORE TRYING TO GO BACK TO SLEEP?
 
     async def monitor_battery(self):
         led_pin = board.LED_GREEN
