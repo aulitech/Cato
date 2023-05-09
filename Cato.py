@@ -160,7 +160,7 @@ class Cato:
                 "mouse_event"       : asyncio.create_task(self.mouse_event()),
                 "scroll"            : asyncio.create_task(self.scroll()),
                 # "sleep"             : asyncio.create_task(self.go_to_sleep()),
-                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
+                # "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
             }
         elif(mode == 1):
             self.tasks = {
@@ -306,11 +306,12 @@ class Cato:
             await self.shake_cursor()
 
             target_name = await self.gesture_interpreter()
-            DebugStream.println(f"Detect Event -- Dispatching: self.{target_name}")
+            print(target_name)
+            #DebugStream.println(f"Detect Event -- Dispatching: self.{target_name}")
             await self.block_on(eval("self."+target_name, {"self":self}))
             
             
-            DebugStream.println("Detect Event: Finished Dispatching")
+            #DebugStream.println("Detect Event: Finished Dispatching")
             Events.control_loop.set()
     
     async def tv_control(self):
