@@ -1,4 +1,8 @@
 import asyncio
+
+# this import causes malloc issues
+# from StrUUIDService import DebugStream
+
 # This class is like a watchdog, but will monitor Cato and help it go to sleep and wake up.
 class WakeDog:
     max_time = 4
@@ -17,6 +21,7 @@ class WakeDog:
     async def watch():
         from Cato import Events
         while True:
+            #DebugStream.println("watching")
             await asyncio.sleep(0)
             if( WakeDog.curr_time >= WakeDog.max_time):
                 Events.sleep.set()

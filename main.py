@@ -23,6 +23,7 @@ import time
 
 from imu import LSM6DS3TRC
 
+print(gc.mem_free())
 from Cato import Cato,Events
 import battery
 import mode
