@@ -156,47 +156,11 @@ class Cato:
                     30: There's nothing here
                     31: Really, nothing
         """
-        if(mode == 0):
-            self.tasks = {
-                "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
-                "move_mouse"        : asyncio.create_task(self.move_mouse()),
-                "mouse_event"       : asyncio.create_task(self.mouse_event()),
-                "scroll"            : asyncio.create_task(self.scroll()),
-                # "sleep"             : asyncio.create_task(self.go_to_sleep()),
-                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_control())
-            }
-        elif(mode == 1):
-            self.tasks = {
-                "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
-                "tv_control"        : asyncio.create_task(self.tv_control()),
-                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_control())
-            }
-        elif(mode == 2):
-            self.tasks = {
-                "point"             : asyncio.create_task(self.move_mouse(forever = True)),
-                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_control())
-            }
-        elif(mode == 3):
-            self.tasks = {
-                "clicker"           : asyncio.create_task(self.clicker_task()),
-                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_control())
-            }
-        elif(mode == 10):
-            self.tasks = {
-                "test_loop"         : asyncio.create_task(self.test_loop()),
-                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_control())
 
-            }
-        elif(mode == 20):
-            self.tasks = {
-                "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
-                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_control())
-            }
-        elif(mode > 20):
-            self.tasks = {
-                "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
-                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures(to_train = (config["operation_mode"]-20,)))
-            }
+        self.tasks = {
+            "test_loop"         : asyncio.create_task(self.test_loop()),
+            "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_control())
+        }
         
         self.tasks.update( {"monitor_battery"   : asyncio.create_task(self.monitor_battery())} )
         self.tasks.update(Cato.imu.tasks)   # functions for t1he imu
