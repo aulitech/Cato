@@ -14,8 +14,6 @@ import asyncio
 import busio 
 import countio
 
-from WakeDog import WakeDog
-
 import time
 import board
 import gc
@@ -160,11 +158,11 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     async def read(self):
         ''' reads data off of the IMU into -> gx, gy, gz, ax, ay, az '''
         # print("Quick read of gyro -- once at top of imu.read")
-        # print(self.gyro)
+        print(self.gyro)
         cycles = 0
         collect_spacer = 10 # collect garbage every n cycles
         rad_to_deg = 360.0 / (2*3.1416)
-        from Cato import WakeDog
+        from WakeDog import WakeDog
         while True:
             await self.imu_ready.wait()
             cycles = (cycles + 1) % collect_spacer

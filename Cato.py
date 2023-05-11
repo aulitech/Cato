@@ -8,19 +8,19 @@ import sys
 import board
 import microcontroller as mc
 
-import busio
-import os
-import io
-import json
-import time
+# import busio
+# import os
+# import io
+# import json
+# import time
 import digitalio
-import countio
+# import countio
 import alarm
 
-from adafruit_hid.keyboard import Keyboard
+# from adafruit_hid.keyboard import Keyboard
 from adafruit_hid.keycode import Keycode
-from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
-from adafruit_hid.mouse import Mouse
+# from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
+# from adafruit_hid.mouse import Mouse
 
 from math import sqrt, atan2, sin, cos, pow, pi
 import array
@@ -159,8 +159,8 @@ class Cato:
                 "move_mouse"        : asyncio.create_task(self.move_mouse()),
                 "mouse_event"       : asyncio.create_task(self.mouse_event()),
                 "scroll"            : asyncio.create_task(self.scroll()),
-                # "sleep"             : asyncio.create_task(self.go_to_sleep()),
-                # "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
+                "sleep"             : asyncio.create_task(self.go_to_sleep()),
+                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
             }
         elif(mode == 1):
             self.tasks = {
@@ -236,11 +236,6 @@ class Cato:
             self.tasks['interrupt'].cancel() #release pin int1
             await asyncio.sleep(0.1)
             self.imu.single_tap_cfg() # set wakeup condn to single tap detection
-
-            await asyncio.sleep(15)
-            self.tasks['interrupt'].cancel() #release pin int1
-            
-            Cato.imu.single_tap_cfg() # set wakeup condn to single tap detection
 
             pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
             print("LIGHT SLEEP")
@@ -852,7 +847,6 @@ class Cato:
             Events.sig_motion.clear()
             # DebugStream.println("wait_for_motion triggered")
             # DebugStream.println("B: ", gc.mem_free())
-            
             await Cato.imu.wait()
             # DebugStream.println("C: ", gc.mem_free())
             cycles += 1
