@@ -883,10 +883,9 @@ class Cato:
                     maxMag = 0
                     drift : tuple
 
-                    SUS.collGestUUID = "Input when ready"
-                    while(SUS.collGestUUID == "Input when ready"):
+                    SUS.collGestUUID = "Input when ready ("+str(i)+")"
+                    while(SUS.collGestUUID == "Input when ready ("+str(i)+")"):
                         await asyncio.sleep(0.1)
-                    SUS.collGestUUID = "Recording "+str(i)
 
                     while(len(hist) < gestLeng):
                         await Cato.imu.wait()
