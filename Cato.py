@@ -874,7 +874,7 @@ class Cato:
         DebugStream.println(SUS.collGestUUID)
         try:
             for gestID in to_train:
-                SUS.collGestUUID = "Gesture: "+EV.gesture_key[gestID]+"("+str(gestID)+")"
+                #SUS.collGestUUID = "Gesture: "+EV.gesture_key[gestID]+"("+str(gestID)+")"
                 i = 0
                 while(i < n):
                     i += 1
@@ -883,8 +883,8 @@ class Cato:
                     maxMag = 0
                     drift : tuple
 
-                    SUS.collGestUUID = "Input when ready ("+str(i)+")"
-                    while(SUS.collGestUUID == "Input when ready ("+str(i)+")"):
+                    SUS.collGestUUID = EV.gesture_key[gestID]+"("+str(gestID)+")"
+                    while(SUS.collGestUUID == EV.gesture_key[gestID]+"("+str(gestID)+")"):
                         await asyncio.sleep(0.1)
 
                     while(len(hist) < gestLeng):
@@ -895,10 +895,10 @@ class Cato:
                     maxGest = hist.copy()
                     maxMag = maxGest[int(gestLeng/2)]
                     maxMag = (maxMag[3]-drift[3])**2 + (maxMag[4]-drift[4])**2 + (maxMag[5]-drift[5])**2
+                    SUS.collGestUUID = str(maxMag)
                     asyncio.create_task(Cato.stopwatch(3, ev = gest_timer))  # Timer starts here
                     DebugStream.println("Perform Gesture: ", EV.gesture_key[gestID])
-                    SUS.collGestUUID = "Perform Gesture: "+EV.gesture_key[gestID]+"("+str(gestID)+")"
-                    SUS.collGestUUID = str(maxMag)
+                    SUS.collGestUUID = "Perform Gesture ("+str(i)+")"
                         
                     while(not gest_timer.is_set()):
                         await Cato.imu.wait()
