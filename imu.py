@@ -189,6 +189,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             
             # print("D: ", gc.mem_free())
             #print(": read -> self.data_ready.set()")
+            print("gx: {self.gx}, gy: {self.gy}, gz: {self.gz}")
             self.data_ready.set()
             # print("" )
             # print("- end of read_imu -")
