@@ -407,21 +407,32 @@ class Cato:
         feedNeut : asyncio.Task
         confThresh = config["confidence_threshold"]
 
-        while(len(gest) < gestLen/2):
-            await Cato.imu.wait()
-            gest.append((Cato.imu.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz))
+        # this block is experimental
+        # adds a buffer period that waits for premature motion to pass
+        i = 0
+        gest = [0]*(gestLen/2)
+        while(i < gestLen/2):
+            await Cato.imu.wait
+            gest[i] = (Cato.imu.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz)
+            mag = Cato.imu.gx**2 + Cato.imu.gy**2 + Cato.imu.gz**2
+            if(mag < minThresh):
+                i += 1
+            else:
+                i = 0
+
+        Events.sig_motion.clear()
 
         i = 0
         sw = asyncio.create_task(Cato.stopwatch(config["gesture_window"]))
-        while(infer == EV.NONE)and((i <= gestLen/2)or(not sw.done())):
+        while(i <= gestLen/2)or(not sw.done()):
             await Cato.imu.wait()
             gest.append((self.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz))
             if(len(gest) > gestLen):
                 gest.pop(0)
             
-            currAbs = Cato.imu.gx**2 + Cato.imu.gy**2 + Cato.imu.gz**2
-            if(currAbs > maxMag):
-                maxMag = currAbs
+            currMag = Cato.imu.gx**2 + Cato.imu.gy**2 + Cato.imu.gz**2
+            if(currMag > maxMag):
+                maxMag = currMag
                 i = 0
             
             if(maxMag >= minThresh):
@@ -433,7 +444,10 @@ class Cato:
                 if(max(neuton_outputs) >= confThresh):
                     infer = self.n.inference()+1
                 feedNeut = None
-            
+        
+        if(maxMag >= minThresh):
+            Events.sig_motion.set()
+        
         return infer
     
     
