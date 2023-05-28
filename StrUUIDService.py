@@ -48,7 +48,9 @@ class StrUUIDService(Service):
             "REBOOT"        : self.reboot,
             "REBOOTRO"      : self.reboot_forceRO,
 
-            "CG"            : self.collGest_dispatch
+            "CG"            : self.collGest_dispatch,
+
+            "CALIBRATE"     : self.set_calibrate_event,
         }
 
         self.configUUID = "AWAITING INTERACTION"
@@ -60,6 +62,11 @@ class StrUUIDService(Service):
             except:
                 continue
             await coro()
+    
+    async def set_calibrate_event(self):
+        from Cato import Cato
+        await Cato.imu.calibrate(100)
+        self.configUUID = "CALIBRATION COMPLETE"
 
     async def send_config(self):
         l = str(config)
