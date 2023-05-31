@@ -917,7 +917,7 @@ class Cato:
 
                     # record data
                     SUS.collGestUUID = "Keep this input?(y/n)"
-                    while(SUS.collGestUUID not in ('Y','y','N','n','S','s')):
+                    while(SUS.collGestUUID not in ('Y','y','N','n','Q','q','S','s')):
                         await asyncio.sleep(0.1)
                     if(SUS.collGestUUID in ('Y','y')):
                         ''''''
@@ -937,6 +937,10 @@ class Cato:
                     elif(SUS.collGestUUID in ('N','n')):
                         SUS.collGestUUID = "Rerecording Gesture"
                         i -= 1
+                    elif(SUS.collGestUUID in ('Q','q')):
+                        SUS.collGestUUID = "Session Canceled"
+                        os.remove(logName)
+                        return
                     else:
                         SUS.collGestUUID = "Recording Skipped"
 
