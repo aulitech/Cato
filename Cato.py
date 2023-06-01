@@ -186,8 +186,8 @@ class Cato:
             }
         elif(mode == 11):
             self.tasks = {
-                "test_loop"         : asyncio.create_task(self.test_loop()),
-                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_control())
+                "test_loop"         : asyncio.create_task(self.test_loop())
+                #"collect_gestures"  : asyncio.create_task(Cato.collect_gestures_control())
             }
         
         self.tasks.update( {"monitor_battery"   : asyncio.create_task(self.monitor_battery())} )
@@ -410,9 +410,9 @@ class Cato:
         # this block is experimental
         # adds a buffer period that waits for premature motion to pass
         i = 0
-        gest = [0]*(gestLen/2)
+        gest = [0]*int(gestLen/2)
         while(i < gestLen/2):
-            await Cato.imu.wait
+            await Cato.imu.wait()
             gest[i] = (Cato.imu.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz)
             mag = Cato.imu.gx**2 + Cato.imu.gy**2 + Cato.imu.gz**2
             if(mag < minThresh):
@@ -423,6 +423,7 @@ class Cato:
         Events.sig_motion.clear()
 
         i = 0
+        feedNeut = None
         sw = asyncio.create_task(Cato.stopwatch(config["gesture_window"]))
         while(i <= gestLen/2)or(not sw.done()):
             await Cato.imu.wait()
@@ -440,10 +441,11 @@ class Cato:
                 if(i >= gestLen/2):
                     feedNeut = asyncio.create_task(self.feed_neuton(gest.copy()))
             
-            if(feedNeut is not None)&(feedNeut.done()):
-                if(max(neuton_outputs) >= confThresh):
-                    infer = self.n.inference()+1
-                feedNeut = None
+            if(feedNeut is not None):
+                if(feedNeut.done()):
+                    if(max(neuton_outputs) >= confThresh):
+                        infer = self.n.inference()+1
+                    feedNeut = None
         
         if(maxMag >= minThresh):
             Events.sig_motion.set()
@@ -1117,22 +1119,21 @@ class Cato:
 
     async def test_loop(self):
         DebugStream.println("+ test_loop")
+        from StrUUIDService import SUS
+        SUS.collGestUUID = "test_loop"
         #await self.blue.is_connected.wait()
         i = 0
         t = asyncio.create_task(Cato.stopwatch(10))
 
         while(True):
+            DebugStream.println("looping")
             await Events.gesture_not_collecting.wait()
+            while(SUS.collGestUUID != 'g'):
+                await asyncio.sleep(0.1)
+            g = await self.gesture_interpreter_alt()
+            SUS.collGestUUID = str(g)
+
             #DebugStream.println("loop: ",i)
             #DebugStream.println(t.done())
             i += 1
-            '''
-            try:
-                with open("config.json",'a') as f:
-                    DebugStream.print("RO\t")
-            except:
-                DebugStream.print("RW\t")
-            DebugStream.print(str(mc.nvm[0])+'\t'+str(mc.nvm[1])+'\n')
-            DebugStream.print(config["operation_mode"])
-            '''
-            await asyncio.sleep(5)
+            await asyncio.sleep(2)
