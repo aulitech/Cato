@@ -8,19 +8,19 @@ import sys
 import board
 import microcontroller as mc
 
-import busio
-import os
-import io
-import json
-import time
+# import busio
+# import os
+# import io
+# import json
+# import time
 import digitalio
-import countio
+# import countio
 import alarm
 
-from adafruit_hid.keyboard import Keyboard
+# from adafruit_hid.keyboard import Keyboard
 from adafruit_hid.keycode import Keycode
-from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
-from adafruit_hid.mouse import Mouse
+# from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
+# from adafruit_hid.mouse import Mouse
 
 from math import sqrt, atan2, sin, cos, pow, pi
 import array
@@ -101,6 +101,8 @@ neuton_outputs = array.array( "f", [0, 0, 0, 0, 0, 0, 0, 0] )
 def mem( loc = "" ):
     DebugStream.println(f"Free Memory at {loc}: \n\t{gc.mem_free()}")
 
+from WakeDog import WakeDog
+
 class Cato:
 
     ''' Main Class of Cato Gesture Mouse '''
@@ -157,7 +159,7 @@ class Cato:
                 "move_mouse"        : asyncio.create_task(self.move_mouse()),
                 "mouse_event"       : asyncio.create_task(self.mouse_event()),
                 "scroll"            : asyncio.create_task(self.scroll()),
-                # "sleep"             : asyncio.create_task(self.go_to_sleep()),
+                "sleep"             : asyncio.create_task(self.go_to_sleep()),
                 "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
             }
         elif(mode == 1):
@@ -226,6 +228,7 @@ class Cato:
     
     
     async def go_to_sleep(self):
+        
         # This method sets a Cato to go to sleep - presently after exactly 15 seconds, soon to be based on inactivity
         while True:
             # await asyncio.sleep(1) # TAKE IMU READINGS BEFORE TRYING TO GO BACK TO SLEEP?
@@ -234,23 +237,18 @@ class Cato:
             await asyncio.sleep(0.1)
             self.imu.single_tap_cfg() # set wakeup condn to single tap detection
 
-        await asyncio.sleep(15)
-        self.tasks['interrupt'].cancel() #release pin int1
-        
-        Cato.imu.single_tap_cfg() # set wakeup condn to single tap detection
+            pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
+            print("LIGHT SLEEP")
+            alarm.light_sleep_until_alarms(pin_alarm)
+            print("WOKE UP")
+            Events.sleep.clear()
+            del(pin_alarm) # release imu_int1
 
-        pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
-        print("LIGHT SLEEP")
-        alarm.light_sleep_until_alarms(pin_alarm)
-        print("WOKE UP")
-        Events.sleep.clear()
-        del(pin_alarm) # release imu_int1
+            Cato.imu.data_ready_on_int1_setup() #setup imu data ready
 
-        Cato.imu.data_ready_on_int1_setup() #setup imu data ready
-
-        self.tasks['interrupt'] = asyncio.create_task( Cato.imu.interrupt() )
-        WakeDog.feed()
-        #await asyncio.sleep(1) # TAKE IMU READINGS BEFORE TRYING TO GO BACK TO SLEEP?
+            self.tasks['interrupt'] = asyncio.create_task( Cato.imu.interrupt() )
+            WakeDog.feed()
+            #await asyncio.sleep(1) # TAKE IMU READINGS BEFORE TRYING TO GO BACK TO SLEEP?
 
     async def monitor_battery(self):
         led_pin = board.LED_GREEN
@@ -303,11 +301,12 @@ class Cato:
             await self.shake_cursor()
 
             target_name = await self.gesture_interpreter()
-            DebugStream.println(f"Detect Event -- Dispatching: self.{target_name}")
+            print(target_name)
+            #DebugStream.println(f"Detect Event -- Dispatching: self.{target_name}")
             await self.block_on(eval("self."+target_name, {"self":self}))
             
             
-            DebugStream.println("Detect Event: Finished Dispatching")
+            #DebugStream.println("Detect Event: Finished Dispatching")
             Events.control_loop.set()
     
     async def tv_control(self):
@@ -408,21 +407,32 @@ class Cato:
         feedNeut : asyncio.Task
         confThresh = config["confidence_threshold"]
 
-        while(len(gest) < gestLen/2):
-            await Cato.imu.wait()
-            gest.append((Cato.imu.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz))
+        # this block is experimental
+        # adds a buffer period that waits for premature motion to pass
+        i = 0
+        gest = [0]*(gestLen/2)
+        while(i < gestLen/2):
+            await Cato.imu.wait
+            gest[i] = (Cato.imu.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz)
+            mag = Cato.imu.gx**2 + Cato.imu.gy**2 + Cato.imu.gz**2
+            if(mag < minThresh):
+                i += 1
+            else:
+                i = 0
+
+        Events.sig_motion.clear()
 
         i = 0
         sw = asyncio.create_task(Cato.stopwatch(config["gesture_window"]))
-        while(infer == EV.NONE)and((i <= gestLen/2)or(not sw.done())):
+        while(i <= gestLen/2)or(not sw.done()):
             await Cato.imu.wait()
             gest.append((self.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz))
             if(len(gest) > gestLen):
                 gest.pop(0)
             
-            currAbs = Cato.imu.gx**2 + Cato.imu.gy**2 + Cato.imu.gz**2
-            if(currAbs > maxMag):
-                maxMag = currAbs
+            currMag = Cato.imu.gx**2 + Cato.imu.gy**2 + Cato.imu.gz**2
+            if(currMag > maxMag):
+                maxMag = currMag
                 i = 0
             
             if(maxMag >= minThresh):
@@ -434,7 +444,10 @@ class Cato:
                 if(max(neuton_outputs) >= confThresh):
                     infer = self.n.inference()+1
                 feedNeut = None
-            
+        
+        if(maxMag >= minThresh):
+            Events.sig_motion.set()
+        
         return infer
     
     
@@ -848,7 +861,6 @@ class Cato:
             Events.sig_motion.clear()
             # DebugStream.println("wait_for_motion triggered")
             # DebugStream.println("B: ", gc.mem_free())
-            
             await Cato.imu.wait()
             # DebugStream.println("C: ", gc.mem_free())
             cycles += 1
@@ -1124,31 +1136,3 @@ class Cato:
             DebugStream.print(config["operation_mode"])
             '''
             await asyncio.sleep(5)
-
-
-# This class is like a watchdog, but will monitor Cato and help it go to sleep and wake up.
-class WakeDog:
-    max_time = 4
-    curr_time = 0
-    def feed():
-        WakeDog.curr_time = 0
-    
-    async def tick():
-        while True:
-            await asyncio.sleep(1)
-            WakeDog.curr_time += 1
-            if(WakeDog.curr_time % 1 == 0):
-                pass
-                #print(f"Bark?{WakeDog.curr_time}")
-        
-    async def watch():
-        while True:
-            await asyncio.sleep(0)
-            if( WakeDog.curr_time >= WakeDog.max_time):
-                Events.sleep.set()
-    
-    tasks = {
-        "tick" : asyncio.create_task(tick()),
-        "watch": asyncio.create_task(watch())
-    }
-

@@ -68,8 +68,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     def __init__(self, address: int = LSM6DS_DEFAULT_ADDRESS) -> None:
         # print("imu init -- start")
         # enable imu
-
-        from Cato import WakeDog # Python jank?
+        # Python jank?
 
         self._pwr = digitalio.DigitalInOut(board.IMU_PWR)
         self._pwr.direction = digitalio.Direction.OUTPUT
@@ -91,11 +90,13 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self.x_trim = 0
         self.y_trim = 0
         self.z_trim = 0
+    
         print(self.int1_ctrl)
         self.data_ready_on_int1_setup()
+
         self.tasks = {
-            "interrupt" : asyncio.create_task(self.interrupt()),
-            "read"      : asyncio.create_task(self.read()),
+            "interrupt" : asyncio.create_task( self.interrupt() ),
+            "read"      : asyncio.create_task( self.read() )
             #"stream"    : self.stream()
         }
     
@@ -159,11 +160,11 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     async def read(self):
         ''' reads data off of the IMU into -> gx, gy, gz, ax, ay, az '''
         # print("Quick read of gyro -- once at top of imu.read")
-        # print(self.gyro)
+        print(self.gyro)
         cycles = 0
         collect_spacer = 10 # collect garbage every n cycles
         rad_to_deg = 360.0 / (2*3.1416)
-        from Cato import WakeDog
+        from WakeDog import WakeDog
         while True:
             await self.imu_ready.wait()
             cycles = (cycles + 1) % collect_spacer
@@ -189,7 +190,8 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
                 WakeDog.feed()
             
             # print("D: ", gc.mem_free())
-            #print(": read -> self.data_ready.set()")
+            # print(": read -> self.data_ready.set()")
+            # print(f"gx: {self.gx}, gy: {self.gy}, gz: {self.gz}")
             self.data_ready.set()
             # print("" )
             # print("- end of read_imu -")
@@ -203,11 +205,13 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         #print("- wait")
 
     async def calibrate(self, num_calib_cycles):
+        from WakeDog import WakeDog
         print("Calibrating HOLD STILL")
         x = 0.0
         y = 0.0
         z = 0.0
         for i in range(num_calib_cycles):
+            WakeDog.feed()
             # print(f"num: {i}")
             await self.wait()
             x += self.gx
