@@ -651,7 +651,7 @@ class Cato:
         while True:
             await Events.scroll.wait() # block if not set
             if num_cycles == 0:
-                DebugStream.println("+Scroll Running")
+                DebugStream.println("+ Scroll Running")
             num_cycles += 1
 
             slow_down = 10 # only scroll one line every N cycles
