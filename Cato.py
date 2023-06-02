@@ -301,10 +301,8 @@ class Cato:
             Events.mouse_event.clear()
             await Events.gesture_not_collecting.wait()
 
-            await self.shake_cursor() #ADD PRINT TO SHAKE CURSOR
-            DebugStream.println("+ MouseEvent: Looking for Gesture")
             target_name = await self.gesture_interpreter()
-            print(f"\tGot \"{target_name}\" at mouse_event")
+            #print(f"\tGot \"{target_name}\" at mouse_event")
             #DebugStream.println(f"Detect Event -- Dispatching: self.{target_name}")
             await self.block_on(eval("self."+target_name, {"self":self}))
             print(f"\t \"{target_name}\" finished at mouse_event")
@@ -363,8 +361,8 @@ class Cato:
         DebugStream.println(g,":\t",self.st_matrix[g][0])
         return self.st_matrix[g][0]
     
-    # TODO: replace w gest_interp_alt once new neuton model integrated
-    async def gesture_interpreter(self):
+    # defunct interpreter method
+    async def gesture_interpreter_alt(self):
         gesture = EV.NONE
         # DebugStream.println("Detect Event: waiting for motion")
         await self.block_on(self._wait_for_motion)
@@ -401,7 +399,7 @@ class Cato:
         return self.st_matrix[gesture][self.state]
     
     # TODO: needs testing
-    async def gesture_interpreter_alt(self):
+    async def gesture_interpreter(self):
         infer = EV.NONE
         gest = []
         gestLen = config["gesture_length"]
@@ -420,11 +418,12 @@ class Cato:
             await Cato.imu.wait()
             gest[i] = array.array('f',[Cato.imu.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz])
             mag = Cato.imu.gx**2 + Cato.imu.gy**2 + Cato.imu.gz**2
-            if(mag < minThresh):
-                i += 1
-            else:
-                i = 0
+            i += 1
+            if(mag > minThresh):
+                return self.st_matrix[EV.NONE][self.state]
         
+        asyncio.create_task(self.shake_cursor()) #ADD PRINT TO SHAKE CURSOR
+        DebugStream.println("+ MouseEvent: Looking for Gesture")
         Events.sig_motion.clear()
 
         i = 0
@@ -457,7 +456,7 @@ class Cato:
         if(maxMag >= minThresh):
             Events.sig_motion.set()
         
-        return infer
+        return self.st_matrix[infer][self.state]
     
     async def feed_neuton(self, log):
         await Events.feed_neuton.wait()

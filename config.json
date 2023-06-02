@@ -2,7 +2,7 @@
     "mouse" : {
         "idle_thresh"   : 5.0,
         "min_run_cycles": 30,
-        "idle_duration" : 50,
+        "idle_duration" : 25,
         "scale"         : 1.2,
         "slow_thresh"   : 20.0,
         "fast_thresh"   : 100.0,
@@ -22,7 +22,7 @@
     "st_matrix" : [
         [
             [   "noop",                        "noop",                 "noop"          ],
-            [   "_move_mouse",                 "to_idle",              "to_idle"       ], 
+            [   "right_click",                 "to_idle",              "to_idle"       ], 
             [   "left_click",                  "left_click",           "press_enter"   ], 
             [   "_scroll",                     "noop",                 "noop"          ], 
             [   "_wait_for_motion",            "noop",                 "noop"          ], 
@@ -52,7 +52,7 @@
 
     "turbo_rate" : [1, 0.2, 0.9],
 
-    "gesture_window" : 3,
+    "gesture_window" : 1.2,
     "gesture_length" : 76,
     "min_gesture_threshold" : 200,
     "confidence_threshold" : 0.80
