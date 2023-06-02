@@ -412,7 +412,6 @@ class Cato:
         feedNeut = None
         confThresh = config["confidence_threshold"]
 
-        '''
         # this block is experimental
         # adds a buffer period that waits for premature motion to pass
         i = 0
@@ -425,7 +424,7 @@ class Cato:
                 i += 1
             else:
                 i = 0
-        '''
+        
         Events.sig_motion.clear()
 
         i = 0
@@ -444,6 +443,7 @@ class Cato:
             if(maxMag >= minThresh):
                 i += 1
                 if(i == int(gestLen/2)):
+                    print(len(gest))
                     feedNeut = asyncio.create_task(self.feed_neuton(gest.copy()))
             
             if(feedNeut is not None):
@@ -465,8 +465,12 @@ class Cato:
     async def feed_neuton(self, log):
         await Events.feed_neuton.wait()
         Events.feed_neuton.clear()
+        print(len(log))
+        i = 0
         for data in log:
             self.n.set_inputs(data)
+            i += 1
+        print(i)
         print("Successful Feed")
         Events.feed_neuton.set()
     
