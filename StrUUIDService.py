@@ -47,6 +47,7 @@ class StrUUIDService(Service):
 
             "REBOOT"        : self.reboot,
             "REBOOTRO"      : self.reboot_forceRO,
+            "BOOTLOADER"    : self.reboot_bootloader,
 
             "CG"            : self.collGest_dispatch,
 
@@ -131,7 +132,6 @@ class StrUUIDService(Service):
     
     async def save_config(self):
         self.configUUID = "SAVING"
-        #testDict = {"testStr" : "Hello World", "testInt" : 23, "testClass" : DebugStream}
         try:
             with open("config.json", 'w') as f:
                 json.dump(config, f)    #for some reason "indent" kwarg is not recognized
@@ -140,15 +140,25 @@ class StrUUIDService(Service):
         except OSError as oser:
             self.configUUID = "SAVE ERROR: "+str(oser)
     
+
     async def reboot(self):
         await self.save_config()
         self.configUUID = "REBOOTING"
         mc.reset()
+    
     async def reboot_forceRO(self):
         await self.save_config()
         self.configUUID = "REBOOTING READ ONLY"
         mc.nvm[0] = False
         mc.reset()
+    
+    async def reboot_bootloader(self):
+        await self.save_config()
+        self.configUUID = "RESETTING IN BOOTLOADER"
+        mc.on_next_reset(mc.RunMode.UF2)
+        mc.reset()
+
+
 
     async def collGest_dispatch(self):
         from Cato import Events as E
