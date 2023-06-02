@@ -29,6 +29,8 @@
             [   "_scroll_lr",                  "noop",                 "noop"          ], 
             [   "_scroll_lr",                  "noop",                 "noop"          ], 
             [   "double_click",                "noop",                 "noop"          ], 
+            [   "_wait_for_motion",            "noop",                 "noop"          ],
+            [   "_wait_for_motion",            "noop",                 "noop"          ],
             [   "_wait_for_motion",            "noop",                 "noop"          ]
         ],
         [
@@ -42,6 +44,8 @@
             [   "enter" ],
             [   "esc"   ],
             [   "meta"  ],
+            [   "noop"  ],
+            [   "noop"  ],
             [   "noop"  ]
         ]
     ],
