@@ -90,11 +90,13 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self.x_trim = 0
         self.y_trim = 0
         self.z_trim = 0
+    
         print(self.int1_ctrl)
         self.data_ready_on_int1_setup()
+
         self.tasks = {
-            "interrupt" : asyncio.create_task(self.interrupt()),
-            "read"      : asyncio.create_task(self.read()),
+            "interrupt" : asyncio.create_task( self.interrupt() ),
+            "read"      : asyncio.create_task( self.read() )
             #"stream"    : self.stream()
         }
     
@@ -188,7 +190,8 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
                 WakeDog.feed()
             
             # print("D: ", gc.mem_free())
-            #print(": read -> self.data_ready.set()")
+            # print(": read -> self.data_ready.set()")
+            # print(f"gx: {self.gx}, gy: {self.gy}, gz: {self.gz}")
             self.data_ready.set()
             # print("" )
             # print("- end of read_imu -")
@@ -202,11 +205,13 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         #print("- wait")
 
     async def calibrate(self, num_calib_cycles):
+        from WakeDog import WakeDog
         print("Calibrating HOLD STILL")
         x = 0.0
         y = 0.0
         z = 0.0
         for i in range(num_calib_cycles):
+            WakeDog.feed()
             # print(f"num: {i}")
             await self.wait()
             x += self.gx

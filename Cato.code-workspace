@@ -6,13 +6,15 @@
             "reportMissingModuleSource": "none"
         },
         "python.analysis.extraPaths": [
-            "c:\\Users\\finnb\\.vscode\\extensions\\joedevivo.vscode-circuitpython-0.1.20-win32-x64\\boards\\0x2886\\0x0045",
-            "c:\\Users\\finnb\\.vscode\\extensions\\joedevivo.vscode-circuitpython-0.1.20-win32-x64\\stubs",
-            "c:\\Users\\finnb\\AppData\\Roaming\\Code\\User\\globalStorage\\joedevivo.vscode-circuitpython\\bundle\\20230504\\adafruit-circuitpython-bundle-py-20230504\\lib"
+            "c:\\Users\\micqf\\.vscode\\extensions\\joedevivo.vscode-circuitpython-0.1.20-win32-x64\\boards\\0x2886\\0x0045",
+            "c:\\Users\\micqf\\.vscode\\extensions\\joedevivo.vscode-circuitpython-0.1.20-win32-x64\\stubs",
+            "c:\\Users\\micqf\\AppData\\Roaming\\Code\\User\\globalStorage\\joedevivo.vscode-circuitpython\\bundle\\20230601\\adafruit-circuitpython-bundle-py-20230601\\lib"
         ],
         "circuitpython.board.version": null,
         "circuitpython.board.vid": "0x2886",
-        "circuitpython.board.pid": "0x0045"
+        "circuitpython.board.pid": "0x0045",
+        "nrf-connect.toolchain.path": "${nrf-connect.toolchain:2.3.0}",
+        "task.problemMatchers.neverPrompt": false
     },
     "folders": [
         {

@@ -5,7 +5,7 @@ import asyncio
 
 # This class is like a watchdog, but will monitor Cato and help it go to sleep and wake up.
 class WakeDog:
-    max_time = 15
+    max_time = 60
     curr_time = 0
     def feed():
         WakeDog.curr_time = 0
@@ -14,7 +14,8 @@ class WakeDog:
         while True:
             await asyncio.sleep(1)
             WakeDog.curr_time += 1
-            if(WakeDog.curr_time % 2 == 0):
+            if(WakeDog.curr_time % 5 == 0 and WakeDog.curr_time > 10):
+
                 pass
                 print("Bark? ",WakeDog.curr_time)
         

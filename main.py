@@ -23,8 +23,7 @@ import time
 
 from imu import LSM6DS3TRC
 
-print(gc.mem_free())
-from Cato import Cato,Events
+from Cato import Cato, Events
 import battery
 import mode
 
@@ -50,7 +49,7 @@ async def feed_dog():
 async def control_loop(c : Cato):
     """Control loop for Cato standard operation"""
     while True:
-        print("control -- top")
+        print("@ control_loop")
         await Events.control_loop.wait() #await permission to start
         Events.control_loop.clear()
 
@@ -68,10 +67,11 @@ async def main():
             DBS.println("COM port detected")
     else:
         DBS.println("No remount necessary")
-
+    # print(f"+ main/main {gc.mem_free()}")
     c = Cato( bt = True, do_calib = True)
+    # print(f"+ main/cato_created {gc.mem_free()}")
     Cato.imu.imu_enable.set()
-    
+    # print(f"+ main/imu_ena set {gc.mem_free()}")
     tasks = {
         # "dog"           : asyncio.create_task(feed_dog()),
         "control_loop"  : asyncio.create_task(control_loop( c )),

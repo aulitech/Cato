@@ -29,6 +29,8 @@
             [   "_scroll_lr",                  "noop",                 "noop"          ], 
             [   "_scroll_lr",                  "noop",                 "noop"          ], 
             [   "double_click",                "noop",                 "noop"          ], 
+            [   "_wait_for_motion",            "noop",                 "noop"          ],
+            [   "_wait_for_motion",            "noop",                 "noop"          ],
             [   "_wait_for_motion",            "noop",                 "noop"          ]
         ],
         [
@@ -42,13 +44,16 @@
             [   "enter" ],
             [   "esc"   ],
             [   "meta"  ],
+            [   "noop"  ],
+            [   "noop"  ],
             [   "noop"  ]
         ]
     ],
 
     "turbo_rate" : [1, 0.2, 0.9],
 
-    "gesture_window" : 8,
+    "gesture_window" : 3,
     "gesture_length" : 76,
-    "min_gesture_threshold" : 200
+    "min_gesture_threshold" : 200,
+    "confidence_threshold" : 0.80
     }
