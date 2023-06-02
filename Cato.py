@@ -412,7 +412,6 @@ class Cato:
         feedNeut = None
         confThresh = config["confidence_threshold"]
 
-        '''
         # this block is experimental
         # adds a buffer period that waits for premature motion to pass
         i = 0
@@ -425,7 +424,7 @@ class Cato:
                 i += 1
             else:
                 i = 0
-        '''
+        
         Events.sig_motion.clear()
 
         i = 0
@@ -448,9 +447,8 @@ class Cato:
             
             if(feedNeut is not None):
                 if(feedNeut.done()):
-                    print("Making Inference")
                     temp = self.n.inference()+1
-                    print("Inference Made")
+                    Events.feed_neuton.set()
                     DebugStream.println(neuton_outputs)
                     if(max(neuton_outputs) >= confThresh):
                         infer = temp
@@ -461,14 +459,14 @@ class Cato:
         
         return infer
     
-    
     async def feed_neuton(self, log):
         await Events.feed_neuton.wait()
         Events.feed_neuton.clear()
+        DebugStream.println("Feeding Neuton")
         for data in log:
-            self.n.set_inputs(data)
-        print("Successful Feed")
-        Events.feed_neuton.set()
+            if(not self.n.set_inputs(data)):
+                break
+        DebugStream.println("Successful Feed")
     
     
     async def turbo_input(self, coro, rate, terminator: asyncio.Event):
