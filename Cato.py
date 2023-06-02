@@ -86,6 +86,7 @@ class Events:
     sleep                   = asyncio.Event()   # indicates time to go to sleep
     wait_for_motion         = asyncio.Event()   # wait_for_motion
     wait_for_motion_done    = asyncio.Event()   # wait-for-motion exit indicator
+    feed_neuton             = asyncio.Event()   # prevent multiple instances of neuton being fed
     sig_motion              = asyncio.Event()   # indicates that there has been significant motion during wait_for_motion's window
     stream_imu              = asyncio.Event()   # stream data from the imu onto console -- useful for debugging
     mouse_event             = asyncio.Event()   # triggers detection of Cato gesture
@@ -96,7 +97,7 @@ class Events:
     gesture_not_collecting.set()
 
 # I can't make the "Neuton: Constructing buffer from ... go away unless I crack open the circuitpython uf2"
-neuton_outputs = array.array( "f", [0, 0, 0, 0, 0, 0, 0, 0] )
+neuton_outputs = array.array( "f", [0]*len(EV.gesture_key) )
 
 def mem( loc = "" ):
     DebugStream.println(f"Free Memory at {loc}: \n\t{gc.mem_free()}")
@@ -186,6 +187,7 @@ class Cato:
             }
         elif(mode == 11):
             self.tasks = {
+                "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
                 "test_loop"         : asyncio.create_task(self.test_loop())
                 #"collect_gestures"  : asyncio.create_task(Cato.collect_gestures_control())
             }
@@ -404,30 +406,31 @@ class Cato:
         maxMag = 0
         minThresh = config["min_gesture_threshold"]
 
-        feedNeut : asyncio.Task
+        Events.feed_neuton.set()
+        feedNeut = None
         confThresh = config["confidence_threshold"]
 
+        '''
         # this block is experimental
         # adds a buffer period that waits for premature motion to pass
         i = 0
         gest = [0]*int(gestLen/2)
         while(i < gestLen/2):
             await Cato.imu.wait()
-            gest[i] = (Cato.imu.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz)
+            gest[i] = array.array('f',[Cato.imu.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz])
             mag = Cato.imu.gx**2 + Cato.imu.gy**2 + Cato.imu.gz**2
             if(mag < minThresh):
                 i += 1
             else:
                 i = 0
-
+        '''
         Events.sig_motion.clear()
 
         i = 0
-        feedNeut = None
         sw = asyncio.create_task(Cato.stopwatch(config["gesture_window"]))
         while(i <= gestLen/2)or(not sw.done()):
             await Cato.imu.wait()
-            gest.append((self.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz))
+            gest.append(array.array('f',[Cato.imu.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz]))
             if(len(gest) > gestLen):
                 gest.pop(0)
             
@@ -438,13 +441,17 @@ class Cato:
             
             if(maxMag >= minThresh):
                 i += 1
-                if(i >= gestLen/2):
+                if(i == int(gestLen/2)):
                     feedNeut = asyncio.create_task(self.feed_neuton(gest.copy()))
             
             if(feedNeut is not None):
                 if(feedNeut.done()):
+                    print("Making Inference")
+                    temp = self.n.inference()+1
+                    print("Inference Made")
+                    DebugStream.println(neuton_outputs)
                     if(max(neuton_outputs) >= confThresh):
-                        infer = self.n.inference()+1
+                        infer = temp
                     feedNeut = None
         
         if(maxMag >= minThresh):
@@ -454,9 +461,12 @@ class Cato:
     
     
     async def feed_neuton(self, log):
+        await Events.feed_neuton.wait()
+        Events.feed_neuton.clear()
         for data in log:
             self.n.set_inputs(data)
-            await asyncio.sleep(0)
+        print("Successful Feed")
+        Events.feed_neuton.set()
     
     
     async def turbo_input(self, coro, rate, terminator: asyncio.Event):
@@ -1130,8 +1140,10 @@ class Cato:
             await Events.gesture_not_collecting.wait()
             while(SUS.collGestUUID != 'g'):
                 await asyncio.sleep(0.1)
+            SUS.collGestUUID = "Gesture:"
             g = await self.gesture_interpreter_alt()
-            SUS.collGestUUID = str(g)
+            print(g)
+            SUS.collGestUUID = EV.gesture_key[g]
 
             #DebugStream.println("loop: ",i)
             #DebugStream.println(t.done())

@@ -48,7 +48,7 @@
 
     "turbo_rate" : [1, 0.2, 0.9],
 
-    "gesture_window" : 8,
+    "gesture_window" : 3,
     "gesture_length" : 76,
     "min_gesture_threshold" : 200,
     "confidence_threshold" : 0.80

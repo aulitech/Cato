@@ -14,7 +14,7 @@ class WakeDog:
         while True:
             await asyncio.sleep(1)
             WakeDog.curr_time += 1
-            if(WakeDog.curr_time % 2 == 0):
+            if(WakeDog.curr_time % 5 == 0):
                 pass
                 print("Bark? ",WakeDog.curr_time)
         
