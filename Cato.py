@@ -402,7 +402,11 @@ class Cato:
         # self.state
         return self.st_matrix[gesture][self.state]
     
-    # TODO: needs testing
+    # possible fix for input delay:
+    #   no-input period required to enter gesture mode is shortened
+    #   premature motion imediately returns to move mouse (thresh would be reduced significantly)
+    #   cursor shake occurs near the end or after buffer period
+    # this fix would require remote to have its own interpreter, which has additional benefit of unentangling mode behaviors
     async def gesture_interpreter(self):
         infer = EV.NONE
         gest = []
