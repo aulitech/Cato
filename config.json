@@ -1,6 +1,6 @@
 {
     "mouse" : {
-        "idle_thresh"   : 5.0,
+        "idle_thresh"   : 6.0,
         "min_run_cycles": 30,
         "idle_duration" : 50,
         "scale"         : 1.2,
@@ -30,8 +30,8 @@
             [   "_scroll_lr",                  "noop",                 "noop"          ], 
             [   "double_click",                "noop",                 "noop"          ], 
             [   "_wait_for_motion",            "noop",                 "noop"          ],
-            [   "_wait_for_motion",            "noop",                 "noop"          ],
-            [   "_wait_for_motion",            "noop",                 "noop"          ]
+            [   "center_mouse_cursor",         "noop",                 "noop"          ],
+            [   "center_mouse_cursor",         "noop",                 "noop"          ]
         ],
         [
             [   "noop"  ],
@@ -52,8 +52,8 @@
 
     "turbo_rate" : [1, 0.2, 0.9],
 
-    "gesture_window" : 3,
+    "gesture_window" : 1.2,
     "gesture_length" : 76,
     "min_gesture_threshold" : 200,
-    "confidence_threshold" : 0.80
+    "confidence_threshold" : 0.70
     }

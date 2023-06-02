@@ -14,10 +14,10 @@ class WakeDog:
         while True:
             await asyncio.sleep(1)
             WakeDog.curr_time += 1
-            if(WakeDog.curr_time % 5 == 0 and WakeDog.curr_time > 10):
+            if(WakeDog.curr_time % 5 == 0 and WakeDog.curr_time >= WakeDog.max_time / 2):
 
                 pass
-                print("Bark? ",WakeDog.curr_time)
+                print(f"Sleep Timer (WakeDog) {WakeDog.curr_time} / {WakeDog.max_time}")
         
     async def watch():
         from Cato import Events

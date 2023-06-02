@@ -161,8 +161,8 @@ class Cato:
                 "move_mouse"        : asyncio.create_task(self.move_mouse()),
                 "mouse_event"       : asyncio.create_task(self.mouse_event()),
                 "scroll"            : asyncio.create_task(self.scroll()),
-                # "sleep"             : asyncio.create_task(self.go_to_sleep()),
-                # "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
+                "sleep"             : asyncio.create_task(self.go_to_sleep()),
+                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
             }
         elif(mode == 1):
             self.tasks = {
@@ -279,11 +279,13 @@ class Cato:
         Events.mouse_done.clear()
         hall_pass.set()
 
-    async def center_mouse_cursor(self):
-        x = self.config["screen_size"][0]
-        y = self.config["screen_size"][1]
+    async def center_mouse_cursor(self, hall_pass: asyncio.Event = None):
+        x = config["screen_size"][0]
+        y = config["screen_size"][1]
         self.blue.mouse.move(-2 * x, -2 * y)
         self.blue.mouse.move(int(0.5*x), int(0.5*y))
+        if hall_pass is not None:
+            hall_pass.set()
     
     async def block_on(self, coro):
         '''
@@ -301,8 +303,8 @@ class Cato:
             Events.mouse_event.clear()
             await Events.gesture_not_collecting.wait()
 
-            await self.shake_cursor() #ADD PRINT TO SHAKE CURSOR
-            DebugStream.println("+ MouseEvent: Looking for Gesture")
+            asyncio.create_task(self.shake_cursor())
+            DebugStream.println(f"+ MouseEvent: Looking for Gesture (mem: {gc.mem_free()})")
             target_name = await self.gesture_interpreter()
             print(f"\tGot \"{target_name}\" at mouse_event")
             #DebugStream.println(f"Detect Event -- Dispatching: self.{target_name}")
@@ -364,7 +366,7 @@ class Cato:
         return self.st_matrix[g][0]
     
     # TODO: replace w gest_interp_alt once new neuton model integrated
-    async def gesture_interpreter(self):
+    async def gesture_interpreter_alt(self):
         gesture = EV.NONE
         # DebugStream.println("Detect Event: waiting for motion")
         await self.block_on(self._wait_for_motion)
@@ -401,7 +403,7 @@ class Cato:
         return self.st_matrix[gesture][self.state]
     
     # TODO: needs testing
-    async def gesture_interpreter_alt(self):
+    async def gesture_interpreter(self):
         infer = EV.NONE
         gest = []
         gestLen = config["gesture_length"]
@@ -428,8 +430,9 @@ class Cato:
         Events.sig_motion.clear()
 
         i = 0
-        sw = asyncio.create_task(Cato.stopwatch(config["gesture_window"]))
-        while(i <= gestLen/2)or(not sw.done()):
+        # sw = asyncio.create_task(Cato.stopwatch(config["gesture_window"]))
+        # while(i <= gestLen/2)or(not sw.done()):
+        while(i <= gestLen / 2):
             await Cato.imu.wait()
             gest.append(array.array('f',[Cato.imu.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz]))
             if(len(gest) > gestLen):
@@ -457,7 +460,7 @@ class Cato:
         if(maxMag >= minThresh):
             Events.sig_motion.set()
         
-        return infer
+        return self.st_matrix[infer][self.state]
     
     async def feed_neuton(self, log):
         await Events.feed_neuton.wait()
@@ -483,7 +486,7 @@ class Cato:
     # CircuitPython Docs: https://docs.circuitpython.org/projects/hid/en/latest/api.html#adafruit-hid-mouse-mouse '''
     async def noop(self, hall_pass: asyncio.Event = None):
         ''' no operation '''
-        DebugStream.println("nooping")
+        # DebugStream.println("nooping")
         if hall_pass is not None:
             hall_pass.set()
     
@@ -504,29 +507,25 @@ class Cato:
         
     # Cato Mouse Actions
     async def shake_cursor(self, hall_pass: asyncio.Event = None):
-        mv_size = 8
-        num_wiggles = 1
-        moves = [
-            # L R R L (horizontal wiggle)
-            (-mv_size,  0,          0),
-            (mv_size,   0,          0),
-            (mv_size,   0,          0),
-            (-mv_size,  0,          0),
-
-            # U D D U (vert wiggle)
-            (0,         mv_size,    0),
-            (0,         -mv_size,   0),
-            (0,         -mv_size,   0),
-            (0,         mv_size,    0),
+        DebugStream.println("+ Shake Cursor")
+        curr_pos = [0, 0]
+        mv_size = 20
+        num_wiggles = 6
+        moves = [ #end points for wiggle movement. Draw a shape.
+            (-mv_size, 0),
+            (mv_size, 0),
         ]
 
         for wiggle in range(num_wiggles):
             for move in moves:
-                for _ in range(4):
-                    await asyncio.sleep(0.03)
-                    self.blue.mouse.move( *move )
+                gc.collect()
+                await asyncio.sleep(0.03)
+                self.blue.mouse.move(move[0], move[1], 0)
+
+                    
         if hall_pass is not None:
             hall_pass.set()
+        DebugStream.println("\t- Shake Cursor")
 
     def translate(x_min, x_max, y_min, y_max, input):
         if input < x_min:
@@ -596,7 +595,7 @@ class Cato:
             await Events.gesture_not_collecting.wait()
             await Cato.imu.wait()
             if cycle_count == 0:
-                DebugStream.println("+ Mouse Live")
+                DebugStream.println(f"+ Mouse Live (mem: {gc.mem_free()})")
 
             cycle_count += 1    # count cycles
 
@@ -628,7 +627,7 @@ class Cato:
                     idle_count = 0
 
                 if idle_count >= max_idle_cycles: # if sufficiently idle, clear move_mouse
-                    DebugStream.println("\t- Mouse Exit")
+                    DebugStream.println(f"\t- Mouse Exit (mem: {gc.mem_free()})")
                     Events.move_mouse.clear()
                     Events.mouse_done.set()
 
