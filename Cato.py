@@ -443,14 +443,12 @@ class Cato:
             if(maxMag >= minThresh):
                 i += 1
                 if(i == int(gestLen/2)):
-                    print(len(gest))
                     feedNeut = asyncio.create_task(self.feed_neuton(gest.copy()))
             
             if(feedNeut is not None):
                 if(feedNeut.done()):
-                    print("Making Inference")
                     temp = self.n.inference()+1
-                    print("Inference Made")
+                    Events.feed_neuton.set()
                     DebugStream.println(neuton_outputs)
                     if(max(neuton_outputs) >= confThresh):
                         infer = temp
@@ -461,18 +459,14 @@ class Cato:
         
         return infer
     
-    
     async def feed_neuton(self, log):
         await Events.feed_neuton.wait()
         Events.feed_neuton.clear()
-        print(len(log))
-        i = 0
+        DebugStream.println("Feeding Neuton")
         for data in log:
-            self.n.set_inputs(data)
-            i += 1
-        print(i)
-        print("Successful Feed")
-        Events.feed_neuton.set()
+            if(not self.n.set_inputs(data)):
+                break
+        DebugStream.println("Successful Feed")
     
     
     async def turbo_input(self, coro, rate, terminator: asyncio.Event):
