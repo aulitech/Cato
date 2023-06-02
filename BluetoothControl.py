@@ -56,6 +56,7 @@ class BluetoothControl():
         self.advertisement = ProvideServicesAdvertisement( self.hid )
         self.advertisement.appearance = Appearances.eyeglasses
         self.advertisement.short_name = name
+
         # self.advertisement.flags.general_discovery = False
         # self.advertisement.flags.limited_discovery = True
         # self.advertisement.flags.general_discovery = AdvertisingFlag(1)
@@ -65,7 +66,6 @@ class BluetoothControl():
         self.scan_response.short_name = name
         self.scan_response.appearance = Appearances.remote
         # # mem("BTC, scan_response created")
-        
         
         # HID handles
         self.k = Keyboard(self.hid.devices)
