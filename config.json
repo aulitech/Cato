@@ -2,7 +2,7 @@
     "mouse" : {
         "idle_thresh"   : 6.0,
         "min_run_cycles": 30,
-        "idle_duration" : 50,
+        "idle_duration" : 25,
         "scale"         : 1.2,
         "slow_thresh"   : 20.0,
         "fast_thresh"   : 100.0,
@@ -22,7 +22,7 @@
     "st_matrix" : [
         [
             [   "noop",                        "noop",                 "noop"          ],
-            [   "_move_mouse",                 "to_idle",              "to_idle"       ], 
+            [   "right_click",                 "to_idle",              "to_idle"       ], 
             [   "left_click",                  "left_click",           "press_enter"   ], 
             [   "_scroll",                     "noop",                 "noop"          ], 
             [   "_wait_for_motion",            "noop",                 "noop"          ], 
