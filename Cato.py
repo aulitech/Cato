@@ -422,7 +422,7 @@ class Cato:
             if(mag > minThresh):
                 return self.st_matrix[EV.NONE][self.state]
         
-        asyncio.create_task(self.shake_cursor()) #ADD PRINT TO SHAKE CURSOR
+        shakeCursor = asyncio.create_task(self.shake_cursor()) #ADD PRINT TO SHAKE CURSOR
         DebugStream.println("+ MouseEvent: Looking for Gesture")
         Events.sig_motion.clear()
 
@@ -456,6 +456,7 @@ class Cato:
         if(maxMag >= minThresh):
             Events.sig_motion.set()
         
+        await shakeCursor
         return self.st_matrix[infer][self.state]
     
     async def feed_neuton(self, log):
@@ -521,8 +522,8 @@ class Cato:
 
         for wiggle in range(num_wiggles):
             for move in moves:
-                for _ in range(4):
-                    await asyncio.sleep(0.03)
+                for _ in range(2):
+                    await asyncio.sleep(0.02)
                     self.blue.mouse.move( *move )
         if hall_pass is not None:
             hall_pass.set()
