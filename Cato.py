@@ -181,17 +181,14 @@ class Cato:
                 "clicker"           : asyncio.create_task(self.clicker_task()),
                 "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
             }
-        elif(mode == 10):
+        elif(mode >= 10):
             self.tasks = {
-                "test_loop"         : asyncio.create_task(self.test_loop()),
-                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
-            }
-        elif(mode == 11):
-            self.tasks = {
-                "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
                 "test_loop"         : asyncio.create_task(self.test_loop())
-                #"collect_gestures"  : asyncio.create_task(Cato.collect_gestures_control())
             }
+            if(mode == 10):
+                self.tasks["collect_gestures"] = asyncio.create_task(Cato.collect_gestures_app())
+            elif(mode == 11):
+                self.tasks["wait_for_motion"] = asyncio.create_task(Cato.wait_for_motion())
         
         self.tasks.update( {"monitor_battery"   : asyncio.create_task(self.monitor_battery())} )
         self.tasks.update(Cato.imu.tasks)   # functions for t1he imu
@@ -1136,15 +1133,8 @@ class Cato:
 
         while(True):
             DebugStream.println("looping")
-            await Events.gesture_not_collecting.wait()
-            while(SUS.collGestUUID != 'g'):
-                await asyncio.sleep(0.1)
-            SUS.collGestUUID = "Gesture:"
-            g = await self.gesture_interpreter_alt()
-            print(g)
-            SUS.collGestUUID = EV.gesture_key[g]
 
             #DebugStream.println("loop: ",i)
             #DebugStream.println(t.done())
             i += 1
-            await asyncio.sleep(2)
+            await asyncio.sleep(10)
