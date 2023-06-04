@@ -47,7 +47,7 @@ async def feed_dog():
         await asyncio.sleep(8)
 
 async def control_loop(c : Cato):
-    """Control loop for Cato standard operation"""
+    """Control loop for Cato standard operation (MODE 0)"""
     while True:
         print("@ control_loop")
         await Events.control_loop.wait() #await permission to start
@@ -84,5 +84,3 @@ async def main():
 
 
 asyncio.run(main())
-# mode.select_reboot_mode()
-#Here is a new comment

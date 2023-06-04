@@ -36,7 +36,8 @@ class Appearances:
 class BluetoothControl():
     # BLERadio can toggle advertising state
     ble = adafruit_ble.BLERadio()
-
+    ble.name = "Cato"
+    
     def __init__(self):
         self.hid = HIDService()
 
@@ -52,9 +53,10 @@ class BluetoothControl():
             hardware_revision = "v0.0",
             service = None
         )
+
         name = "Cato"
         self.advertisement = ProvideServicesAdvertisement( self.hid )
-        self.advertisement.appearance = Appearances.eyeglasses
+        self.advertisement.appearance = Appearances.hid
         self.advertisement.short_name = name
 
         # self.advertisement.flags.general_discovery = False
