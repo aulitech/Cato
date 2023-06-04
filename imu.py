@@ -19,8 +19,8 @@ import board
 import gc
 import supervisor as sp
 
-from StrUUIDService import config
-from StrUUIDService import DebugStream
+#from StrUUIDService import config
+#from StrUUIDService import DebugStream
 
 from math import pi
 
@@ -101,8 +101,8 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             "interrupt" : asyncio.create_task( self.interrupt() ),
             "read"      : asyncio.create_task( self.read() )
         }
-        if(config["operation_mode"] == 12):
-            self.tasks["imu_stream"] = asyncio.create_task( self.stream() )
+        #if(config["operation_mode"] == 12):
+        #    self.tasks["imu_stream"] = asyncio.create_task( self.stream() )
     
     def data_ready_on_int1_setup(self):
         self.int1_ctrl = 0x02
@@ -231,7 +231,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         while True:
             #print(": stream -> awaiting self.wait")
             await self.wait()
-            DebugStream.println(f"{self.gx}, {self.gy}, {self.gz}")
+            print(f"{self.gx}, {self.gy}, {self.gz}")
 
     def spark(self):
         '''
