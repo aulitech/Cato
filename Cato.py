@@ -38,7 +38,6 @@ from neutonml import Neuton
 from StrUUIDService import config
 from StrUUIDService import DebugStream
 
-
 #helpers and enums
 
 class ST():
@@ -101,13 +100,13 @@ class Events:
 neuton_outputs = array.array( "f", [0]*len(EV.gesture_key) )
 
 def mem( loc = "" ):
-    DebugStream.println(f"Free Memory at {loc}: \n\t{gc.mem_free()}")
+    print(f"Free Memory at {loc}: \n\t{gc.mem_free()}")
 
 from WakeDog import WakeDog
 
 class Cato:
-
     ''' Main Class of Cato Gesture Mouse '''
+
     imu = LSM6DS3TRC()
 
     def __init__(self, bt:bool = True, do_calib = True):
@@ -127,6 +126,7 @@ class Cato:
         if(mode >=20)&(bool(mc.nvm[0])):
             DebugStream.println("WARNING: Collect Gesture mode will not record data")
 
+
         #specification for operation
         self.specs = {
             "freq" : 104.0, # imu measurement frequency (hz)
@@ -138,9 +138,15 @@ class Cato:
         # battery managing container
         self.battery = Battery()
 
+        if bt:
+            import BluetoothControl
+        else:
+            import DummyBT as BluetoothControl
+        
         self.blue = BluetoothControl.BluetoothControl()
 
         self.state = ST.IDLE
+
         if(mode < len(config["st_matrix"])):
             self.st_matrix = config["st_matrix"][mode]
 
@@ -184,6 +190,7 @@ class Cato:
         elif(mode >= 10):
             self.tasks = {
                 "test_loop"         : asyncio.create_task(self.test_loop())
+
             }
             if(mode == 10):
                 self.tasks["collect_gestures"] = asyncio.create_task(Cato.collect_gestures_app())
@@ -390,7 +397,6 @@ class Cato:
             confidence_thresh = 0.80
             if confidence < confidence_thresh:
                 gesture = EV.NONE
-
         else:
             gesture = EV.NONE
         # self.state
@@ -591,8 +597,9 @@ class Cato:
         # mem("post_cfg") # At this point, between pre and post, we lost only 100bytes
 
         while True:
-            # DebugStream.println(".")
+            # print(".")
             if not Events.move_mouse.is_set():
+
                 # DebugStream.println("move mouse -- awaiting")
                 pass
     
@@ -625,14 +632,15 @@ class Cato:
             if(cycle_count >= min_run_cycles and not forever):
                 if( mag <= idle_thresh ): # if too slow
                     # if (idle_count == 0): # count time of idle to finish (design util)
-                        # DebugStream.println("\tidle detected, count begun")
+                        # print("\tidle detected, count begun")
                     idle_count += 1
                 else:
-                    # DebugStream.println("\tactivity resumed: idle counter reset")
+                    # print("\tactivity resumed: idle counter reset")
                     idle_count = 0
 
                 if idle_count >= max_idle_cycles: # if sufficiently idle, clear move_mouse
                     DebugStream.println(f"\t- Mouse Exit (mem: {gc.mem_free()})")
+
                     Events.move_mouse.clear()
                     Events.mouse_done.set()
 
@@ -679,11 +687,12 @@ class Cato:
             if( abs(self.gy) > 30.0 ):
                 DebugStream.println("\t- Scroll Broken")
                 num_cycles = 0
+
                 z = 0.0
                 Events.scroll_done.set()
                 Events.scroll.clear()
                 if hall_pass is not None:
-                    DebugStream.println("\tSCROLL: Scroll_done set & hall_pass set")
+                    print("\tSCROLL: Scroll_done set & hall_pass set")
                     hall_pass.set()
     
     async def _scroll_lr(self, hall_pass: asyncio.Event = None):
@@ -730,9 +739,9 @@ class Cato:
 
     async def left_click_drag(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        DebugStream.println("Left click")
+        print("Left click")
         self.left_press()
-        DebugStream.println("Drag")
+        print("Drag")
         await self.move_mouse()
         self.left_release()
 
@@ -870,11 +879,11 @@ class Cato:
         cycles = 0 # count number of waited cycles
         val = 0.0
         while True:
-            # DebugStream.println("A: ", gc.mem_free())
+            # print("A: ", gc.mem_free())
             
             await Events.wait_for_motion.wait()
             Events.sig_motion.clear()
-            # DebugStream.println("wait_for_motion triggered")
+            DebugStream.println("+ Wait_for_motion triggered")
             # DebugStream.println("B: ", gc.mem_free())
             await Cato.imu.wait()
             # DebugStream.println("C: ", gc.mem_free())
@@ -895,7 +904,7 @@ class Cato:
                 if cycles > num:
                     Events.wait_for_motion.clear()
                     Events.sig_motion.clear()
-            # DebugStream.println("D: ", gc.mem_free())
+            # print("D: ", gc.mem_free())
             # exiting cleanup
             if not Events.wait_for_motion.is_set():
                 exit_reason = "MOTION" if Events.sig_motion.is_set() else "TIMEOUT"
@@ -1145,3 +1154,4 @@ class Cato:
             #DebugStream.println(t.done())
             i += 1
             await asyncio.sleep(10)
+

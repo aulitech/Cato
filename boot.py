@@ -17,7 +17,6 @@ import os
 import storage
 import json
 import microcontroller as mc
-import supervisor
 
 # False -> Writable for CircuitPython
 # True  -> Writable for Computer
@@ -101,6 +100,7 @@ def main():
     storage.remount("/", mc.nvm[0])
     mc.nvm[1] = mc.nvm[0]
     mc.nvm[0] = True
+
     os.sync()
 
 if __name__ == "__main__":
