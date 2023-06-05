@@ -2,6 +2,7 @@
 # Code.py for Auli Cato, Driver
 # Finn Biggs - finn@auli.tech
 # 17-Nov-2022
+import alarm
 
 import board
 import sys
@@ -19,8 +20,9 @@ import busio
 import asyncio
 import time
 
-import Cato
-from Cato import Events
+from imu import LSM6DS3TRC
+
+from Cato import Cato, Events
 import battery
 import mode
 
@@ -41,34 +43,42 @@ async def feed_dog():
         w.feed()
         await asyncio.sleep(8)
 
-async def control_loop(c : Cato.Cato):
-    """Control loop for Cato standard operation"""
+async def control_loop(c : Cato):
+    """Control loop for Cato standard operation (MODE 0)"""
     while True:
-        print("control -- top")
+        print("@ control_loop")
         await Events.control_loop.wait() #await permission to start
         Events.control_loop.clear()
 
-        Events.collect_gestures.set()
-
         await c.block_on( c._move_mouse )
-        Events.detect_event.set()
+        Events.mouse_event.set()
 
 async def main():
-    c = Cato.Cato( bt = True, do_calib = True)
-    c.imu.imu_enable.set()
-    
+    ##once remount process is confirmed to work consistently, only try/except is necessary
+    if(mc.nvm[1]):
+        try:
+            storage.remount('/', False)
+            mc.nvm[1] = False
+            DBS.println("Successful remount RO")
+        except RuntimeError as re:
+            DBS.println("COM port detected")
+    else:
+        DBS.println("No remount necessary")
+    # print(f"+ main/main {gc.mem_free()}")
+    c = Cato( bt = True, do_calib = True)
+    # print(f"+ main/cato_created {gc.mem_free()}")
+    Cato.imu.imu_enable.set()
+    # print(f"+ main/imu_ena set {gc.mem_free()}")
+
     tasks = {
-        "dog"           : feed_dog(),
-        "control_loop"  : control_loop( c ),
+        # "dog"           : asyncio.create_task(feed_dog()),
+        "control_loop"  : asyncio.create_task(control_loop( c )),
     }
     tasks.update(c.tasks)
     await asyncio.sleep(0.3)
-    c.imu.imu_enable.set()
+    Cato.imu.imu_enable.set()
     Events.control_loop.set()
+    await asyncio.gather(*tasks.values())
 
-    await asyncio.gather( *tasks.values() )
 
-print("Running Main: ")
-asyncio.run( main() ) # True -> Debug
-
-# mode.select_reboot_mode()
+asyncio.run(main())

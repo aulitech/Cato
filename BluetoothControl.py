@@ -12,6 +12,11 @@ from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
 from adafruit_hid.keycode import Keycode as Keycode
 from adafruit_hid.mouse import Mouse
 
+from StrUUIDService import SUS
+from StrUUIDService import config
+from StrUUIDService import StrUUIDService
+from StrUUIDService import DebugStream
+
 import asyncio
 
 import gc
@@ -25,7 +30,11 @@ class Appearances:
     hid = 0x03C0 # 0x03C0 to 0x03FF
     control_device = 0x04C0 # 0x04C0 to 0x04FF
 
-class BluetoothControl:
+class BluetoothControl():
+    # BLERadio can toggle advertising state
+    ble = adafruit_ble.BLERadio()
+    ble.name = "Cato"
+
     def __init__(self):
         self.hid = HIDService() # manages human interface device
 
@@ -42,21 +51,21 @@ class BluetoothControl:
             service = None
         )
 
+        name = "Cato"
         self.advertisement = ProvideServicesAdvertisement( self.hid )
         self.advertisement.appearance = Appearances.hid
-        self.advertisement.short_name = "Cato"
+        self.advertisement.short_name = name
+
         # self.advertisement.flags.general_discovery = False
         # self.advertisement.flags.limited_discovery = True
         # self.advertisement.flags.general_discovery = AdvertisingFlag(1)
         # mem("BTC, advertisement created")
 
         self.scan_response = Advertisement(  )
-        self.scan_response.short_name = "Cato"
-        self.scan_response.appearance = Appearances.hid
-        # mem("BTC, scan_response created")
-        
-        # BLERadio can toggle advertising state
-        self.ble = adafruit_ble.BLERadio()
+        self.scan_response.short_name = name
+        self.scan_response.appearance = Appearances.remote
+        # # mem("BTC, scan_response created")
+
         
         # HID handles
         self.k = Keyboard(self.hid.devices)
@@ -73,9 +82,11 @@ class BluetoothControl:
         self.is_disconnected.set() #board starts without connection
 
         self.tasks = {  # tasks
-            "manage_connection"     : self.manage_connection(),
-            "monitor_connections"   : self.monitor_connections(),
-            "reconnect"             : self.reconnect()
+            "characteristic_loop"   : asyncio.create_task(SUS.config_loop()),
+            "manage_connection"     : asyncio.create_task(self.manage_connection()),
+            "monitor_connections"   : asyncio.create_task(self.monitor_connections()),
+            "reconnect"             : asyncio.create_task(self.reconnect())
+
         }
  
     async def manage_connection(self):
@@ -83,8 +94,9 @@ class BluetoothControl:
         while True:
             # First, wait for advertisement enable
             await self.ena_adv.wait()
-            print("Bluetooth: Advertising")
-            self.ble.start_advertising(self.advertisement, self.scan_response)
+            DebugStream.println("Bluetooth: Advertising")
+            BluetoothControl.ble.start_advertising(self.advertisement)
+
             
             # Then, wait for a connection
             await self.is_connected.wait()
@@ -123,4 +135,6 @@ class BluetoothControl:
 
                 if self.is_connected.is_set():
                     self.is_connected.clear()
-            await asyncio.sleep(5)
+                    
+            await asyncio.sleep(3)
+

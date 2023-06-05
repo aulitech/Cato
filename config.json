@@ -1,31 +1,60 @@
 {
     "mouse" : {
-        "idle_thresh"   : 5.0,
+        "idle_thresh"   : 6.0,
         "min_run_cycles": 30,
-        "idle_duration" : 80,
-        "scale"         : 1.0,
+        "idle_duration" : 25,
+        "scale"         : 1.2,
         "slow_thresh"   : 20.0,
-        "fast_thresh"   : 240.0,
-        "slow_scale"    : 0.2,
-        "fast_scale"    : 3.0
+        "fast_thresh"   : 100.0,
+        "slow_scale"    : 0.3,
+        "fast_scale"    : 2.5
     },
 
+    "screen_size" : [1920, 1080],
+
     "battery" : {
-        "low" : 22000,
+        "low" : 22100,
         "high": 30950
     },
 
-    "operation_mode" : "standard",
+    "operation_mode" : 0,
+
 
     "st_matrix" : [
-        [   "noop",                        "noop",                 "noop"          ],
-        [   "_move_mouse",                 "to_idle",              "to_idle"       ], 
-        [   "left_click",                  "left_click",           "press_enter"   ], 
-        [   "_scroll",                     "noop",                 "noop"          ], 
-        [   "_wait_for_motion",            "noop",                 "noop"          ], 
-        [   "_scroll_lr",                  "noop",                 "noop"          ], 
-        [   "_scroll_lr",                  "noop",                 "noop"          ], 
-        [   "double_click",                "noop",                 "noop"          ], 
-        [   "_wait_for_motion",            "noop",                 "noop"          ]
-    ]
-}
+        [
+            [   "noop",                        "noop",                 "noop"          ],
+            [   "right_click",                 "to_idle",              "to_idle"       ], 
+            [   "left_click",                  "left_click",           "press_enter"   ], 
+            [   "_scroll",                     "noop",                 "noop"          ], 
+            [   "_wait_for_motion",            "noop",                 "noop"          ], 
+            [   "_scroll_lr",                  "noop",                 "noop"          ], 
+            [   "_scroll_lr",                  "noop",                 "noop"          ], 
+            [   "double_click",                "noop",                 "noop"          ], 
+            [   "_wait_for_motion",            "noop",                 "noop"          ],
+            [   "center_mouse_cursor",         "noop",                 "noop"          ],
+            [   "center_mouse_cursor",         "noop",                 "noop"          ]
+        ],
+        [
+            [   "noop"  ],
+            [   "up"    ],
+            [   "down"  ],
+            [   "left"  ],
+            [   "right" ],
+            [   "noop"  ],
+            [   "noop"  ],
+            [   "enter" ],
+            [   "esc"   ],
+            [   "meta"  ],
+            [   "noop"  ],
+            [   "noop"  ],
+            [   "noop"  ]
+        ]
+    ],
+
+    "turbo_rate" : [1, 0.2, 0.9],
+
+    "gesture_window" : 1.2,
+    "gesture_length" : 76,
+    "min_gesture_threshold" : 200,
+    "confidence_threshold" : 0.70
+    }

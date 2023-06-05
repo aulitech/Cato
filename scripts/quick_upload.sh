@@ -1,9 +1,15 @@
 ﻿
-auli_cato_loc=/d/
+auli_cato_loc=/e/
+loc_d=/d/   # dont know shell well enough to do this w full_reprogram :(
 
 echo "Checking connection"
 while [ ! -d $auli_cato_loc ]
 do
+    if [ -d $loc_d ]
+    then
+        auli_cato_loc=$loc_d
+    fi
+    
     sleep 1
     echo "    Waiting for connection"
 done

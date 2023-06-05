@@ -95,8 +95,12 @@ def main():
 
     has_config = check_config()
     print(f"Checking config: {has_config}")
-    
+    #print("USB?",supervisor.runtime.usb_connected)
+
     storage.remount("/", mc.nvm[0])
+    mc.nvm[1] = mc.nvm[0]
+    mc.nvm[0] = True
+
     os.sync()
 
 if __name__ == "__main__":
