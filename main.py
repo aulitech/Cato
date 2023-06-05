@@ -10,7 +10,7 @@ import sys
 import microcontroller as mc
 from microcontroller import watchdog as w
 from watchdog import WatchDogMode
-import supervisor
+import supervisor as sp
 import gc
 
 import io
@@ -28,7 +28,6 @@ import battery
 import mode
 
 from BluetoothControl import DebugStream as DBS
-
 import storage
 
 batt_ev = asyncio.Event()
@@ -47,7 +46,7 @@ async def feed_dog():
         await asyncio.sleep(8)
 
 async def control_loop(c : Cato):
-    """Control loop for Cato standard operation"""
+    """Control loop for Cato standard operation (MODE 0)"""
     while True:
         print("@ control_loop")
         await Events.control_loop.wait() #await permission to start
@@ -72,6 +71,7 @@ async def main():
     # print(f"+ main/cato_created {gc.mem_free()}")
     Cato.imu.imu_enable.set()
     # print(f"+ main/imu_ena set {gc.mem_free()}")
+
     tasks = {
         # "dog"           : asyncio.create_task(feed_dog()),
         "control_loop"  : asyncio.create_task(control_loop( c )),
@@ -84,5 +84,3 @@ async def main():
 
 
 asyncio.run(main())
-# mode.select_reboot_mode()
-#Here is a new comment

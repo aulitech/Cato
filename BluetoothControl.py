@@ -6,7 +6,6 @@ from adafruit_ble.advertising import Advertisement, AdvertisingFlag, Advertising
 from adafruit_ble.advertising.standard import ProvideServicesAdvertisement
 from adafruit_ble.services.standard.hid import HIDService
 from adafruit_ble.services.standard.device_info import DeviceInfoService
-from adafruit_ble.services.nordic import UARTService
 
 from adafruit_hid.keyboard import Keyboard
 from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
@@ -20,12 +19,10 @@ from StrUUIDService import DebugStream
 
 import asyncio
 
-import json
-
 import gc
 
 def mem( loc = "" ):
-    DebugStream.print(f"Free Memory at {loc}: \n\t{gc.mem_free()}")
+    print(f"Free Memory at {loc}: \n\t{gc.mem_free()}")
 
 class Appearances:
     remote = 0x0180 #0x0180 to 0x01BF
@@ -36,9 +33,10 @@ class Appearances:
 class BluetoothControl():
     # BLERadio can toggle advertising state
     ble = adafruit_ble.BLERadio()
+    ble.name = "Cato"
 
     def __init__(self):
-        self.hid = HIDService()
+        self.hid = HIDService() # manages human interface device
 
         self.device_info = DeviceInfoService(
             manufacturer = "AULITECH",
@@ -52,9 +50,10 @@ class BluetoothControl():
             hardware_revision = "v0.0",
             service = None
         )
+
         name = "Cato"
         self.advertisement = ProvideServicesAdvertisement( self.hid )
-        self.advertisement.appearance = Appearances.eyeglasses
+        self.advertisement.appearance = Appearances.hid
         self.advertisement.short_name = name
 
         # self.advertisement.flags.general_discovery = False
@@ -66,6 +65,7 @@ class BluetoothControl():
         self.scan_response.short_name = name
         self.scan_response.appearance = Appearances.remote
         # # mem("BTC, scan_response created")
+
         
         # HID handles
         self.k = Keyboard(self.hid.devices)
@@ -86,26 +86,28 @@ class BluetoothControl():
             "manage_connection"     : asyncio.create_task(self.manage_connection()),
             "monitor_connections"   : asyncio.create_task(self.monitor_connections()),
             "reconnect"             : asyncio.create_task(self.reconnect())
+
         }
  
     async def manage_connection(self):
-        #DebugStream.println("+ manage_connection")
+        #print("+ manage_connection")
         while True:
             # First, wait for advertisement enable
             await self.ena_adv.wait()
             DebugStream.println("Bluetooth: Advertising")
             BluetoothControl.ble.start_advertising(self.advertisement)
+
             
             # Then, wait for a connection
             await self.is_connected.wait()
             
             # Finally, stop advertising
             self.ena_adv.clear()
-            BluetoothControl.ble.stop_advertising()
-            DebugStream.println("Bluetooth: Advertising disabled")
+            self.ble.stop_advertising()
+            print("Bluetooth: Advertising disabled")
     
     async def reconnect(self):
-        #DebugStream.println("+ reconnect")
+        #print("+ reconnect")
         while True:
             await self.is_disconnected.wait()
             self.ena_adv.set()
@@ -114,12 +116,12 @@ class BluetoothControl():
             self.ena_adv.clear()
         
     async def monitor_connections(self):
-        #DebugStream.println("+ monitor_connections")
+        #print("+ monitor_connections")
         while True:
             # Check connection
-            if BluetoothControl.ble.connected: # When connected
+            if self.ble.connected: # When connected
                 if not self.is_connected.is_set():
-                    DebugStream.println("Bluetooth: Connected")
+                    print("Bluetooth: Connected")
                     self.is_connected.set()
 
                 if self.is_disconnected.is_set():
@@ -128,9 +130,11 @@ class BluetoothControl():
             else: # When disconnected
 
                 if not self.is_disconnected.is_set():
-                    DebugStream.println("Bluetooth: Connection Lost")
+                    print("Bluetooth: Connection Lost")
                     self.is_disconnected.set()
 
                 if self.is_connected.is_set():
                     self.is_connected.clear()
+                    
             await asyncio.sleep(3)
+

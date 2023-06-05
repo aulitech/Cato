@@ -38,7 +38,6 @@ from neutonml import Neuton
 from StrUUIDService import config
 from StrUUIDService import DebugStream
 
-
 #helpers and enums
 
 class ST():
@@ -101,13 +100,13 @@ class Events:
 neuton_outputs = array.array( "f", [0]*len(EV.gesture_key) )
 
 def mem( loc = "" ):
-    DebugStream.println(f"Free Memory at {loc}: \n\t{gc.mem_free()}")
+    print(f"Free Memory at {loc}: \n\t{gc.mem_free()}")
 
 from WakeDog import WakeDog
 
 class Cato:
-
     ''' Main Class of Cato Gesture Mouse '''
+
     imu = LSM6DS3TRC()
 
     def __init__(self, bt:bool = True, do_calib = True):
@@ -127,6 +126,7 @@ class Cato:
         if(mode >=20)&(bool(mc.nvm[0])):
             DebugStream.println("WARNING: Collect Gesture mode will not record data")
 
+
         #specification for operation
         self.specs = {
             "freq" : 104.0, # imu measurement frequency (hz)
@@ -138,9 +138,15 @@ class Cato:
         # battery managing container
         self.battery = Battery()
 
+        if bt:
+            import BluetoothControl
+        else:
+            import DummyBT as BluetoothControl
+        
         self.blue = BluetoothControl.BluetoothControl()
 
         self.state = ST.IDLE
+
         if(mode < len(config["st_matrix"])):
             self.st_matrix = config["st_matrix"][mode]
 
@@ -161,8 +167,8 @@ class Cato:
                 "move_mouse"        : asyncio.create_task(self.move_mouse()),
                 "mouse_event"       : asyncio.create_task(self.mouse_event()),
                 "scroll"            : asyncio.create_task(self.scroll()),
-                # "sleep"             : asyncio.create_task(self.go_to_sleep()),
-                # "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
+                "sleep"             : asyncio.create_task(self.go_to_sleep()),
+                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
             }
         elif(mode == 1):
             self.tasks = {
@@ -184,6 +190,7 @@ class Cato:
         elif(mode >= 10):
             self.tasks = {
                 "test_loop"         : asyncio.create_task(self.test_loop())
+
             }
             if(mode == 10):
                 self.tasks["collect_gestures"] = asyncio.create_task(Cato.collect_gestures_app())
@@ -276,11 +283,13 @@ class Cato:
         Events.mouse_done.clear()
         hall_pass.set()
 
-    async def center_mouse_cursor(self):
-        x = self.config["screen_size"][0]
-        y = self.config["screen_size"][1]
+    async def center_mouse_cursor(self, hall_pass: asyncio.Event = None):
+        x = config["screen_size"][0]
+        y = config["screen_size"][1]
         self.blue.mouse.move(-2 * x, -2 * y)
         self.blue.mouse.move(int(0.5*x), int(0.5*y))
+        if hall_pass is not None:
+            hall_pass.set()
     
     async def block_on(self, coro):
         '''
@@ -297,7 +306,6 @@ class Cato:
             await Events.mouse_event.wait()
             Events.mouse_event.clear()
             await Events.gesture_not_collecting.wait()
-
             target_name = await self.gesture_interpreter()
             #print(f"\tGot \"{target_name}\" at mouse_event")
             #DebugStream.println(f"Detect Event -- Dispatching: self.{target_name}")
@@ -389,12 +397,16 @@ class Cato:
             confidence_thresh = 0.80
             if confidence < confidence_thresh:
                 gesture = EV.NONE
-
         else:
             gesture = EV.NONE
         # self.state
         return self.st_matrix[gesture][self.state]
     
+    # possible fix for input delay:
+    #   no-input period required to enter gesture mode is shortened
+    #   premature motion imediately returns to move mouse (thresh would be reduced significantly)
+    #   cursor shake occurs near the end or after buffer period
+    # this fix would require remote to have its own interpreter, which has additional benefit of unentangling mode behaviors
     # TODO: needs testing
     async def gesture_interpreter(self):
         infer = EV.NONE
@@ -424,8 +436,9 @@ class Cato:
         Events.sig_motion.clear()
 
         i = 0
-        sw = asyncio.create_task(Cato.stopwatch(config["gesture_window"]))
-        while(i <= gestLen/2)or(not sw.done()):
+        # sw = asyncio.create_task(Cato.stopwatch(config["gesture_window"]))
+        # while(i <= gestLen/2)or(not sw.done()):
+        while(i <= gestLen / 2):
             await Cato.imu.wait()
             gest.append(array.array('f',[Cato.imu.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz]))
             if(len(gest) > gestLen):
@@ -452,7 +465,7 @@ class Cato:
         
         if(maxMag >= minThresh):
             Events.sig_motion.set()
-        
+
         await shakeCursor
         return self.st_matrix[infer][self.state]
     
@@ -480,7 +493,7 @@ class Cato:
     # CircuitPython Docs: https://docs.circuitpython.org/projects/hid/en/latest/api.html#adafruit-hid-mouse-mouse '''
     async def noop(self, hall_pass: asyncio.Event = None):
         ''' no operation '''
-        DebugStream.println("nooping")
+        # DebugStream.println("nooping")
         if hall_pass is not None:
             hall_pass.set()
     
@@ -501,7 +514,7 @@ class Cato:
         
     # Cato Mouse Actions
     async def shake_cursor(self, hall_pass: asyncio.Event = None):
-        mv_size = 8
+        mv_size = 4
         num_wiggles = 1
         moves = [
             # L R R L (horizontal wiggle)
@@ -545,6 +558,16 @@ class Cato:
             DebugStream.println("Click")
             self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
 
+    async def quick_calibrate(self, hall_pass: asyncio.Event = None):
+        await asyncio.sleep(0.5)
+        await asyncio.create_task(Cato.imu.calibrate(100))
+        await asyncio.create_task(self.shake_cursor())
+        hall_pass.set()
+
+    async def quick_sleep(self, hall_pass: asyncio.Event = None):
+        Events.sleep.set()
+        hall_pass.set()
+
 
     async def move_mouse(self, max_idle_cycles=80, mouse_type = "ACCEL", forever: bool = False):
         '''
@@ -584,8 +607,9 @@ class Cato:
         # mem("post_cfg") # At this point, between pre and post, we lost only 100bytes
 
         while True:
-            # DebugStream.println(".")
+            # print(".")
             if not Events.move_mouse.is_set():
+
                 # DebugStream.println("move mouse -- awaiting")
                 pass
     
@@ -593,7 +617,7 @@ class Cato:
             await Events.gesture_not_collecting.wait()
             await Cato.imu.wait()
             if cycle_count == 0:
-                DebugStream.println("+ Mouse Live")
+                DebugStream.println(f"+ Mouse Live (mem: {gc.mem_free()})")
 
             cycle_count += 1    # count cycles
 
@@ -618,14 +642,15 @@ class Cato:
             if(cycle_count >= min_run_cycles and not forever):
                 if( mag <= idle_thresh ): # if too slow
                     # if (idle_count == 0): # count time of idle to finish (design util)
-                        # DebugStream.println("\tidle detected, count begun")
+                        # print("\tidle detected, count begun")
                     idle_count += 1
                 else:
-                    # DebugStream.println("\tactivity resumed: idle counter reset")
+                    # print("\tactivity resumed: idle counter reset")
                     idle_count = 0
 
                 if idle_count >= max_idle_cycles: # if sufficiently idle, clear move_mouse
-                    DebugStream.println("\t- Mouse Exit")
+                    DebugStream.println(f"\t- Mouse Exit (mem: {gc.mem_free()})")
+
                     Events.move_mouse.clear()
                     Events.mouse_done.set()
 
@@ -672,11 +697,12 @@ class Cato:
             if( abs(self.gy) > 30.0 ):
                 DebugStream.println("\t- Scroll Broken")
                 num_cycles = 0
+
                 z = 0.0
                 Events.scroll_done.set()
                 Events.scroll.clear()
                 if hall_pass is not None:
-                    DebugStream.println("\tSCROLL: Scroll_done set & hall_pass set")
+                    print("\tSCROLL: Scroll_done set & hall_pass set")
                     hall_pass.set()
     
     async def _scroll_lr(self, hall_pass: asyncio.Event = None):
@@ -723,9 +749,9 @@ class Cato:
 
     async def left_click_drag(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        DebugStream.println("Left click")
+        print("Left click")
         self.left_press()
-        DebugStream.println("Drag")
+        print("Drag")
         await self.move_mouse()
         self.left_release()
 
@@ -863,11 +889,11 @@ class Cato:
         cycles = 0 # count number of waited cycles
         val = 0.0
         while True:
-            # DebugStream.println("A: ", gc.mem_free())
+            # print("A: ", gc.mem_free())
             
             await Events.wait_for_motion.wait()
             Events.sig_motion.clear()
-            # DebugStream.println("wait_for_motion triggered")
+            # DebugStream.println("+ Wait_for_motion triggered")
             # DebugStream.println("B: ", gc.mem_free())
             await Cato.imu.wait()
             # DebugStream.println("C: ", gc.mem_free())
@@ -888,7 +914,7 @@ class Cato:
                 if cycles > num:
                     Events.wait_for_motion.clear()
                     Events.sig_motion.clear()
-            # DebugStream.println("D: ", gc.mem_free())
+            # print("D: ", gc.mem_free())
             # exiting cleanup
             if not Events.wait_for_motion.is_set():
                 exit_reason = "MOTION" if Events.sig_motion.is_set() else "TIMEOUT"
@@ -1138,3 +1164,4 @@ class Cato:
             #DebugStream.println(t.done())
             i += 1
             await asyncio.sleep(10)
+
