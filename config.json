@@ -10,7 +10,7 @@
         "fast_scale"    : 2.5
     },
 
-    "screen_size" : [1920, 1080],
+    "screen_size" : [3840, 2160],
 
     "battery" : {
         "low" : 22100,
@@ -30,9 +30,9 @@
             [   "_scroll_lr",                  "noop",                 "noop"          ], 
             [   "_scroll_lr",                  "noop",                 "noop"          ], 
             [   "double_click",                "noop",                 "noop"          ], 
-            [   "_wait_for_motion",            "noop",                 "noop"          ],
+            [   "quick_calibrate",             "noop",                 "noop"          ],
             [   "center_mouse_cursor",         "noop",                 "noop"          ],
-            [   "center_mouse_cursor",         "noop",                 "noop"          ]
+            [   "quick_sleep",         "noop",                 "noop"          ]
         ],
         [
             [   "noop"  ],

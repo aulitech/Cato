@@ -514,7 +514,7 @@ class Cato:
         
     # Cato Mouse Actions
     async def shake_cursor(self, hall_pass: asyncio.Event = None):
-        mv_size = 8
+        mv_size = 4
         num_wiggles = 1
         moves = [
             # L R R L (horizontal wiggle)
@@ -557,6 +557,16 @@ class Cato:
             await Cato.imu.wait()
             DebugStream.println("Click")
             self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
+
+    async def quick_calibrate(self, hall_pass: asyncio.Event = None):
+        await asyncio.sleep(0.5)
+        await asyncio.create_task(Cato.imu.calibrate(100))
+        await asyncio.create_task(self.shake_cursor())
+        hall_pass.set()
+
+    async def quick_sleep(self, hall_pass: asyncio.Event = None):
+        Events.sleep.set()
+        hall_pass.set()
 
 
     async def move_mouse(self, max_idle_cycles=80, mouse_type = "ACCEL", forever: bool = False):
@@ -883,7 +893,7 @@ class Cato:
             
             await Events.wait_for_motion.wait()
             Events.sig_motion.clear()
-            DebugStream.println("+ Wait_for_motion triggered")
+            # DebugStream.println("+ Wait_for_motion triggered")
             # DebugStream.println("B: ", gc.mem_free())
             await Cato.imu.wait()
             # DebugStream.println("C: ", gc.mem_free())
