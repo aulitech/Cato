@@ -7,6 +7,7 @@ import alarm
 import board
 import sys
 
+import microcontroller as mc
 from microcontroller import watchdog as w
 from watchdog import WatchDogMode
 import supervisor as sp
@@ -26,7 +27,8 @@ from Cato import Cato, Events
 import battery
 import mode
 
-from math import sqrt
+from BluetoothControl import DebugStream as DBS
+import storage
 
 batt_ev = asyncio.Event()
 # Beginning code proper
