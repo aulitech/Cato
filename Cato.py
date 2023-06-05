@@ -883,7 +883,7 @@ class Cato:
             
             await Events.wait_for_motion.wait()
             Events.sig_motion.clear()
-            DebugStream.println("+ Wait_for_motion triggered")
+            # DebugStream.println("+ Wait_for_motion triggered")
             # DebugStream.println("B: ", gc.mem_free())
             await Cato.imu.wait()
             # DebugStream.println("C: ", gc.mem_free())
