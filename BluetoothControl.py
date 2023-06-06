@@ -93,7 +93,7 @@ class BluetoothControl():
         while True:
             # First, wait for advertisement enable
             await self.ena_adv.wait()
-            DebugStream.println("Bluetooth: Advertising")
+            print("Bluetooth: Advertising")
             BluetoothControl.ble.start_advertising(self.advertisement)
 
             
