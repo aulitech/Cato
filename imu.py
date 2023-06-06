@@ -22,14 +22,15 @@ import supervisor as sp
 #from StrUUIDService import config
 #from StrUUIDService import DebugStream
 
-from math import pi
-
+#from math import pi
+'''
 try:
     import typing  # pylint: disable=unused-import
     from busio import I2C
 except ImportError:
     pass
-
+'''
+    
 _LSM6DS_INT1_CTRL   = const(0x0D)
 
 _LSM6DS_CTRL1_XL    = const(0x10)

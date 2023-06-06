@@ -2,32 +2,35 @@
 # Code.py for Auli Cato, Driver
 # Finn Biggs - finn@auli.tech
 # 17-Nov-2022
+'''
 import alarm
 
 import board
 import sys
-
+'''
 import microcontroller as mc
 from microcontroller import watchdog as w
 from watchdog import WatchDogMode
-import supervisor as sp
+#import supervisor as sp
 import gc
 
+'''
 import io
 import analogio
 import digitalio
 import busio
+'''
 
 import asyncio
-import time
+#import time
 
 from imu import LSM6DS3TRC
 
 from Cato import Cato, Events
-import battery
-import mode
+#import battery
+#import mode
 
-from BluetoothControl import DebugStream as DBS
+from StrUUIDService import DebugStream as DBS
 import storage
 
 batt_ev = asyncio.Event()
