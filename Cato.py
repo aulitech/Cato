@@ -286,8 +286,12 @@ class Cato:
     async def center_mouse_cursor(self, hall_pass: asyncio.Event = None):
         x = config["screen_size"][0]
         y = config["screen_size"][1]
-        self.blue.mouse.move(-2 * x, -2 * y)
-        self.blue.mouse.move(int(0.5*x), int(0.5*y))
+        try:
+            self.blue.mouse.move(-2 * x, -2 * y)
+            self.blue.mouse.move(int(0.5*x), int(0.5*y))
+        except ConnectionError as ce:
+            DebugStream.println("ConnectionError: connection lost in center_mouse_cursor()")
+            DebugStream.println(str(ce))
         if hall_pass is not None:
             hall_pass.set()
     
@@ -530,11 +534,16 @@ class Cato:
             (0,         mv_size,    0),
         ]
 
-        for wiggle in range(num_wiggles):
-            for move in moves:
-                for _ in range(2):
-                    await asyncio.sleep(0.02)
-                    self.blue.mouse.move( *move )
+        try:
+            for wiggle in range(num_wiggles):
+                for move in moves:
+                    for _ in range(2):
+                        await asyncio.sleep(0.02)
+                        self.blue.mouse.move( *move )
+        except ConnectionError as ce:
+            DebugStream.println("ConnectionError: connection lost in shake_cursor()")
+            DebugStream.println(str(ce))
+        
         if hall_pass is not None:
             hall_pass.set()
 
@@ -555,8 +564,12 @@ class Cato:
         Cato.imu.single_tap_cfg()
         while True:
             await Cato.imu.wait()
-            DebugStream.println("Click")
-            self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
+            try:
+                DebugStream.println("Click")
+                self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
+            except ConnectionError as ce:
+                DebugStream.println("ConnectionError: connection lost in clicker_task()")
+                DebugStream.println(str(ce))
 
     async def quick_calibrate(self, hall_pass: asyncio.Event = None):
         await asyncio.sleep(0.5)
@@ -662,7 +675,11 @@ class Cato:
             dx = int( scale * mag * cos(ang) )
             dy = int( scale * mag * sin(ang) )
 
-            self.blue.mouse.move(dx, dy, dscroll)
+            try:
+                self.blue.mouse.move(dx, dy, dscroll)
+            except ConnectionError as ce:
+                DebugStream.println("ConnectionError: connection lost in move_mouse()")
+                DebugStream.println(str(ce))
             
     async def _scroll(self, hall_pass: asyncio.Event = None):
         DebugStream.println("+ _scroll")
@@ -692,7 +709,11 @@ class Cato:
             
             z += (-1) * scale * self.gz * dt
 
-            self.blue.mouse.move(0, 0, int(z))
+            try:
+                self.blue.mouse.move(0, 0, int(z))
+            except ConnectionError as ce:
+                DebugStream.println("ConnectionError: connection lost in scroll()")
+                DebugStream.println(str(ce))
 
             if( abs(self.gy) > 30.0 ):
                 DebugStream.println("\t- Scroll Broken")
@@ -724,26 +745,42 @@ class Cato:
         # can have BLE writes w/wo ack -- send and pray vs confirm
         # time the routine uS ok, mS bad
         ''' docstring stub '''
-        self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
+        try:
+            self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
+        except ConnectionError as ce:
+            DebugStream.println("ConnectionError: connection lost in left_click()")
+            DebugStream.println(str(ce))
         if hall_pass is not None:
             hall_pass.set()
 
     async def double_click(self, hall_pass: asyncio.Event = None):
-        self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
-        self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
+        try:
+            self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
+            self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
+        except ConnectionError as ce:
+            DebugStream.println("ConnectionError: connection lost in double_click()")
+            DebugStream.println(str(ce))
         if hall_pass is not None:
             hall_pass.set()
 
 
     async def right_click(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        self.blue.mouse.click(self.blue.mouse.RIGHT_BUTTON)
+        try:
+            self.blue.mouse.click(self.blue.mouse.RIGHT_BUTTON)
+        except ConnectionError as ce:
+            DebugStream.println("ConnectionError: connection lost in right_click()")
+            DebugStream.println(str(ce))
         if hall_pass is not None:
             hall_pass.set()
 
     async def middle_click(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        self.blue.mouse.click(self.blue.mouse.MIDDLE_BUTTON)
+        try:
+            self.blue.mouse.click(self.blue.mouse.MIDDLE_BUTTON)
+        except ConnectionError as ce:
+            DebugStream.println("ConnectionError: connection lost in middle_click()")
+            DebugStream.println(str(ce))
         if hall_pass is not None:
             hall_pass.set()
 
@@ -769,43 +806,71 @@ class Cato:
 
     async def left_press(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        self.blue.mouse.press(self.blue.mouse.LEFT_BUTTON)
+        try:
+            self.blue.mouse.press(self.blue.mouse.LEFT_BUTTON)
+        except ConnectionError as ce:
+            DebugStream.println("ConnectionError: connection lost in left_press()")
+            DebugStream.println(str(ce))
         if hall_pass is not None:
             hall_pass.set()
 
     async def left_release(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        self.blue.mouse.release(self.blue.mouse.LEFT_BUTTON)
+        try:
+            self.blue.mouse.release(self.blue.mouse.LEFT_BUTTON)
+        except ConnectionError as ce:
+            DebugStream.println("ConnectionError: connection lost in left_release()")
+            DebugStream.println(str(ce))
         if hall_pass is not None:
             hall_pass.set()
 
     async def right_press(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        self.blue.mouse.press(self.blue.mouse.RIGHT_BUTTON)
+        try:
+            self.blue.mouse.press(self.blue.mouse.RIGHT_BUTTON)
+        except ConnectionError as ce:
+            DebugStream.println("ConnectionError: connection lost in right_press()")
+            DebugStream.println(str(ce))
         if hall_pass is not None:
             hall_pass.set()
 
     async def right_release(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        self.blue.mouse.release(self.blue.mouse.RIGHT_BUTTON)
+        try:
+            self.blue.mouse.release(self.blue.mouse.RIGHT_BUTTON)
+        except ConnectionError as ce:
+            DebugStream.println("ConnectionError: connection lost in right_release()")
+            DebugStream.println(str(ce))
         if hall_pass is not None:
             hall_pass.set()
 
     async def middle_press(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        self.blue.mouse.press(self.blue.mouse.MIDDLE_BUTTON)
+        try:
+            self.blue.mouse.press(self.blue.mouse.MIDDLE_BUTTON)
+        except ConnectionError as ce:
+            DebugStream.println("ConnectionError: connection lost in middle_press()")
+            DebugStream.println(str(ce))
         if hall_pass is not None:
             hall_pass.set()
 
     async def middle_release(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        self.blue.mouse.release(self.blue.mouse.MIDDLE_BUTTON)
+        try:
+            self.blue.mouse.release(self.blue.mouse.MIDDLE_BUTTON)
+        except ConnectionError as ce:
+            DebugStream.println("ConnectionError: connection lost in middle_release()")
+            DebugStream.println(str(ce))
         if hall_pass is not None:
             hall_pass.set()
 
     async def all_release(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
-        self.blue.mouse.release_all()
+        try:
+            self.blue.mouse.release_all()
+        except ConnectionError as ce:
+            DebugStream.println("ConnectionError: connection lost in all_release()")
+            DebugStream.println(str(ce))
         if hall_pass is not None:
             hall_pass.set()
         
