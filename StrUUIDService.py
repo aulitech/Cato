@@ -49,8 +49,6 @@ class StrUUIDService(Service):
             "REBOOTRO"      : self.reboot_forceRO,
             "BOOTLOADER"    : self.reboot_bootloader,
 
-            "CG"            : self.collGest_dispatch,
-
             "CALIBRATE"     : self.set_calibrate_event,
         }
 
@@ -158,8 +156,7 @@ class StrUUIDService(Service):
         mc.on_next_reset(mc.RunMode.UF2)
         mc.reset()
 
-
-
+    # currently unused in active models
     async def collGest_dispatch(self):
         from Cato import Events as E
         if(E.gesture_not_collecting.is_set()):
