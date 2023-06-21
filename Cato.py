@@ -890,11 +890,11 @@ class Cato:
                     while(len(hist) < gestLeng):
                         await Cato.imu.wait()
                         hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
-
-                    drift = hist[gestLeng-1]
-                    maxGest = hist.copy()
+                        maxGest.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
+                    
                     maxMag = maxGest[int(gestLeng/2)]
-                    maxMag = (maxMag[3]-drift[3])**2 + (maxMag[4]-drift[4])**2 + (maxMag[5]-drift[5])**2
+                    maxMag = (maxMag[3])**2 + (maxMag[4])**2 + (maxMag[5])**2
+                    
                     SUS.collGestUUID = str(maxMag)
                     asyncio.create_task(Cato.stopwatch(3, ev = gest_timer))  # Timer starts here
                     DebugStream.println("Perform Gesture: ", EV.gesture_key[gestID])
@@ -906,7 +906,7 @@ class Cato:
                         hist.pop(0)
 
                         currMid = hist[int(gestLeng/2)]
-                        currMag = (currMid[3]-drift[3])**2 + (currMid[4]-drift[4])**2 + (currMid[5]-drift[5])**2
+                        currMag = (currMid[3])**2 + (currMid[4])**2 + (currMid[5])**2
                         if(currMag > maxMag):
                             DebugStream.println("New Max Read")
                             DebugStream.println(currMag, ">", maxMag)
