@@ -46,16 +46,6 @@ async def feed_dog():
         w.feed()
         await asyncio.sleep(8)
 
-async def control_loop(c : Cato):
-    """Control loop for Cato standard operation"""
-    while True:
-        print("control -- top")
-        await Events.control_loop.wait() #await permission to start
-        Events.control_loop.clear()
-
-        await c.block_on( c._move_mouse )
-        Events.mouse_event.set()
-
 
 async def main():
     ##once remount process is confirmed to work consistently, only try/except is necessary
@@ -70,16 +60,18 @@ async def main():
         DBS.println("No remount necessary")
 
     c = Cato( bt = True, do_calib = True)
+    print("Cato created")
     Cato.imu.imu_enable.set()
-    
+    print("imu_enable set")
     tasks = {
-        "dog"           : asyncio.create_task(feed_dog()),
-        "control_loop"  : asyncio.create_task(control_loop( c )),
+        "dog"           : asyncio.create_task(feed_dog())
     }
+    print("dog task created")
     tasks.update(c.tasks)
-    await asyncio.sleep(0.3)
+    await asyncio.sleep(1)
+    print("update tasks w Cato tasks")
     Cato.imu.imu_enable.set()
-    Events.control_loop.set()
+    print("gathering in main")
     await asyncio.gather(*tasks.values())
 
 
