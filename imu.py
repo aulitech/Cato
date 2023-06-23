@@ -19,16 +19,34 @@ import board
 import gc
 import supervisor as sp
 
+from ulab import numpy as np
+
 #from StrUUIDService import config
 #from StrUUIDService import DebugStream
 
-from math import pi
+from math import pi, sin, cos, sqrt, asin
 
 try:
     import typing  # pylint: disable=unused-import
     from busio import I2C
 except ImportError:
     pass
+
+# numpy for vector manipulation
+from ulab import numpy as np
+
+# Generate Quaternion From N, Theta
+q_gen = lambda n, theta: np.array([cos(theta/2.0), sin(theta/2.0) * n[0], sin(theta/2.0) * n[1], sin(theta/2.0) * n[2]])
+
+# Quaternion rotation matrix, method two from https://danceswithcode.net/engineeringnotes/quaternions/quaternions.html (eqn 7b)
+rot_mat = lambda q: np.array(
+[
+    [ 1 - 2 * (q[2]**2 + q[3]**2),      2 * (q[1]*q[2] - q[0]*q[3]),        2 * (q[1]*q[3] + q[0]*q[2]) ],
+
+    [ 2 * (q[1]*q[2] + q[0]*q[3]),      1 - 2 * (q[1]**2 + q[3]**2),        2 * (q[2]*q[3] - q[0]*q[1]) ],
+
+    [ 2 * (q[1]*q[3] - q[0]*q[2]),      2 * (q[2]*q[3] + q[0]*q[1]),        1 - 2 * (q[1]**2 + q[2]**2) ]
+])
 
 _LSM6DS_INT1_CTRL   = const(0x0D)
 
@@ -86,23 +104,58 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self.imu_ready  = asyncio.Event()   # imu_rdy:      Set when imu has fresh data
         self.data_ready = asyncio.Event()   # data_rdt:     Set when imu data has been read and assigned to values
         self.tap_detect = asyncio.Event()   # tap_detect:   Set when imu interrupt 1 detects tap.
-        self.ax, self.ay, self.az = 0, 0, 0 # accelerometer fields
-        self.gx, self.gy, self.gz = 0, 0, 0 # gyro fields
+
+        self.ax, self.ay, self.az = 0.0, 0.0, 0.0 # accelerometer fields
+        self.gx, self.gy, self.gz = 0.0, 0.0, 0.0 # gyro fields
 
         # Gyroscope trim values set by calibrate
-        self.x_trim = 0
-        self.y_trim = 0
-        self.z_trim = 0
-    
-        print(self.int1_ctrl)
+        self.x_trim = 0.0
+        self.y_trim = 0.0
+        self.z_trim = 0.0
+
+        # Rotational Adjustment Values (From Calibrate)
+        self.rot_mat = np.array([
+            [1.0, 0.0, 0.0], 
+            [0.0, 1.0, 0.0], 
+            [0.0, 0.0, 1.0]
+        ])
+
+        '''
+            The Procedure I will use for rotation is as follows:
+
+            1. Determine Which way is "Down" from Gravity
+            2. Compare to 
+
+            For rotation R about unit vector n through an angle of theta:
+                The angle to be rotated through is theta: determined by the equation n1 x n2 = |n1| |n2| sin(theta)
+                (n1 is the unit vector "down" for Cato, n2 is "down" as determined by gravity)
+                arcsin(n1 x n2 / |n1||n2|) = theta
+
+            Finally, the rotation is carried out about n = n1 x n2 / |n1 x n2|
+
+            With R and Theta predefined, we need a rotation, which is given by the quaternion rotation equation:
+                p'      = q p q^(-1); p' is rotated vector, q is quaternion as defined by, q^(-1) is it's conjugate
+                q       = cos(theta/2) + n*sin(theta/2) OR q = [ q0, q1, q2, q3 ] = [cos(theta/2), ijk(sin(theta/2))]
+                q^(-1)  = cos(theta/2) - n*sin(theta/2)
+
+            Subsequently, the quaternion can be converted to a rotation matrix as
+                [
+                    1 - 2q2^2 - 2q3^2   ;       2q1q2 - 2q0q3       ;   2q1q3 - 2q0q2
+                    2q1q2 + 2q0q3       ;       1 - 2q1^2 - 2q3^2   ;   2q2q3 - 2q0q1
+                    2q1q3 - 2q0q2       ;       2q2q3 + 2q0q1       ;   1 - 2q1^2 - 2q2^2
+                ]
+        '''
+
         self.data_ready_on_int1_setup()
 
         self.tasks = {
             "interrupt" : asyncio.create_task( self.interrupt() ),
-            "read"      : asyncio.create_task( self.read() )
+            "read"      : asyncio.create_task( self.read() ),
+            # "stream"    : asyncio.create_task( self.stream() )
         }
-        #if(config["operation_mode"] == 12):
-        #    self.tasks["imu_stream"] = asyncio.create_task( self.stream() )
+
+        # if(config["operation_mode"] == 12):
+        #     self.tasks["imu_stream"] = asyncio.create_task( self.stream() )
     
     def data_ready_on_int1_setup(self):
         self.int1_ctrl = 0x02
@@ -166,7 +219,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         # print("Quick read of gyro -- once at top of imu.read")
         print(self.gyro)
         cycles = 0
-        collect_spacer = 10 # collect garbage every n cycles
+        collect_spacer = 5 # collect garbage every n cycles
         rad_to_deg = 360.0 / (2*3.1416)
         from WakeDog import WakeDog
         while True:
@@ -181,21 +234,31 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             self.gx *= rad_to_deg
             self.gy *= rad_to_deg
             self.gz *= rad_to_deg
+
             self.ax, self.ay, self.az = self.acceleration
+            acc = np.array([self.ax, self.ay, self.az])
+            acc_mag = np.linalg.norm(acc)
+            acc_dir = acc / acc_mag
 
             # trim measurements based on calibration
             self.gx -= self.x_trim
             self.gy -= self.y_trim
             self.gz -= self.z_trim
 
-            mag = self.gx**2 + self.gy**2 + self.gz**2
+            gyro = np.array([self.gx, self.gy, self.gz])
+            gyr_mag = np.linalg.norm(gyro)
+
+            [self.gx, self.gy, self.gz] = gyr_mag * ( np.dot(self.rot_mat, gyro/gyr_mag) )
+            [self.ax, self.ay, self.az] = acc_mag * ( np.dot(self.rot_mat, acc_dir) )
+
             thresh = 40
-            if mag > thresh:
+            if gyr_mag > thresh:
                 WakeDog.feed()
             
             # print("D: ", gc.mem_free())
             # print(": read -> self.data_ready.set()")
             # print(f"gx: {self.gx}, gy: {self.gy}, gz: {self.gz}")
+
             self.data_ready.set()
             # print("" )
             # print("- end of read_imu -")
@@ -214,6 +277,9 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         x = 0.0
         y = 0.0
         z = 0.0
+
+        ax, ay, az = 0.0, 0.0, 0.0
+
         for i in range(num_calib_cycles):
             WakeDog.feed()
             # print(f"num: {i}")
@@ -221,9 +287,34 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             x += self.gx
             y += self.gy
             z += self.gz
+
+            ax += self.ax
+            ay += self.ay
+            az += self.az
+
         self.x_trim = x / num_calib_cycles
         self.y_trim = y / num_calib_cycles
         self.z_trim = z / num_calib_cycles
+
+        # Find Average Direction of Gravity Over Calibration 
+        grav_dir = np.array([ax / num_calib_cycles, ay / num_calib_cycles, az / num_calib_cycles])
+        g_mag = sqrt( grav_dir[0]**2 + grav_dir[1]**2 + grav_dir[2]**2 )
+        grav_dir = grav_dir / g_mag
+        # describe desired location of end point
+        down = np.array([0.0, -1.0, 0.0]) # desired direction of "down"
+
+        # Rotation axis is in line with Crossproduct
+        
+        n = np.cross(grav_dir, down)
+        mag_n = sqrt( n[0]**2 + n[1]**2 + n[2]**2 )
+        
+        n = n / mag_n # Normalize to Unit Vector
+
+        # Angle is related by a cross b = |a||b|sin(angle)
+        # We extract angle as angle = arcsin(a cross b)
+        th = asin(mag_n)
+
+        self.rot_mat = rot_mat(q_gen(n, th))
         print("Done Calibrating")
 
     async def stream(self):
@@ -231,7 +322,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         while True:
             #print(": stream -> awaiting self.wait")
             await self.wait()
-            print(f"{self.gx}, {self.gy}, {self.gz}")
+            print(f"Gyro: {self.gx :.2f}, {self.gy :.2f}, {self.gz :.2f} \tAccel: {self.ax :.2f}, {self.ay :.2f}, {self.az :.2f}")
 
     def spark(self):
         '''
