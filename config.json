@@ -26,11 +26,11 @@
             [   "right_click",                 "to_idle",              "to_idle"       ], 
             [   "left_click",                  "left_click",           "press_enter"   ], 
             [   "_scroll",                     "noop",                 "noop"          ], 
-            [   "_wait_for_motion",            "noop",                 "noop"          ], 
+            [   "center_mouse_cursor",         "noop",                 "noop"          ], 
             [   "_scroll_lr",                  "noop",                 "noop"          ], 
             [   "quick_calibrate",             "noop",                 "noop"          ], 
             [   "double_click",                "noop",                 "noop"          ], 
-            [   "center_mouse_cursor",         "noop",                 "noop"          ],
+            [   "quick_sleep",                 "noop",                 "noop"          ],
             [   "quick_sleep",                 "noop",                 "noop"          ],
             [   "quick_sleep",                 "noop",                 "noop"          ]
         ],
