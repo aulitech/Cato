@@ -19,7 +19,6 @@
 
     "operation_mode" : 0,
 
-
     "st_matrix" : [
         [
             [   "noop",                        "noop",                 "noop"          ],
@@ -54,7 +53,7 @@
     "turbo_rate" : [1, 0.2, 0.9],
 
     "gesture_window" : 1.2,
-    "gesture_length" : 76,
+    "gesture_length" : 75,
     "min_gesture_threshold" : 200,
     "confidence_threshold" : 0.70
     }
