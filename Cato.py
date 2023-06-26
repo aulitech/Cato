@@ -174,6 +174,7 @@ class Cato:
             self.tasks = {
                 "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
                 "tv_control"        : asyncio.create_task(self.tv_control()),
+                #"sleep"             : asyncio.create_task(self.go_to_sleep()),
                 "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
             }
         
@@ -242,10 +243,12 @@ class Cato:
         while True:
             # await asyncio.sleep(1) # TAKE IMU READINGS BEFORE TRYING TO GO BACK TO SLEEP?
             await Events.sleep.wait()
+            print("A")
             self.tasks['interrupt'].cancel() #release pin int1
             await asyncio.sleep(0.1)
+            print("B")
             self.imu.single_tap_cfg() # set wakeup condn to single tap detection
-
+            print("C")
             pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
             print("LIGHT SLEEP")
             alarm.light_sleep_until_alarms(pin_alarm)
@@ -341,7 +344,7 @@ class Cato:
         DebugStream.println("tv_control")
         while True:
             await Events.gesture_not_collecting.wait()
-            task_name = await self.gesture_interpreter()
+            task_name = await self.tv_interpreter()
 
             # needs a check for sigMotion upon new gestInterpreter
             # needs a check for sigMotion upon new gestInterpreter
@@ -406,12 +409,7 @@ class Cato:
         # self.state
         return self.st_matrix[gesture][self.state]
     
-    # possible fix for input delay:
-    #   no-input period required to enter gesture mode is shortened
-    #   premature motion imediately returns to move mouse (thresh would be reduced significantly)
-    #   cursor shake occurs near the end or after buffer period
-    # this fix would require remote to have its own interpreter, which has additional benefit of unentangling mode behaviors
-    # TODO: needs testing
+
     async def gesture_interpreter(self):
         infer = EV.NONE
         gest = []
@@ -436,6 +434,67 @@ class Cato:
                 return self.st_matrix[EV.NONE][self.state]
         
         shakeCursor = asyncio.create_task(self.shake_cursor()) #ADD PRINT TO SHAKE CURSOR
+        DebugStream.println("+ MouseEvent: Looking for Gesture")
+        Events.sig_motion.clear()
+
+        i = 0
+        # sw = asyncio.create_task(Cato.stopwatch(config["gesture_window"]))
+        # while(i <= gestLen/2)or(not sw.done()):
+        while(i <= gestLen / 2):
+            await Cato.imu.wait()
+            gest.append(array.array('f',[Cato.imu.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz]))
+            if(len(gest) > gestLen):
+                gest.pop(0)
+            
+            currMag = Cato.imu.gx**2 + Cato.imu.gy**2 + Cato.imu.gz**2
+            if(currMag > maxMag):
+                maxMag = currMag
+                i = 0
+            
+            if(maxMag >= minThresh):
+                i += 1
+                if(i == int(gestLen/2)):
+                    feedNeut = asyncio.create_task(self.feed_neuton(gest.copy()))
+            
+            if(feedNeut is not None):
+                if(feedNeut.done()):
+                    temp = self.n.inference()+1
+                    Events.feed_neuton.set()
+                    DebugStream.println(neuton_outputs)
+                    if(max(neuton_outputs) >= confThresh):
+                        infer = temp
+                    feedNeut = None
+        
+        if(maxMag >= minThresh):
+            Events.sig_motion.set()
+
+        await shakeCursor
+        return self.st_matrix[infer][self.state]
+    
+    #maybe not necessary?
+    async def tv_interpreter(self):
+        infer = EV.NONE
+        gest = []
+        gestLen = config["gesture_length"]
+        maxMag = 0
+        minThresh = config["min_gesture_threshold"]
+
+        Events.feed_neuton.set()
+        feedNeut = None
+        confThresh = config["confidence_threshold"]
+
+        # this block is experimental
+        # adds a buffer period that waits for premature motion to pass
+        i = 0
+        gest = [0]*int(gestLen/2)
+        while(i < gestLen/2):
+            await Cato.imu.wait()
+            gest[i] = array.array('f',[Cato.imu.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz])
+            mag = Cato.imu.gx**2 + Cato.imu.gy**2 + Cato.imu.gz**2
+            i += 1
+            if(mag > minThresh):
+                i = 0
+        
         DebugStream.println("+ MouseEvent: Looking for Gesture")
         Events.sig_motion.clear()
 
@@ -1097,4 +1156,3 @@ class Cato:
             #DebugStream.println(t.done())
             i += 1
             await asyncio.sleep(10)
-
