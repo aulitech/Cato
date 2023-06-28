@@ -425,7 +425,7 @@ class Cato:
         # adds a buffer period that waits for premature motion to pass
         i = 0
         gest = [0]*int(gestLen/2)
-        while(i < gestLen/2):
+        while(i < int(gestLen/2)):
             await Cato.imu.wait()
             gest[i] = array.array('f',[Cato.imu.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz])
             mag = Cato.imu.gx**2 + Cato.imu.gy**2 + Cato.imu.gz**2
@@ -1080,6 +1080,7 @@ class Cato:
                 maxMag = 0
                 drift : tuple
 
+
                 DebugStream.println("Recording")
 
                 while(len(hist) < gestLength):
@@ -1095,6 +1096,7 @@ class Cato:
                 maxMag = (maxMag[3]-drift[3])**2 + (maxMag[4]-drift[4])**2 + (maxMag[5]-drift[5])**2
                 sw = asyncio.create_task(Cato.stopwatch(timeLimit))  # Timer starts here
                 DebugStream.println("Perform Gesture: ", EV.gesture_key[gestID],"(",str(gestID),")")
+                SUS.collGestUUID = "Perform Gesture: " + EV.gesture_key[gestID]+"("+str(gestID)+")"
                 
                 while(not sw.done()):
                     await Cato.imu.wait()
@@ -1143,8 +1145,8 @@ class Cato:
 
     async def test_loop(self):
         DebugStream.println("+ test_loop")
-        from StrUUIDService import SUS
-        SUS.collGestUUID = "test_loop"
+        #from StrUUIDService import SUS
+        #SUS.collGestUUID = "test_loop"
         #await self.blue.is_connected.wait()
         i = 0
         t = asyncio.create_task(Cato.stopwatch(10))
