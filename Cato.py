@@ -1132,8 +1132,8 @@ class Cato:
 
     '''    
     async def collect_gestures_wired():
-        from StrUUIDService import SUS
-        SUS.collGestUUID = "go"
+        #from StrUUIDService import SUS
+        #SUS.collGestUUID = "go"
 
         Events.gesture_collecting.set()
         Events.gesture_not_collecting.clear()
@@ -1142,9 +1142,11 @@ class Cato:
         gestLength = config["gesture_length"]
         timeLimit = config["gc_time_window"]
 
+        '''
         SUS.collGestUUID = "stop"
         while(SUS.collGestUUID == "stop"):
             await asyncio.sleep(0.1)
+        '''
         try:
             with open("config.cato",'r') as cgFlag:
                 gestID = int(cgFlag.readline())
@@ -1175,12 +1177,12 @@ class Cato:
             SUS.collGestUUID = "FLAGGED"
             pass
         #'''
-
+        '''
         SUS.collGestUUID = "stop"
         while(SUS.collGestUUID == "stop"):
             await asyncio.sleep(0.1)
         print("Files Modified")
-
+        '''
         drift = hist[gestLength-1]
         maxGest = hist.copy()
         maxMag = maxGest[int(gestLength/2)]
@@ -1215,11 +1217,11 @@ class Cato:
         Events.gesture_collecting.clear()
         Events.gesture_not_collecting.set()
         
-
+        '''
         SUS.collGestUUID = "stop"
         while(SUS.collGestUUID == "stop"):
             await asyncio.sleep(0.1)
-        
+        '''
         mc.reset()
     
     async def stopwatch(n : float,ev : asyncio.Event = None):
