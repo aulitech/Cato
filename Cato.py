@@ -249,12 +249,10 @@ class Cato:
         while True:
             # await asyncio.sleep(1) # TAKE IMU READINGS BEFORE TRYING TO GO BACK TO SLEEP?
             await Events.sleep.wait()
-            print("A")
             self.tasks['interrupt'].cancel() #release pin int1
             await asyncio.sleep(0.1)
-            print("B")
             self.imu.single_tap_cfg() # set wakeup condn to single tap detection
-            print("C")
+            
             pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
             print("LIGHT SLEEP")
             alarm.light_sleep_until_alarms(pin_alarm)
