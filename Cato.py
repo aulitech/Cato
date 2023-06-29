@@ -1142,7 +1142,7 @@ class Cato:
         gestLength = config["gesture_length"]
         timeLimit = 3
         try:
-            with open("cg.txt",'r') as cgFlag:
+            with open("config.cato",'r') as cgFlag:
                 gestID = int(cgFlag.readline())
         except Exception as ex:
             DebugStream.println(ex)
@@ -1162,7 +1162,7 @@ class Cato:
             hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
         
         import os
-        os.remove("cg.txt")
+        os.remove("config.cato")
 
         drift = hist[gestLength-1]
         maxGest = hist.copy()

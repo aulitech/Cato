@@ -60,9 +60,9 @@ async def control_loop(c : Cato):
 
 async def main():
     try:
-        with open("cg.txt",'r') as cg:
+        with open("config.cato",'r') as cg:
             print("File Found!!!")
-        with open("cg.txt",'w') as cg:
+        with open("config.cato",'w') as cg:
             print("Booted Self-Writable")
         print("Deleting File")
         mc.nvm[2] = True
