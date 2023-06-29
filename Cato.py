@@ -252,7 +252,7 @@ class Cato:
             self.tasks['interrupt'].cancel() #release pin int1
             await asyncio.sleep(0.1)
             self.imu.single_tap_cfg() # set wakeup condn to single tap detection
-            
+
             pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
             print("LIGHT SLEEP")
             alarm.light_sleep_until_alarms(pin_alarm)
@@ -332,16 +332,16 @@ class Cato:
         task_dict = {
             "noop"  :   None,
             "up"    :   (self.turbo_input,
-                            (self.press_up, config["turbo_rate"], turbo_terminate)),
+                            (self.type_up_key, config["turbo_rate"], turbo_terminate)),
             "down"  :   (self.turbo_input,
-                            (self.press_down, config["turbo_rate"], turbo_terminate)),
+                            (self.type_down_key, config["turbo_rate"], turbo_terminate)),
             "left"  :   (self.turbo_input,
-                            (self.press_left, config["turbo_rate"], turbo_terminate)),
+                            (self.type_left_key, config["turbo_rate"], turbo_terminate)),
             "right" :   (self.turbo_input,
-                            (self.press_right, config["turbo_rate"], turbo_terminate)),
-            "enter" :   (self.press_enter,()),
-            "esc"   :   (self.press_esc,()),
-            "meta"  :   (self.press_meta,())
+                            (self.type_right_key, config["turbo_rate"], turbo_terminate)),
+            "enter" :   (self.type_enter_key,()),
+            "esc"   :   (self.type_esc_key,()),
+            "meta"  :   (self.type_meta_key,())
         }
         task = None
         prev_task = "noop"
@@ -533,7 +533,6 @@ class Cato:
         if(maxMag >= minThresh):
             Events.sig_motion.set()
 
-        await shakeCursor
         return self.st_matrix[infer][self.state]
     
     async def feed_neuton(self, log):
@@ -826,7 +825,6 @@ class Cato:
         if hall_pass is not None:
             hall_pass.set()
 
-
     async def right_click(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         try:
@@ -938,23 +936,23 @@ class Cato:
             hall_pass.set()
         
     # cato keyboard actions
-    async def press_enter(self, hall_pass: asyncio.Event = None):
+    async def type_enter_key(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         DebugStream.println("ENTER") 
-        #self.blue.k.press(Keycode.ENTER)
+        self.blue.k.press(Keycode.ENTER)
         self.blue.k.release(Keycode.ENTER)
         if hall_pass is not None:
             hall_pass.set()
     
-    async def press_esc(self, hall_pass: asyncio.Event = None):
+    async def type_esc_key(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         DebugStream.println("ESC pressed")
-        #self.blue.k.press(Keycode.ESCAPE)
+        self.blue.k.press(Keycode.ESCAPE)
         self.blue.k.release(Keycode.ESCAPE)
         if hall_pass is not None:
             hall_pass.set()
 
-    async def press_meta(self, hall_pass: asyncio.Event = None):
+    async def type_meta_key(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         DebugStream.println("META pressed")
         self.blue.k.press(Keycode.GUI)
@@ -962,7 +960,7 @@ class Cato:
         if hall_pass is not None:
             hall_pass.set()
     
-    async def press_up(self, hall_pass: asyncio.Event = None):
+    async def type_up_key(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         DebugStream.println("UP pressed")
         self.blue.k.press(Keycode.UP_ARROW)
@@ -970,7 +968,7 @@ class Cato:
         if hall_pass is not None:
             hall_pass.set()
     
-    async def press_down(self, hall_pass: asyncio.Event = None):
+    async def type_down_key(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         DebugStream.println("DOWN pressed")
         self.blue.k.press(Keycode.DOWN_ARROW)
@@ -978,7 +976,7 @@ class Cato:
         if hall_pass is not None:
             hall_pass.set()
     
-    async def press_left(self, hall_pass: asyncio.Event = None):
+    async def type_left_key(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         DebugStream.println("LEFT pressed")
         self.blue.k.press(Keycode.LEFT_ARROW)
@@ -986,7 +984,7 @@ class Cato:
         if hall_pass is not None:
             hall_pass.set()
     
-    async def press_right(self, hall_pass: asyncio.Event = None):
+    async def type_right_key(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         DebugStream.println("RIGHT pressed")
         self.blue.k.press(Keycode.RIGHT_ARROW)
@@ -1064,7 +1062,8 @@ class Cato:
                 #try:
                 gestID : int
                 gestLength = config["gesture_length"]
-                timeLimit = 3
+                timeLimit = config["gc_time_window"]
+
                 args = SUS.collGestUUID[2:].split(',')
                 if(len(args) > 3):
                     raise Exception("Too many input args (expects 1-3 ints)")
@@ -1133,12 +1132,19 @@ class Cato:
 
     '''    
     async def collect_gestures_wired():
+        from StrUUIDService import SUS
+        SUS.collGestUUID = "go"
+
         Events.gesture_collecting.set()
         Events.gesture_not_collecting.clear()
         DebugStream.println("Collecting Gesture (wired)")
         gestID : int
         gestLength = config["gesture_length"]
-        timeLimit = 3
+        timeLimit = config["gc_time_window"]
+
+        SUS.collGestUUID = "stop"
+        while(SUS.collGestUUID == "stop"):
+            await asyncio.sleep(0.1)
         try:
             with open("config.cato",'r') as cgFlag:
                 gestID = int(cgFlag.readline())
@@ -1158,9 +1164,22 @@ class Cato:
         while(len(hist) < gestLength):
             await Cato.imu.wait()
             hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
-        
-        import os
-        os.remove("config.cato")
+        try:
+            import os
+            os.remove("config.cato")
+        except:
+            DebugStream.println("Failed to delete config.cato")
+        '''''
+        with open("flag.txt",'w') as flag:
+            #from StrUUIDService import SUS
+            SUS.collGestUUID = "FLAGGED"
+            pass
+        #'''
+
+        SUS.collGestUUID = "stop"
+        while(SUS.collGestUUID == "stop"):
+            await asyncio.sleep(0.1)
+        print("Files Modified")
 
         drift = hist[gestLength-1]
         maxGest = hist.copy()
@@ -1195,6 +1214,11 @@ class Cato:
         
         Events.gesture_collecting.clear()
         Events.gesture_not_collecting.set()
+        
+
+        SUS.collGestUUID = "stop"
+        while(SUS.collGestUUID == "stop"):
+            await asyncio.sleep(0.1)
         
         mc.reset()
     

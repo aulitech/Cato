@@ -61,17 +61,16 @@ async def control_loop(c : Cato):
 async def main():
     try:
         with open("config.cato",'r') as cg:
-            print("File Found!!!")
+            pass
         with open("config.cato",'w') as cg:
-            print("Booted Self-Writable")
-        print("Deleting File")
+            pass
         mc.nvm[2] = True
     except OSError as ose:
         print(ose)
         if(ose.errno == 2):
-            print("File Not Found :(")
+            print("File Not Found")
         elif(ose.errno == 30):
-            print("Needs Reboot")
+            print("Rebooting for Gesture Training")
             mc.nvm[0] = False
             mc.reset()
     
