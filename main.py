@@ -59,6 +59,23 @@ async def control_loop(c : Cato):
         Events.mouse_event.set()
 
 async def main():
+    try:
+        with open("cg.txt",'r') as cg:
+            print("File Found!!!")
+        with open("cg.txt",'w') as cg:
+            print("Booted Self-Writable")
+        print("Deleting File")
+        mc.nvm[2] = True
+    except OSError as ose:
+        print(ose)
+        if(ose.errno == 2):
+            print("File Not Found :(")
+        elif(ose.errno == 30):
+            print("Needs Reboot")
+            mc.nvm[0] = False
+            mc.reset()
+    
+    
     ##once remount process is confirmed to work consistently, only try/except is necessary
     if(mc.nvm[1]):
         try:

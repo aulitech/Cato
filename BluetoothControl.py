@@ -96,14 +96,16 @@ class BluetoothControl():
         self.is_disconnected = asyncio.Event()  # indicates disconnection
 
         self.is_disconnected.set() #board starts without connection
-
-        self.tasks = {  # tasks
-            "characteristic_loop"   : asyncio.create_task(SUS.config_loop()),
-            "manage_connection"     : asyncio.create_task(self.manage_connection()),
-            "monitor_connections"   : asyncio.create_task(self.monitor_connections()),
-            "reconnect"             : asyncio.create_task(self.reconnect())
-
-        }
+        import microcontroller as mc
+        self.tasks = {}
+        if(not(mc.nvm[2])):
+            self.tasks = {  # tasks
+                "characteristic_loop"   : asyncio.create_task(SUS.config_loop()),
+                "manage_connection"     : asyncio.create_task(self.manage_connection()),
+                "monitor_connections"   : asyncio.create_task(self.monitor_connections()),
+                "reconnect"             : asyncio.create_task(self.reconnect())
+            }
+        
  
     async def manage_connection(self):
         #print("+ manage_connection")

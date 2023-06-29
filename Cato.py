@@ -161,21 +161,26 @@ class Cato:
                     10: Test Loop -- bluetooth print test
                 x>=20: unused
         """
-        if(mode == 0):
+        if(mc.nvm[2]):
+            mc.nvm[2] = False
+            self.tasks = {
+                "collect_gesture"   : asyncio.create_task(Cato.collect_gestures_wired())    
+            }
+        elif(mode == 0):
             self.tasks = {
                 "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
                 "move_mouse"        : asyncio.create_task(self.move_mouse()),
                 "mouse_event"       : asyncio.create_task(self.mouse_event()),
                 "scroll"            : asyncio.create_task(self.scroll()),
                 "sleep"             : asyncio.create_task(self.go_to_sleep()),
-                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
+                #"collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
             }
         elif(mode == 1):
             self.tasks = {
                 "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
                 "tv_control"        : asyncio.create_task(self.tv_control()),
                 #"sleep"             : asyncio.create_task(self.go_to_sleep()),
-                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
+                #"collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
             }
         
         elif(mode == 2):
@@ -186,17 +191,18 @@ class Cato:
         elif(mode == 3):
             self.tasks = {
                 "clicker"           : asyncio.create_task(self.clicker_task()),
-                "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
+                #"collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
             }
         elif(mode >= 10):
             self.tasks = {
                 "test_loop"         : asyncio.create_task(self.test_loop())
 
             }
-            if(mode == 10):
+            '''if(mode == 10):
                 self.tasks["collect_gestures"] = asyncio.create_task(Cato.collect_gestures_app())
             elif(mode == 11):
                 self.tasks["wait_for_motion"] = asyncio.create_task(Cato.wait_for_motion())
+            '''
         
         self.tasks.update( {"monitor_battery"   : asyncio.create_task(self.monitor_battery())} )
         self.tasks.update(Cato.imu.tasks)   # functions for t1he imu
@@ -1047,7 +1053,7 @@ class Cato:
                 cycles = 0
             # DebugStream.println("E: ", gc.mem_free())
             # DebugStream.println("")
-    
+    '''
     async def collect_gestures_app():
         from StrUUIDService import SUS
         SUS.collGestUUID = "AWAITING INTERACTION"
@@ -1127,21 +1133,78 @@ class Cato:
             else:
                 await asyncio.sleep(0.1)
 
+    '''    
+    async def collect_gestures_wired():
+        Events.gesture_collecting.set()
+        Events.gesture_not_collecting.clear()
+        DebugStream.println("Collecting Gesture (wired)")
+        gestID : int
+        gestLength = config["gesture_length"]
+        timeLimit = 3
+        try:
+            with open("cg.txt",'r') as cgFlag:
+                gestID = int(cgFlag.readline())
+        except Exception as ex:
+            DebugStream.println(ex)
+            gestID = 10
+        if(gestID < 0)or(gestID >= len(EV.gesture_key)):
+            raise Exception("Gesture ID "+gestID+" does not exist")
+        
+        hist = []
+        maxGest = []
+        maxMag = 0
+        drift : tuple
 
+        DebugStream.println("Recording")
 
+        while(len(hist) < gestLength):
+            await Cato.imu.wait()
+            hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
+        
+        import os
+        os.remove("cg.txt")
+
+        drift = hist[gestLength-1]
+        maxGest = hist.copy()
+        maxMag = maxGest[int(gestLength/2)]
+        DebugStream.println(maxMag)
+        for g in maxMag:
+            DebugStream.println(type(g))
+        maxMag = (maxMag[3]-drift[3])**2 + (maxMag[4]-drift[4])**2 + (maxMag[5]-drift[5])**2
+        sw = asyncio.create_task(Cato.stopwatch(timeLimit))  # Timer starts here
+        DebugStream.println("Perform Gesture: ", EV.gesture_key[gestID],"(",str(gestID),")")
+        
+        while(not sw.done()):
+            await Cato.imu.wait()
+            hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
+            hist.pop(0)
+
+            currMid = hist[int(gestLength/2)]
+            currMag = (currMid[3]-drift[3])**2 + (currMid[4]-drift[4])**2 + (currMid[5]-drift[5])**2
+            if(currMag > maxMag):
+                DebugStream.println("New Max Read")
+                DebugStream.println(currMag, ">", maxMag)
+                maxMag = currMag
+                maxGest = hist.copy()
+
+        DebugStream.println("Gesture Recording Completed")
+        with open("log.txt",'w') as log:
+            while(len(maxGest) > 0):
+                d = maxGest.pop(0)
+                log.write(",".join(str(v) for v in d))
+                log.write("\n")
+                await asyncio.sleep(0)
+        
+        Events.gesture_collecting.clear()
+        Events.gesture_not_collecting.set()
+        
+        mc.reset()
+    
     async def stopwatch(n : float,ev : asyncio.Event = None):
         if(n >= 0):
             await asyncio.sleep(n)
             if(ev is not None):
                 ev.set()
-    
-    def shuffle(l : list):
-        from random import randint
-        for i in range(0,len(l)):
-            r = randint(i,len(l)-1)
-            if(i != r):
-                l[i],l[r] = l[r],l[i]
-        return
 
     async def test_loop(self):
         DebugStream.println("+ test_loop")
