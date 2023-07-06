@@ -1132,96 +1132,106 @@ class Cato:
 
     '''    
     async def collect_gestures_wired():
-        #from StrUUIDService import SUS
-        #SUS.collGestUUID = "go"
-
-        Events.gesture_collecting.set()
-        Events.gesture_not_collecting.clear()
-        DebugStream.println("Collecting Gesture (wired)")
-        gestID : int
-        gestLength = config["gesture_length"]
-        timeLimit = config["gc_time_window"]
-
-        '''
-        SUS.collGestUUID = "stop"
-        while(SUS.collGestUUID == "stop"):
-            await asyncio.sleep(0.1)
-        '''
         try:
-            with open("config.cato",'r') as cgFlag:
-                gestID = int(cgFlag.readline())
+            #from StrUUIDService import SUS
+            #SUS.collGestUUID = "go"
+            mc.nvm[2] = 0
+
+            Events.gesture_collecting.set()
+            Events.gesture_not_collecting.clear()
+            DebugStream.println("Collecting Gesture (wired)")
+            gestID : int
+            gestLength = config["gesture_length"]
+            timeLimit = config["gc_time_window"]
+
+            '''
+            SUS.collGestUUID = "stop"
+            while(SUS.collGestUUID == "stop"):
+                await asyncio.sleep(0.1)
+            '''
+            try:
+                with open("config.cato",'r') as cgFlag:
+                    gestID = int(cgFlag.readline())
+            except Exception as ex:
+                DebugStream.println(ex)
+                gestID = 10
+            if(gestID < 0)or(gestID >= len(EV.gesture_key)):
+                import os
+                os.remove("config.cato")
+                raise Exception("Gesture ID "+gestID+" does not exist")
+            
+            hist = []
+            maxGest = []
+            maxMag = 0
+            drift : tuple
+
+            DebugStream.println("Recording")
+
+            while(len(hist) < gestLength):
+                await Cato.imu.wait()
+                hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
+            try:
+                import os
+                os.remove("config.cato")
+            except:
+                DebugStream.println("Failed to delete config.cato")
+            '''''
+            with open("flag.txt",'w') as flag:
+                #from StrUUIDService import SUS
+                SUS.collGestUUID = "FLAGGED"
+                pass
+            #'''
+            '''
+            SUS.collGestUUID = "stop"
+            while(SUS.collGestUUID == "stop"):
+                await asyncio.sleep(0.1)
+            print("Files Modified")
+            '''
+            drift = hist[gestLength-1]
+            maxGest = hist.copy()
+            maxMag = maxGest[int(gestLength/2)]
+            DebugStream.println(maxMag)
+            for g in maxMag:
+                DebugStream.println(type(g))
+            maxMag = (maxMag[3]-drift[3])**2 + (maxMag[4]-drift[4])**2 + (maxMag[5]-drift[5])**2
+            sw = asyncio.create_task(Cato.stopwatch(timeLimit))  # Timer starts here
+            DebugStream.println("Perform Gesture: ", EV.gesture_key[gestID],"(",str(gestID),")")
+            
+            while(not sw.done()):
+                print(mem())
+                await Cato.imu.wait()
+                hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
+                hist.pop(0)
+
+                currMid = hist[int(gestLength/2)]
+                currMag = (currMid[3]-drift[3])**2 + (currMid[4]-drift[4])**2 + (currMid[5]-drift[5])**2
+                if(currMag > maxMag):
+                    DebugStream.println("New Max Read")
+                    DebugStream.println(currMag, ">", maxMag)
+                    maxMag = currMag
+                    maxGest = hist.copy()
+
+            DebugStream.println("Gesture Recording Completed")
+            with open("log.txt",'w') as log:
+                print(mem())
+                while(len(maxGest) > 0):
+                    d = maxGest.pop(0)
+                    log.write(",".join(str(v) for v in d))
+                    log.write("\n")
+                    await asyncio.sleep(0)
+            
+            Events.gesture_collecting.clear()
+            Events.gesture_not_collecting.set()
+            
+            '''
+            SUS.collGestUUID = "stop"
+            while(SUS.collGestUUID == "stop"):
+                await asyncio.sleep(0.1)
+            '''
         except Exception as ex:
-            DebugStream.println(ex)
-            gestID = 10
-        if(gestID < 0)or(gestID >= len(EV.gesture_key)):
-            raise Exception("Gesture ID "+gestID+" does not exist")
-        
-        hist = []
-        maxGest = []
-        maxMag = 0
-        drift : tuple
-
-        DebugStream.println("Recording")
-
-        while(len(hist) < gestLength):
-            await Cato.imu.wait()
-            hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
-        try:
             import os
             os.remove("config.cato")
-        except:
-            DebugStream.println("Failed to delete config.cato")
-        '''''
-        with open("flag.txt",'w') as flag:
-            #from StrUUIDService import SUS
-            SUS.collGestUUID = "FLAGGED"
-            pass
-        #'''
-        '''
-        SUS.collGestUUID = "stop"
-        while(SUS.collGestUUID == "stop"):
-            await asyncio.sleep(0.1)
-        print("Files Modified")
-        '''
-        drift = hist[gestLength-1]
-        maxGest = hist.copy()
-        maxMag = maxGest[int(gestLength/2)]
-        DebugStream.println(maxMag)
-        for g in maxMag:
-            DebugStream.println(type(g))
-        maxMag = (maxMag[3]-drift[3])**2 + (maxMag[4]-drift[4])**2 + (maxMag[5]-drift[5])**2
-        sw = asyncio.create_task(Cato.stopwatch(timeLimit))  # Timer starts here
-        DebugStream.println("Perform Gesture: ", EV.gesture_key[gestID],"(",str(gestID),")")
-        
-        while(not sw.done()):
-            await Cato.imu.wait()
-            hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
-            hist.pop(0)
-
-            currMid = hist[int(gestLength/2)]
-            currMag = (currMid[3]-drift[3])**2 + (currMid[4]-drift[4])**2 + (currMid[5]-drift[5])**2
-            if(currMag > maxMag):
-                DebugStream.println("New Max Read")
-                DebugStream.println(currMag, ">", maxMag)
-                maxMag = currMag
-                maxGest = hist.copy()
-
-        DebugStream.println("Gesture Recording Completed")
-        with open("log.txt",'w') as log:
-            while(len(maxGest) > 0):
-                d = maxGest.pop(0)
-                log.write(",".join(str(v) for v in d))
-                log.write("\n")
-                await asyncio.sleep(0)
-        
-        Events.gesture_collecting.clear()
-        Events.gesture_not_collecting.set()
-        
-        '''
-        SUS.collGestUUID = "stop"
-        while(SUS.collGestUUID == "stop"):
-            await asyncio.sleep(0.1)
-        '''
+            raise(ex)
         mc.reset()
     
     async def stopwatch(n : float,ev : asyncio.Event = None):
