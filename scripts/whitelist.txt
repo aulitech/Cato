@@ -1,11 +1,8 @@
 .env
-battery.py
 BluetoothControl.py
 StrUUIDService.py
 boot.py
 Cato.py
 imu.py
 main.py
-mode.py
-CircularBuffer.py
 config.json

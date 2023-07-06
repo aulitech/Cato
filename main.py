@@ -68,5 +68,3 @@ async def main():
 
 
 asyncio.run(main())
-# mode.select_reboot_mode()
-#Here is a new comment
