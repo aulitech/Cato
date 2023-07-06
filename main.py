@@ -12,20 +12,12 @@ from microcontroller import watchdog as w
 from watchdog import WatchDogMode
 import supervisor
 import gc
-
-import io
-import analogio
-import digitalio
-import busio
-
+ 
 import asyncio
-import time
 
 from imu import LSM6DS3TRC
 
-from Cato import Cato,Events
-import battery
-import mode
+from Cato import Cato
 
 from BluetoothControl import DebugStream as DBS
 

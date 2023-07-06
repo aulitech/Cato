@@ -1,5 +1,3 @@
-
-
 from adafruit_ble.uuid import VendorUUID
 from adafruit_ble.services import Service
 from adafruit_ble.characteristics import Characteristic

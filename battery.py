@@ -3,15 +3,14 @@ import time
 import analogio
 import digitalio
 import asyncio
-import json
+
 
 from CircularBuffer import CircBuf
 class Battery:
     def __init__(self):
-        with open('config.json', 'r') as f:
-            x = json.load(f)
-            self.low = x['battery']['low']
-            self.high = x['battery']['high']
+        from StrUUIDService import config
+        self.low = config['battery']['low']
+        self.high = config['battery']['high']
         
         self.b_pin = analogio.AnalogIn(board.VBATT)
         

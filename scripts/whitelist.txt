@@ -4,10 +4,8 @@ BluetoothControl.py
 StrUUIDService.py
 boot.py
 Cato.py
-DummyBT.py
 imu.py
 main.py
 mode.py
 CircularBuffer.py
 config.json
-tester.json

@@ -6,7 +6,6 @@ from adafruit_ble.advertising import Advertisement, AdvertisingFlag, Advertising
 from adafruit_ble.advertising.standard import ProvideServicesAdvertisement
 from adafruit_ble.services.standard.hid import HIDService
 from adafruit_ble.services.standard.device_info import DeviceInfoService
-from adafruit_ble.services.nordic import UARTService
 
 from adafruit_hid.keyboard import Keyboard
 from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
@@ -14,13 +13,9 @@ from adafruit_hid.keycode import Keycode as Keycode
 from adafruit_hid.mouse import Mouse
 
 from StrUUIDService import SUS
-from StrUUIDService import config
-from StrUUIDService import StrUUIDService
 from StrUUIDService import DebugStream
 
 import asyncio
-
-import json
 
 import gc
 
