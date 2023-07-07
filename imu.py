@@ -156,8 +156,8 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             while True:
                 await asyncio.sleep(0)
                 if interrupt.count > 0:
-                    if self.int1_ctrl == 0:
-                        print(sp.ticks_ms() % 100)
+                    # if self.int1_ctrl == 0:
+                    #     print(sp.ticks_ms() % 100)
                     interrupt.count = 0
                     #print(": interrupt -> imu_ready.set(); (interrupt.count > 0)")
                     self.imu_ready.set()

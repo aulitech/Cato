@@ -185,6 +185,7 @@ class Cato:
         elif(mode == 3):
             self.tasks = {
                 "clicker"           : asyncio.create_task(self.clicker_task()),
+                "sleep"             : asyncio.create_task(self.go_to_sleep()),
                 "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
             }
         elif(mode >= 10):
