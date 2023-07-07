@@ -3,21 +3,22 @@
         "idle_thresh"   : 6.0,
         "min_run_cycles": 30,
         "idle_duration" : 25,
-        "scale"         : 1.2,
+        "scale"         : 0.8,
         "slow_thresh"   : 20.0,
         "fast_thresh"   : 100.0,
         "slow_scale"    : 0.3,
         "fast_scale"    : 2.5
     },
 
-    "screen_size" : [1920, 1080],
+    "screen_size" : [3840, 2160],
 
     "battery" : {
         "low" : 22100,
         "high": 30950
     },
 
-    "operation_mode" : 0,
+    "operation_mode" : 3,
+
 
     "st_matrix" : [
         [
@@ -27,11 +28,11 @@
             [   "_scroll",                     "noop",                 "noop"          ], 
             [   "_wait_for_motion",            "noop",                 "noop"          ], 
             [   "_scroll_lr",                  "noop",                 "noop"          ], 
-            [   "_scroll_lr",                  "noop",                 "noop"          ], 
+            [   "quick_calibrate",             "noop",                 "noop"          ], 
             [   "double_click",                "noop",                 "noop"          ], 
-            [   "_wait_for_motion",            "noop",                 "noop"          ],
             [   "center_mouse_cursor",         "noop",                 "noop"          ],
-            [   "center_mouse_cursor",         "noop",                 "noop"          ]
+            [   "quick_sleep",                 "noop",                 "noop"          ],
+            [   "quick_sleep",                 "noop",                 "noop"          ]
         ],
         [
             [   "noop"  ],
