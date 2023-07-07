@@ -566,7 +566,7 @@ class Cato:
         while True:
             await Cato.imu.wait()
             try:
-                DebugStream.println("Click")
+                # DebugStream.println("Click")
                 self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
             except ConnectionError as ce:
                 DebugStream.println("ConnectionError: connection lost in clicker_task()")
