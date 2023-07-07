@@ -56,16 +56,16 @@ It detects "Yes" and "No"
 
 ## State Matrix
 
-    | GESTURE       | IDLE              | MOUSE (Coming soon!)  | KEYBOARD MODE (Coming soon!)  |
-    | -----------   | -----------       | -----------           | -----------                   |
-    | Up            | Left Click        | -----------           | -----------                   |
-    | Down          | Move Mouse        | -----------           | -----------                   |
-    | Right         | Scroll            | -----------           | -----------                   |
-    | Left          | Wait for Motion   | -----------           | -----------                   |
-    | Roll Right    | Scroll Left/Right | -----------           | -----------                   |
-    | Roll Left     | Scroll Left/Right | -----------           | -----------                   |
-    | Nod Yes       | Double Click      | -----------           | -----------                   |
-    | Shake No      | No Operation      | -----------           | -----------                   |
+| GESTURE       | IDLE              | MOUSE (Coming soon!)  | KEYBOARD MODE (Coming soon!)  |
+| -----------   | -----------       | -----------           | -----------                   |
+| Up            | Left Click        | -----------           | -----------                   |
+| Down          | Move Mouse        | -----------           | -----------                   |
+| Right         | Scroll            | -----------           | -----------                   |
+| Left          | Wait for Motion   | -----------           | -----------                   |
+| Roll Right    | Scroll Left/Right | -----------           | -----------                   |
+| Roll Left     | Scroll Left/Right | -----------           | -----------                   |
+| Nod Yes       | Double Click      | -----------           | -----------                   |
+| Shake No      | No Operation      | -----------           | -----------                   |
 
 ## Operation Mode
 
