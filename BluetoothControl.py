@@ -30,13 +30,30 @@ class Appearances:
     control_device = 0x04C0 # 0x04C0 to 0x04FF
 
 class BluetoothControl():
+
+    from StrUUIDService import config
+    if(not("name" in config.keys())):
+        config["name"] = "Cato_"
+        from builtins import hex
+        from microcontroller import cpu
+        uid = cpu.uid
+        for i in range(-3,0,1):
+            config["name"] += str(hex(uid[i])[-2:])
+        import json
+        try:
+            with open("config.json", 'w') as f:
+                json.dump(config, f)    #for some reason "indent" kwarg is not recognized
+                ##json formatter method would be nice here to make config.json human readable
+        except OSError as oser:
+            print("ERROR SAVING NAME: "+str(oser))
+    
     # BLERadio can toggle advertising state
     ble = adafruit_ble.BLERadio()
-    ble.name = "Cato"
+    ble.name = config["name"]
 
     def __init__(self):
         self.hid = HIDService() # manages human interface device
-
+        print("NEW NAME: ",BluetoothControl.ble.name)
         self.device_info = DeviceInfoService(
             manufacturer = "AULITECH",
             # github will manage
@@ -50,7 +67,7 @@ class BluetoothControl():
             service = None
         )
 
-        name = "Cato"
+        name = BluetoothControl.ble.name
         self.advertisement = ProvideServicesAdvertisement( self.hid )
         self.advertisement.appearance = Appearances.hid
         self.advertisement.short_name = name

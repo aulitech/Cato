@@ -19,18 +19,17 @@
 
     "operation_mode" : 2,
 
-
     "st_matrix" : [
         [
             [   "noop",                        "noop",                 "noop"          ],
             [   "right_click",                 "to_idle",              "to_idle"       ], 
             [   "left_click",                  "left_click",           "press_enter"   ], 
             [   "_scroll",                     "noop",                 "noop"          ], 
-            [   "_wait_for_motion",            "noop",                 "noop"          ], 
+            [   "center_mouse_cursor",         "noop",                 "noop"          ], 
             [   "_scroll_lr",                  "noop",                 "noop"          ], 
             [   "quick_calibrate",             "noop",                 "noop"          ], 
             [   "double_click",                "noop",                 "noop"          ], 
-            [   "center_mouse_cursor",         "noop",                 "noop"          ],
+            [   "quick_sleep",                 "noop",                 "noop"          ],
             [   "quick_sleep",                 "noop",                 "noop"          ],
             [   "quick_sleep",                 "noop",                 "noop"          ]
         ],
@@ -54,7 +53,7 @@
     "turbo_rate" : [1, 0.2, 0.9],
 
     "gesture_window" : 1.2,
-    "gesture_length" : 76,
+    "gesture_length" : 75,
     "min_gesture_threshold" : 200,
     "confidence_threshold" : 0.70
     }
