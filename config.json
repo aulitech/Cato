@@ -17,21 +17,21 @@
         "high": 30950
     },
 
-    "operation_mode" : 10,
+    "operation_mode" : 0,
 
-    "st_matrix" : [
+    "bindings" : [
         [
-            [   "noop",                        "noop",                 "noop"          ],
-            [   "right_click",                 "to_idle",              "to_idle"       ], 
-            [   "left_click",                  "left_click",           "press_enter"   ], 
-            [   "_scroll",                     "noop",                 "noop"          ], 
-            [   "center_mouse_cursor",         "noop",                 "noop"          ], 
-            [   "_scroll_lr",                  "noop",                 "noop"          ], 
-            [   "quick_calibrate",             "noop",                 "noop"          ], 
-            [   "double_click",                "noop",                 "noop"          ], 
-            [   "quick_sleep",                 "noop",                 "noop"          ],
-            [   "quick_sleep",                 "noop",                 "noop"          ],
-            [   "quick_sleep",                 "noop",                 "noop"          ]
+            [   "noop"                  ],
+            [   "right_click"           ], 
+            [   "left_click"            ], 
+            [   "_scroll"               ], 
+            [   "center_mouse_cursor"   ], 
+            [   "_scroll_lr"            ],
+            [   "quick_calibrate"       ], 
+            [   "double_click"          ], 
+            [   "quick_sleep"           ],
+            [   "quick_sleep"           ],
+            [   "quick_sleep"           ]
         ],
         [
             [   "noop"  ],

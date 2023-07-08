@@ -25,10 +25,12 @@ class StrUUIDService(Service):
         properties = Characteristic.READ | Characteristic.NOTIFY
     )
     
-    collGestUUID = StringCharacteristic(
-        uuid = VendorUUID("528ff74b-fdb8-444c-9c64-3dd5da4135ae"),
-        properties = Characteristic.READ | Characteristic.NOTIFY | Characteristic.WRITE
-    )
+    devUUID = None
+    if(config["operation_mode"] >= 10):
+        devUUID = StringCharacteristic(
+            uuid = VendorUUID("528ff74b-fdb8-444c-9c64-3dd5da4135ae"),
+            properties = Characteristic.READ | Characteristic.NOTIFY | Characteristic.WRITE
+        )
 
     def __init__(self):
         super().__init__(service = None)

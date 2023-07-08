@@ -370,10 +370,10 @@ class Cato:
     
     async def dummy_event(self):
         from StrUUIDService import SUS
-        SUS.collGestUUID = ""
-        while(SUS.collGestUUID == ""):
+        SUS.devUUID = ""
+        while(SUS.devUUID == ""):
             await asyncio.sleep(0.1)
-        g = int(SUS.collGestUUID)
+        g = int(SUS.devUUID)
         DebugStream.println(g,":\t",self.st_matrix[g][0])
         return self.st_matrix[g][0]
     

@@ -98,7 +98,7 @@ class BluetoothControl():
         self.is_disconnected.set() #board starts without connection
         import microcontroller as mc
         self.tasks = {}
-        if((BluetoothControl.config["operation_mode"]>=10)or not(mc.nvm[2])):
+        if((BluetoothControl.config["operation_mode"]>=20)or not(mc.nvm[2])):
             self.tasks = {  # tasks
                 "characteristic_loop"   : asyncio.create_task(SUS.config_loop()),
                 "manage_connection"     : asyncio.create_task(self.manage_connection()),
