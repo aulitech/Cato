@@ -14,7 +14,7 @@ from adafruit_hid.mouse import Mouse
 
 from StrUUIDService import SUS
 #from StrUUIDService import config
-#from StrUUIDService import DebugStream
+#from StrUUIDService import DebugStream as DBS
 
 import asyncio
 

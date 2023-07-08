@@ -1,7 +1,4 @@
-from adafruit_ble.uuid import VendorUUID
 from adafruit_ble.services import Service
-from adafruit_ble.characteristics import Characteristic
-from adafruit_ble.characteristics.string import StringCharacteristic
 
 import microcontroller as mc
 import json
@@ -13,23 +10,26 @@ with open("config.json",'r') as f:
     config = json.load(f)
 
 class StrUUIDService(Service):
+    from adafruit_ble.uuid import VendorUUID
+    from adafruit_ble.characteristics.string import StringCharacteristic as SC
+
     uuid = VendorUUID("51ad213f-e568-4e35-84e4-67af89c79ef0")
-   
-    configUUID = StringCharacteristic(
+
+    configUUID = SC(
         uuid = uuid,
-        properties = Characteristic.READ | Characteristic.NOTIFY | Characteristic.WRITE
+        properties = SC.READ | SC.NOTIFY | SC.WRITE
     )
 
-    debugUUID = StringCharacteristic(
+    debugUUID = SC(
         uuid = VendorUUID("daba249c-3d15-465e-b0b6-f6162548e137"),
-        properties = Characteristic.READ | Characteristic.NOTIFY
+        properties = SC.READ | SC.NOTIFY
     )
     
     devUUID = None
     if(config["operation_mode"] >= 10):
-        devUUID = StringCharacteristic(
+        devUUID = SC(
             uuid = VendorUUID("528ff74b-fdb8-444c-9c64-3dd5da4135ae"),
-            properties = Characteristic.READ | Characteristic.NOTIFY | Characteristic.WRITE
+            properties = SC.READ | SC.NOTIFY | SC.WRITE
         )
 
     def __init__(self):
@@ -101,7 +101,6 @@ class StrUUIDService(Service):
     async def overwrite_config(self):
         self.configUUID = "READY"
         confBuff = await self._gather_configUUID()
-        DebugStream.println(confBuff)
 
         try:
             confBuff = json.loads(confBuff)
@@ -112,7 +111,6 @@ class StrUUIDService(Service):
         self.configUUID = "OVERWRITE COMPLETE"
 
     async def _gather_configUUID(self):
-        DebugStream.println("+ _gather_configUUID")
         # rudamentry safety signal in case multiple updates are queued
         self.configUUID = "READY"
         while(self.configUUID == "READY"):
@@ -121,11 +119,9 @@ class StrUUIDService(Service):
         str = ""
         while(self.configUUID != "COMPLETE"):
             if(self.configUUID != "NEXT"):
-                DebugStream.println(": _gather_configUUID\t-> configUUID = ",self.configUUID)
                 str += self.configUUID
                 self.configUUID = "NEXT"
             await asyncio.sleep(0.1)    ##sleep(0) upon nonhuman uuid interfacing
-        DebugStream.println("- _gather_configUUID")
         return str
     
     async def save_config(self):
@@ -168,7 +164,6 @@ class StrUUIDService(Service):
 
 
 class DebugStream:
-
     strBuff = ""
 
     def print(*args, end = ''):
