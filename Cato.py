@@ -30,7 +30,7 @@ from StrUUIDService import DebugStream as DBS
 #helpers and enums
 
 class EV(): #these are actually gestures
-    gesture_key = [
+    gesture_key = [ # TODO: Pull the names from config
         "None",
         "Nod Up",
         "Nod Down",
@@ -164,7 +164,8 @@ class Cato:
         elif(mode == 3):
             self.tasks = {
                 "clicker"           : asyncio.create_task(self.clicker_task()),
-                #"collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
+                #"collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app()),
+                "sleep"             : asyncio.create_task(self.go_to_sleep()),
             }
         elif(mode >= 10):
             self.tasks = {
@@ -186,36 +187,39 @@ class Cato:
         self.n = Neuton(outputs=neuton_outputs)
         self.gesture = EV.NONE
 
+        self.led_pin = board.LED_GREEN
+        self.led = digitalio.DigitalInOut(self.led_pin)
+        self.led.direction = digitalio.Direction.OUTPUT
+
         DBS.println("- Cato Init")
     
     async def reboot():
         mc.reset()
 
 
-    @property
-    def gx(self):
-        return Cato.imu.gx
+    # @property
+    # def gx(self):
+    #     return Cato.imu.gx
     
-    @property
-    def gy(self):
-        return Cato.imu.gy
+    # @property
+    # def gy(self):
+    #     return Cato.imu.gy
 
-    @property
-    def gz(self):
-        return Cato.imu.gz
+    # @property
+    # def gz(self):
+    #     return Cato.imu.gz
 
-    @property
-    def ax(self):
-        return Cato.imu.ax
+    # @property
+    # def ax(self):
+    #     return Cato.imu.ax
 
-    @property
-    def ay(self):
-        return Cato.imu.ay
+    # @property
+    # def ay(self):
+    #     return Cato.imu.ay
 
-    @property
-    def az(self):
-        return Cato.imu.az
-    
+    # @property
+    # def az(self):
+    #     return Cato.imu.az
     
     async def go_to_sleep(self):
         
@@ -225,9 +229,15 @@ class Cato:
             await Events.sleep.wait()
             self.tasks['interrupt'].cancel() #release pin int1
             await asyncio.sleep(0.1)
+
             self.imu.single_tap_cfg() # set wakeup condn to single tap detection
 
             pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
+            
+            # ensure that LED is OFF
+            while( self.led.value == False ):
+                await asyncio.sleep(0.001)
+
             print("LIGHT SLEEP")
             alarm.light_sleep_until_alarms(pin_alarm)
             print("WOKE UP")
@@ -241,16 +251,12 @@ class Cato:
             #await asyncio.sleep(1) # TAKE IMU READINGS BEFORE TRYING TO GO BACK TO SLEEP?
 
     async def monitor_battery(self):
-        led_pin = board.LED_GREEN
-        led = digitalio.DigitalInOut(led_pin)
-        led.direction = digitalio.Direction.OUTPUT
-        
         while True:
             for i in range(3):
                 await asyncio.sleep(0.2)
-                led.value = False
+                self.led.value = False
                 await asyncio.sleep(0.2)
-                led.value = True
+                self.led.value = True
             await asyncio.sleep(5)
             temp = self.battery.raw_value
             # DBS.println(f"bat_ena True: {temp[0]}")
@@ -480,7 +486,7 @@ class Cato:
         while True:
             await Cato.imu.wait()
             try:
-                DBS.println("Click")
+                #DBS.println("Click")
                 self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
             except ConnectionError as ce:
                 DBS.println("ConnectionError: connection lost in clicker_task()")
@@ -550,8 +556,8 @@ class Cato:
             cycle_count += 1    # count cycles
 
             # isolate x and y axes so they can be changed later with different orientations
-            x_mvmt = self.gy
-            y_mvmt = self.gz
+            x_mvmt = self.imu.gy
+            y_mvmt = self.imu.gz
 
             # calculate magnitude and angle for linear scaling
             mag = sqrt(x_mvmt**2 + y_mvmt**2)
