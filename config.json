@@ -3,7 +3,7 @@
         "idle_thresh"   : 6.0,
         "min_run_cycles": 30,
         "idle_duration" : 25,
-        "scale"         : 1.2,
+        "scale"         : 0.8,
         "slow_thresh"   : 20.0,
         "fast_thresh"   : 100.0,
         "slow_scale"    : 0.3,
@@ -17,7 +17,7 @@
         "high": 30950
     },
 
-    "operation_mode" : 0,
+    "operation_mode" : 2,
 
     "st_matrix" : [
         [
