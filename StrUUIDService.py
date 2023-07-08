@@ -45,11 +45,12 @@ class StrUUIDService(Service):
             "OVERWRITE"     : self.overwrite_config,
             "SAVE"          : self.save_config,
 
+            "CALIBRATE"     : self.calibrate_imu,
+            "FULL_CALIBRATE": self.full_calibrate_imu,
+            
             "REBOOT"        : self.reboot,
             "REBOOTRO"      : self.reboot_forceRO,
             "BOOTLOADER"    : self.reboot_bootloader,
-
-            "CALIBRATE"     : self.set_calibrate_event,
         }
 
         self.configUUID = "AWAITING INTERACTION"
@@ -62,10 +63,6 @@ class StrUUIDService(Service):
                 continue
             await coro()
     
-    async def set_calibrate_event(self):
-        from Cato import Cato
-        await Cato.imu.calibrate(100)
-        self.configUUID = "CALIBRATION COMPLETE"
 
     async def send_config(self):
         l = str(config)
@@ -134,6 +131,16 @@ class StrUUIDService(Service):
         except OSError as oser:
             self.configUUID = "SAVE ERROR: "+str(oser)
     
+
+    async def calibrate_imu(self):
+        from Cato import Cato
+        await Cato.imu.calibrate(100)
+        self.configUUID = "CALIBRATION COMPLETE"
+    async def full_calibrate_imu(self):
+        from Cato import Cato
+        await Cato.imu.full_calibrate(100)
+        self.configUUID = "CALIBRATION COMPLETE"
+
 
     async def reboot(self):
         await self.save_config()

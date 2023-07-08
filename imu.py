@@ -262,6 +262,20 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         
         gyro_avg = np.array([0.0, 0.0, 0.0])
 
+        for i in range(num_calib_cycles):
+            await self.wait()
+            gyro_avg    += self.gyro_vals
+            WakeDog.feed()
+
+        self.gyro_trim = gyro_avg / num_calib_cycles
+        print("Done Calibrating")
+    
+    async def full_calibrate(self, num_calib_cycles):
+        from WakeDog import WakeDog
+        print("Calibrating HOLD STILL")
+        
+        gyro_avg = np.array([0.0, 0.0, 0.0])
+
         accel_avg = np.array([0.0, 0.0, 0.0])
 
         for i in range(num_calib_cycles):
@@ -290,7 +304,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         # We extract angle as angle = arcsin(a cross b)
         th = asin(mag_n)
 
-        # self.rot_mat = rot_mat( q_gen(n, th) )
+        self.rot_mat = rot_mat( q_gen(n, th) )
         print("Done Calibrating")
 
     async def stream(self):
