@@ -252,8 +252,9 @@ class Cato:
             self.imu.single_tap_cfg() # set wakeup condn to single tap detection
 
             pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
-
-            while( self.led.value == True ):
+            
+            # ensure that LED is OFF
+            while( self.led.value == False ):
                 await asyncio.sleep(0.001)
 
             print("LIGHT SLEEP")
