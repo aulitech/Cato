@@ -196,33 +196,8 @@ class Cato:
     async def reboot():
         mc.reset()
 
-
-    # @property
-    # def gx(self):
-    #     return Cato.imu.gx
-    
-    # @property
-    # def gy(self):
-    #     return Cato.imu.gy
-
-    # @property
-    # def gz(self):
-    #     return Cato.imu.gz
-
-    # @property
-    # def ax(self):
-    #     return Cato.imu.ax
-
-    # @property
-    # def ay(self):
-    #     return Cato.imu.ay
-
-    # @property
-    # def az(self):
-    #     return Cato.imu.az
     
     async def go_to_sleep(self):
-        
         # This method sets a Cato to go to sleep - presently after exactly 15 seconds, soon to be based on inactivity
         while True:
             # await asyncio.sleep(1) # TAKE IMU READINGS BEFORE TRYING TO GO BACK TO SLEEP?
@@ -306,6 +281,7 @@ class Cato:
             #DBS.println("Detect Event: Finished Dispatching")
             Events.control_loop.set()
     
+    #TODO: refactor to use button_action exclusively
     async def tv_control(self):
         Cato.imu.data_ready_on_int1_setup()
         turbo_terminate = asyncio.Event()
@@ -349,6 +325,7 @@ class Cato:
                 prev_task = "noop"
 
     async def gesture_interpreter(self):
+        DBS.println("+gesture_interpreter mem: ",gc.mem_free())
         infer = EV.NONE
         gest = []
         gestLen = config["gesture_length"]
@@ -365,7 +342,7 @@ class Cato:
         gest = [0]*int(gestLen/2)
         while(i < int(gestLen/2)):
             await Cato.imu.wait()
-            gest[i] = array.array('f',[Cato.imu.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz])
+            gest[i] = array.array('f',[Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz])
             mag = Cato.imu.gx**2 + Cato.imu.gy**2 + Cato.imu.gz**2
             i += 1
             if(mag > minThresh):
@@ -380,7 +357,7 @@ class Cato:
         # while(i <= gestLen/2)or(not sw.done()):
         while(i <= gestLen / 2):
             await Cato.imu.wait()
-            gest.append(array.array('f',[Cato.imu.ax, self.ay, self.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz]))
+            gest.append(array.array('f',[Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz]))
             if(len(gest) > gestLen):
                 gest.pop(0)
             
@@ -407,6 +384,7 @@ class Cato:
             Events.sig_motion.set()
 
         await shakeCursor
+        DBS.println("-gesture_interpreter mem: ",gc.mem_free())
         return self.bindings[infer][self.state]
     
     async def feed_neuton(self, log):
@@ -418,7 +396,7 @@ class Cato:
                 break
         DBS.println("Successful Feed")
     
-    
+    # TODO: unimplement this method after tv refactor
     async def turbo_input(self, coro, rate, terminator: asyncio.Event):
         delay = rate[0]
         while(not(terminator.is_set())):
@@ -628,7 +606,7 @@ class Cato:
             for i in range(slow_down):
                 await Cato.imu.wait()
             
-            z += (-1) * scale * self.gz * dt
+            z += (-1) * scale * Cato.imu.gz * dt
 
             try:
                 self.blue.mouse.move(0, 0, int(z))
@@ -636,7 +614,7 @@ class Cato:
                 DBS.println("ConnectionError: connection lost in scroll()")
                 DBS.println(str(ce))
 
-            if( abs(self.gy) > 30.0 ):
+            if( abs(Cato.imu.gy) > 30.0 ):
                 DBS.println("\t- Scroll Broken")
                 num_cycles = 0
 
@@ -688,11 +666,7 @@ class Cato:
             
             elif(isinstance(actor,type(self.blue.k))):
                 modifier = Keycode.modifier_bit(button)
-                #print(button)
-                #print(modifier)
                 if(modifier):
-                    #print(bin(modifier))
-                    #print(bin(actor.report[0]))
                     return not(bool(modifier & ~(actor.report[0])))
                 else:
                     ip = False
@@ -802,7 +776,7 @@ class Cato:
 
     @property
     def o_str(self):
-        return "{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f}".format(self.last_read, self.ax, self.ay, self.az, self.gx, self.gy, self.gz)
+        return "{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f}".format(self.last_read, Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz)
 
     async def _wait_for_motion(self, hall_pass: asyncio.Event = None):
         Events.wait_for_motion.set()
@@ -831,7 +805,7 @@ class Cato:
             # DBS.println("C: ", gc.mem_free())
             cycles += 1
 
-            val = self.gx ** 2 + self.gy ** 2 + self.gz ** 2
+            val = Cato.imu.gx ** 2 + Cato.imu.gy ** 2 + Cato.imu.gz ** 2
 
             # BREAK CONDN 1: SIGNIFICANT MOTION
             if val > thresh:

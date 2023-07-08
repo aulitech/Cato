@@ -1,4 +1,3 @@
-.env
 battery.py
 BluetoothControl.py
 StrUUIDService.py
