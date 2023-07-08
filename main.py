@@ -1,34 +1,17 @@
-
 # Code.py for Auli Cato, Driver
 # Finn Biggs - finn@auli.tech
 # 17-Nov-2022
-'''
-import alarm
 
-import board
-import sys
-'''
 import microcontroller as mc
 from microcontroller import watchdog as w
 from watchdog import WatchDogMode
-#import supervisor as sp
 import gc
 
-'''
-import io
-import analogio
-import digitalio
-import busio
-'''
-
 import asyncio
-#import time
 
 from imu import LSM6DS3TRC
 
 from Cato import Cato, Events
-#import battery
-#import mode
 
 from StrUUIDService import DebugStream as DBS
 import storage
@@ -59,6 +42,22 @@ async def control_loop(c : Cato):
         Events.mouse_event.set()
 
 async def main():
+    try:
+        with open("config.cato",'r') as cg:
+            pass
+        with open("config.cato",'w') as cg:
+            pass
+        mc.nvm[2] = True
+    except OSError as ose:
+        print(ose)
+        if(ose.errno == 2):
+            print("File Not Found")
+        elif(ose.errno == 30):
+            print("Rebooting for Gesture Training")
+            mc.nvm[0] = False
+            mc.reset()
+    
+    
     ##once remount process is confirmed to work consistently, only try/except is necessary
     if(mc.nvm[1]):
         try:

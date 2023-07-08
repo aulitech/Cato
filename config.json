@@ -19,19 +19,19 @@
 
     "operation_mode" : 2,
 
-    "st_matrix" : [
+    "bindings" : [
         [
-            [   "noop",                        "noop",                 "noop"          ],
-            [   "right_click",                 "to_idle",              "to_idle"       ], 
-            [   "left_click",                  "left_click",           "press_enter"   ], 
-            [   "_scroll",                     "noop",                 "noop"          ], 
-            [   "center_mouse_cursor",         "noop",                 "noop"          ], 
-            [   "_scroll_lr",                  "noop",                 "noop"          ], 
-            [   "quick_calibrate",             "noop",                 "noop"          ], 
-            [   "double_click",                "noop",                 "noop"          ], 
-            [   "quick_sleep",                 "noop",                 "noop"          ],
-            [   "quick_sleep",                 "noop",                 "noop"          ],
-            [   "quick_sleep",                 "noop",                 "noop"          ]
+            [   ["noop"]                            ],
+            [   ["button_action",0,"tap",2]         ], 
+            [   ["button_action",0,"tap",1]         ], 
+            [   ["_scroll"]                         ], 
+            [   ["button_action",0,"toggle",1]      ], 
+            [   ["_scroll_lr"]                      ],
+            [   ["quick_calibrate"]                 ], 
+            [   ["button_action",0,"double_tap",1]  ], 
+            [   ["quick_sleep"]                     ],
+            [   ["quick_sleep"]                     ],
+            [   ["quick_sleep"]                     ]
         ],
         [
             [   "noop"  ],
@@ -39,20 +39,64 @@
             [   "down"  ],
             [   "left"  ],
             [   "right" ],
-            [   "noop"  ],
-            [   "noop"  ],
+            [   "meta"  ],
+            [   "meta"  ],
             [   "enter" ],
             [   "esc"   ],
-            [   "meta"  ],
-            [   "noop"  ],
             [   "noop"  ],
             [   "noop"  ]
+        ],
+        [
+            [   ["noop"]                        ],
+            [   ["button_action",1,"toggle",82] ],
+            [   ["button_action",1,"toggle",81] ],
+            [   ["button_action",1,"toggle",79] ],
+            [   ["button_action",1,"toggle",80] ],
+            [   ["button_action",1,"tap",227]   ],
+            [   ["noop"]                        ],
+            [   ["button_action",1,"tap",81]    ],
+            [   ["button_action",1,"tap",81]    ],
+            [   ["noop"]                        ],
+            [   ["noop"]                        ]
         ]
+    ],
+
+    "gesture_key" : [
+        "None",
+        "Nod Up",
+        "Nod Down",
+        "Nod Right",
+        "Nod Left",
+        "Tilt Right",
+        "Tilt Left",
+        "Shake Vertical",
+        "Shake Horizontal",
+        "Circle Clockwise",
+        "Circle Counterclockwise"
+    ],
+
+    "action_key" : [
+        "noop",
+        "all_release",
+        "_scroll",
+        "_scroll_lr",
+        "button_action",
+        "type_enter_key",
+        "type_esc_key",
+        "type_meta_key",
+        "type_up_key",
+        "type_left_key",
+        "type_right_key",
+        "quick_calibrate",
+        "quick_sleep",
+
+        "turbo"
     ],
 
     "turbo_rate" : [1, 0.2, 0.9],
 
     "gesture_window" : 1.2,
+    "gc_time_window" : 8,
     "gesture_length" : 75,
     "min_gesture_threshold" : 200,
     "confidence_threshold" : 0.70
