@@ -303,12 +303,12 @@ class Cato:
         if hall_pass is not None:
             hall_pass.set()
     
-    async def block_on(self, coro):
+    async def block_on(self, coro, *args):
         '''
             await target function having uncertain runtime which also needs to use async imu functionality  \n
             coro: Coroutine or other awaitable
         '''
-        await coro(self.hall_pass)
+        await coro( *args, hall_pass=self.hall_pass)
         await self.hall_pass.wait()
         self.hall_pass.clear()
     
@@ -321,7 +321,7 @@ class Cato:
             target_name = await self.gesture_interpreter()
             #print(f"\tGot \"{target_name}\" at mouse_event")
             #DebugStream.println(f"Detect Event -- Dispatching: self.{target_name}")
-            await self.block_on(eval("self."+target_name, {"self":self}))
+            await self.block_on(eval("self."+target_name[0], {"self":self}),*target_name[1:])
             print(f"\t \"{target_name}\" finished at mouse_event")
             
             #DebugStream.println("Detect Event: Finished Dispatching")
@@ -742,10 +742,25 @@ class Cato:
             DebugStream.println("\t- _scroll_lr")
             hall_pass.set()
     
-    async def button_action(self, actor, action: str, button: hex):
-        print("+button_action")
+    '''
+    INPUTS
+        action(str): string key corresponding to desired action to be performed
+        actor(int): index of hid object in actor_key to perform specified action on buttons
+        *buttons(hex): hex keycodes of buttons to be accted upon
+        hall_pass(Event): event indicating completion of method
+    OUTPUTS
+        None
+    DESCRIPTION
+        Uses available hid object in actor_key (indexed by actor input) to perforrm a common button
+        action (from selection of tap, double tap, press, release, and toggle) on specified keycodes'''
+    async def button_action(self, actor:int, action: str, *buttons: hex, hall_pass: asyncio.Event = None):
         actor_key = (self.blue.mouse, self.blue.k)
-        actor = actor_key[actor]
+        if(actor in range(len(actor_key))):
+            actor = actor_key[actor]
+        else:
+            DebugStream.println("No hid device with actor index "+str(actor))
+            hall_pass.set()
+            return
         actor_key = None
 
         def ispressed(actor,button):
@@ -765,163 +780,44 @@ class Cato:
                     for b in actor.report[2:8]:
                         ip |= (b == button)
                     return ip
-            
-            return False
+            else:
+                return False
+        
+        if(action == "tap"):
+            actor.press(*buttons)
+            actor.release(*buttons)
 
-        if(action == "click"):
-            actor.press(button)
-            actor.release(button)
-
-        elif(action == "double_click"):
-            actor.press(button)
-            actor.release(button)
-            actor.press(button)
-            actor.release(button)
+        elif(action == "double_tap"):
+            actor.press(*buttons)
+            actor.release(*buttons)
+            actor.press(*buttons)
+            actor.release(*buttons)
 
         elif(action == "press"):
-            actor.press(button)
+            actor.press(*buttons)
 
         elif(action == "release"):
-            actor.release(button)
+            actor.release(*buttons)
 
         elif(action == "toggle"):
-            if(ispressed(actor,button)):
-                actor.release(button)
-            else:
-                actor.press(button)
+            for b in buttons:
+                if(ispressed(actor,b)):
+                    actor.release(b)
+                else:
+                    actor.press(b)
 
         elif(action == "turbo"):
             #TODO
-            return
+            DebugStream.println("turbo button-action not functional")
         
         else:
-            return #undefined behavior for undefined actions currently
+            # curretnly undefined behavior for undefined actions
+            DebugStream.println("Custom action:\t"+str(actor)+"."+action+str(*buttons))
+            eval("actor."+action+"(*buttons)")
+            # this seems terribly unsafe, but could be useful for hacking together macro actions later
         
+        hall_pass.set()
         return
-
-    async def left_click(self, hall_pass: asyncio.Event = None): # "Does the send a wait for acknowledgement"
-        # determine if async or not
-        # can have BLE writes w/wo ack -- send and pray vs confirm
-        # time the routine uS ok, mS bad
-        ''' docstring stub '''
-        try:
-            self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
-            
-        except ConnectionError as ce:
-            DebugStream.println("ConnectionError: connection lost in left_click()")
-            DebugStream.println(str(ce))
-        if hall_pass is not None:
-            hall_pass.set()
-
-    async def double_click(self, hall_pass: asyncio.Event = None):
-        try:
-            self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
-            self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
-        except ConnectionError as ce:
-            DebugStream.println("ConnectionError: connection lost in double_click()")
-            DebugStream.println(str(ce))
-        if hall_pass is not None:
-            hall_pass.set()
-
-    async def right_click(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        try:
-            self.blue.mouse.click(self.blue.mouse.RIGHT_BUTTON)
-        except ConnectionError as ce:
-            DebugStream.println("ConnectionError: connection lost in right_click()")
-            DebugStream.println(str(ce))
-        if hall_pass is not None:
-            hall_pass.set()
-
-    async def middle_click(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        try:
-            self.blue.mouse.click(self.blue.mouse.MIDDLE_BUTTON)
-        except ConnectionError as ce:
-            DebugStream.println("ConnectionError: connection lost in middle_click()")
-            DebugStream.println(str(ce))
-        if hall_pass is not None:
-            hall_pass.set()
-
-    async def left_click_drag(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        print("Left click")
-        self.left_press()
-        print("Drag")
-        await self.move_mouse()
-        self.left_release()
-
-    async def right_click_drag(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.right_press()
-        await self.move_mouse()
-        self.right_release()
-
-    async def middle_click_drag(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.middle_press()
-        await self.move_mouse()
-        self.middle_release()
-
-    async def left_press(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        try:
-            self.blue.mouse.press(self.blue.mouse.LEFT_BUTTON)
-        except ConnectionError as ce:
-            DebugStream.println("ConnectionError: connection lost in left_press()")
-            DebugStream.println(str(ce))
-        if hall_pass is not None:
-            hall_pass.set()
-
-    async def left_release(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        try:
-            self.blue.mouse.release(self.blue.mouse.LEFT_BUTTON)
-        except ConnectionError as ce:
-            DebugStream.println("ConnectionError: connection lost in left_release()")
-            DebugStream.println(str(ce))
-        if hall_pass is not None:
-            hall_pass.set()
-
-    async def right_press(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        try:
-            self.blue.mouse.press(self.blue.mouse.RIGHT_BUTTON)
-        except ConnectionError as ce:
-            DebugStream.println("ConnectionError: connection lost in right_press()")
-            DebugStream.println(str(ce))
-        if hall_pass is not None:
-            hall_pass.set()
-
-    async def right_release(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        try:
-            self.blue.mouse.release(self.blue.mouse.RIGHT_BUTTON)
-        except ConnectionError as ce:
-            DebugStream.println("ConnectionError: connection lost in right_release()")
-            DebugStream.println(str(ce))
-        if hall_pass is not None:
-            hall_pass.set()
-
-    async def middle_press(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        try:
-            self.blue.mouse.press(self.blue.mouse.MIDDLE_BUTTON)
-        except ConnectionError as ce:
-            DebugStream.println("ConnectionError: connection lost in middle_press()")
-            DebugStream.println(str(ce))
-        if hall_pass is not None:
-            hall_pass.set()
-
-    async def middle_release(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        try:
-            self.blue.mouse.release(self.blue.mouse.MIDDLE_BUTTON)
-        except ConnectionError as ce:
-            DebugStream.println("ConnectionError: connection lost in middle_release()")
-            DebugStream.println(str(ce))
-        if hall_pass is not None:
-            hall_pass.set()
 
     async def all_release(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
