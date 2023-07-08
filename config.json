@@ -89,8 +89,6 @@
         "type_right_key",
         "quick_calibrate",
         "quick_sleep",
-
-        "turbo"
     ],
 
     "turbo_rate" : [1, 0.2, 0.9],

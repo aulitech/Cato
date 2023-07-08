@@ -481,7 +481,7 @@ class Cato:
         hall_pass.set()
 
 
-    async def move_mouse(self, max_idle_cycles=80, mouse_type = "ACCEL", forever: bool = False):
+    async def move_mouse(self, max_idle_cycles=80, mouse_type = "LINEAR", forever: bool = False):
         '''
             move the mouse via bluetooth until sufficiently idle
         '''

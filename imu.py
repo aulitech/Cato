@@ -271,7 +271,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             
             WakeDog.feed()
 
-        self.gyro_trim /= num_calib_cycles
+        self.gyro_trim = gyro_avg / num_calib_cycles
 
         # Find Average Direction of Gravity Over Calibration 
         accel_avg /= num_calib_cycles
@@ -290,7 +290,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         # We extract angle as angle = arcsin(a cross b)
         th = asin(mag_n)
 
-        self.rot_mat = rot_mat( q_gen(n, th) )
+        # self.rot_mat = rot_mat( q_gen(n, th) )
         print("Done Calibrating")
 
     async def stream(self):
