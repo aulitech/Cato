@@ -1,7 +1,7 @@
 #! /usr/bin/bash
 
-boot_load_loc=/d/
-auli_cato_loc=/d/
+boot_load_loc=/e/
+auli_cato_loc=/e/
 
 # Presence of boot_out.txt indicates board is in circuitPython Config
     FILE1=$auli_cato_loc/boot_out.txt
