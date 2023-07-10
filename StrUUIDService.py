@@ -20,7 +20,7 @@ class StrUUIDService(Service):
         properties = Characteristic.READ | Characteristic.NOTIFY
     )
     
-    collGestUUID = StringCharacteristic(
+    cgUUID = StringCharacteristic(
         uuid = VendorUUID("528ff74b-fdb8-444c-9c64-3dd5da4135ae"),
         properties = Characteristic.READ | Characteristic.NOTIFY | Characteristic.WRITE
     )
@@ -37,32 +37,42 @@ class StrUUIDService(Service):
             "REBOOT"        : self.reboot,
             "REBOOTRO"      : self.reboot_forceRO,
 
-            "CG"            : self.collGest_dispatch
+            "CG"            : self.collGest_dispatch,
+
+            "CALIBRATE"     : self.calibrate_imu,
         }
 
-        self.collGestUUID = "AWAITING INTERACTION"
+        self.cgUUID = "AWAITING INTERACTION"
         while(True):
             ##test w different time lengths or async event triggers
             await E.gesture_not_collecting.wait()
             await asyncio.sleep(0.2)
             try:
-                coro = SIGNAL_STRING[self.collGestUUID]
+                coro = SIGNAL_STRING[self.cgUUID]
             except:
                 continue
             await coro()
     
     async def reboot(self):
-        self.collGestUUID = "REBOOTING"
+        self.cgUUID = "REBOOTING"
         mc.reset()
     async def reboot_forceRO(self):
-        self.collGestUUID = "REBOOTING READ ONLY"
+        self.cgUUID = "REBOOTING READ ONLY"
         mc.nvm[0] = False
         mc.reset()
 
     async def collGest_dispatch(self):
         from Cato import Events as E
         E.gesture_collecting.set()
-        SUS.collGestUUID = "Collect Gestures Dispatched"
+        SUS.cgUUID = "Collect Gestures Dispatched"
+
+    async def calibrate_imu(self):
+        from Cato import Cato
+        self.cgUUID = "HOLD STILL"
+        await asyncio.sleep(0.5)
+        self.cgUUID = "calibrating..."
+        await Cato.imu.calibrate(200)
+        self.cgUUID = "Calibration Complete"
 
 
 

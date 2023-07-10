@@ -193,9 +193,9 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             x += self.gx
             y += self.gy
             z += self.gz
-        self.x_trim = x / num_calib_cycles
-        self.y_trim = y / num_calib_cycles
-        self.z_trim = z / num_calib_cycles
+        self.x_trim += x / num_calib_cycles
+        self.y_trim += y / num_calib_cycles
+        self.z_trim += z / num_calib_cycles
         print("Done Calibrating")
 
     async def stream(self):
