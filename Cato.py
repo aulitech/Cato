@@ -1030,10 +1030,6 @@ class Cato:
 
         while(True):
             DBS.println("looping")
-
-            #DBS.println("loop: ",i)
-            #DBS.println(t.done())
-            print(self.blue.k.report)
-            asyncio.create_task(self.button_action(1,"toggle",Keycode.SHIFT))
+            DBS.print(self.imu.gyro_vals)
             i += 1
             await asyncio.sleep(2)
