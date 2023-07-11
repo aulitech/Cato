@@ -344,7 +344,6 @@ class Cato:
         while(idle < idleLen):
             await Cato.imu.wait()
             mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
-            #DBS.println((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz,mag))
             if(mag < gestThresh):
                 idle += 1
             else:
@@ -357,7 +356,6 @@ class Cato:
 
         # wait to recieve significant motion and return if the timeout threshold is passed
         timeoutEv = asyncio.Event()
-        #timeoutEv.clear()
         asyncio.create_task(Cato.stopwatch(timeout, ev = timeoutEv))
         while(mag < gestThresh):
             if(timeoutEv.is_set()):
@@ -383,7 +381,7 @@ class Cato:
             if(not self.n.set_inputs(data)):
                 break
             mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
-            DBS.println((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz,mag))
+            #DBS.println((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz,mag))
             length += 1
 
             if(mag < idleThresh):
@@ -414,6 +412,7 @@ class Cato:
         await shakeCursor
         DBS.println("-gesture_interpreter mem: ",gc.mem_free())
         return self.bindings[infer][self.state]
+        return ["noop"]
     
     async def feed_neuton(self, log):
         await Events.feed_neuton.wait()
