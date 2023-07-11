@@ -272,11 +272,11 @@ class Cato:
             await Events.mouse_event.wait()
             Events.mouse_event.clear()
             await Events.gesture_not_collecting.wait()
-            target_name = await self.gesture_interpreter()
+            target = await self.gesture_interpreter()
             #print(f"\tGot \"{target_name}\" at mouse_event")
             #DBS.println(f"Detect Event -- Dispatching: self.{target_name}")
-            await self.block_on(eval("self."+target_name[0], {"self":self}),*target_name[1:])
-            print(f"\t \"{target_name}\" finished at mouse_event")
+            await self.block_on(eval("self."+target[0], {"self":self}),*target[1:])
+            print(f"\t \"{target}\" finished at mouse_event")
             
             #DBS.println("Detect Event: Finished Dispatching")
             Events.control_loop.set()
@@ -327,61 +327,89 @@ class Cato:
     async def gesture_interpreter(self):
         DBS.println("+gesture_interpreter mem: ",gc.mem_free())
         infer = EV.NONE
-        gest = []
-        gestLen = config["gesture_length"]
-        maxMag = 0
-        minThresh = config["min_gesture_threshold"]
-
-        Events.feed_neuton.set()
-        feedNeut = None
         confThresh = config["confidence_threshold"]
 
-        # this block is experimental
-        # adds a buffer period that waits for premature motion to pass
-        i = 0
-        gest = [0]*int(gestLen/2)
-        while(i < int(gestLen/2)):
+        param = config["gesture"]
+        maxLen = param["length"]
+        idleLen = param["idle_cutoff"]
+        gestThresh = param["movement_threshold"]
+        idleThresh = param["idle_threshold"]
+        timeout = param["timeout"]
+        param = None
+
+        length = 1
+        mag = 0
+
+        idle = 0
+        while(idle < idleLen):
             await Cato.imu.wait()
-            gest[i] = array.array('f',[Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz])
-            mag = Cato.imu.gx**2 + Cato.imu.gy**2 + Cato.imu.gz**2
-            i += 1
-            if(mag > minThresh):
-                return self.bindings[EV.NONE][self.state]
+            mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
+            #DBS.println((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz,mag))
+            if(mag < gestThresh):
+                idle += 1
+            else:
+                DBS.println("Premature Motion")
+                return ["noop"]
         
         shakeCursor = asyncio.create_task(self.shake_cursor()) #ADD PRINT TO SHAKE CURSOR
         DBS.println("+ MouseEvent: Looking for Gesture")
         Events.sig_motion.clear()
 
-        i = 0
-        # sw = asyncio.create_task(Cato.stopwatch(config["gesture_window"]))
-        # while(i <= gestLen/2)or(not sw.done()):
-        while(i <= gestLen / 2):
+        # wait to recieve significant motion and return if the timeout threshold is passed
+        timeoutEv = asyncio.Event()
+        #timeoutEv.clear()
+        asyncio.create_task(Cato.stopwatch(timeout, ev = timeoutEv))
+        while(mag < gestThresh):
+            if(timeoutEv.is_set()):
+                DBS.println("No Gesture Caused Timout")
+                return self.bindings[EV.NONE][self.state]
             await Cato.imu.wait()
-            gest.append(array.array('f',[Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz]))
-            if(len(gest) > gestLen):
-                gest.pop(0)
-            
-            currMag = Cato.imu.gx**2 + Cato.imu.gy**2 + Cato.imu.gz**2
-            if(currMag > maxMag):
-                maxMag = currMag
-                i = 0
-            
-            if(maxMag >= minThresh):
-                i += 1
-                if(i == int(gestLen/2)):
-                    feedNeut = asyncio.create_task(self.feed_neuton(gest.copy()))
-            
-            if(feedNeut is not None):
-                if(feedNeut.done()):
-                    temp = self.n.inference()+1
-                    Events.feed_neuton.set()
-                    DBS.println(neuton_outputs)
-                    if(max(neuton_outputs) >= confThresh):
-                        infer = temp
-                    feedNeut = None
-        
-        if(maxMag >= minThresh):
-            Events.sig_motion.set()
+            mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
+            #DBS.println((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz,mag))
+
+        # motion recieved
+        DBS.println("Motion Recieved: ",(Cato.imu.gx,Cato.imu.gy,Cato.imu.gz,mag))
+        Events.sig_motion.set()
+        self.n.set_inputs(
+            array.array('f', [Cato.imu.ax, Cato.imu.ay, Cato.imu.az, 
+                              Cato.imu.gx, Cato.imu.gy, Cato.imu.gz]))
+
+        # feed neuton until idled for 'idleLen' loops
+        idle = 0
+        while(length < maxLen)and(idle < idleLen):
+            await Cato.imu.wait()
+            data = array.array('f',[Cato.imu.ax, Cato.imu.ay, Cato.imu.az,
+                                    Cato.imu.gx, Cato.imu.gy, Cato.imu.gz])
+            if(not self.n.set_inputs(data)):
+                break
+            mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
+            DBS.println((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz,mag))
+            length += 1
+
+            if(mag < idleThresh):
+                idle += 1
+            else:
+                idle = 0
+        DBS.println("Gesture Length: ",length)
+        if(idle == idleLen):
+            DBS.println("Broke for idle timeout")
+        elif(length == maxLen):
+            DBS.println("Broke for full gesture")
+        else:
+            DBS.println("Broke for premature neuton fill")
+
+        # fill remaining space w 0's
+        while(idle == idleLen)and(length < maxLen):
+            length += 1
+            if(not self.n.set_inputs(array.array('f', [0]*6)))and(length < maxLen):
+                DBS.println("WARNING: PREMATURE NEUTON FILL")
+                break
+        DBS.println("Filled length: ", length)
+
+        infer = self.n.inference()+1
+        DBS.println(neuton_outputs)
+        if(max(neuton_outputs) < confThresh):
+            infer = 0
 
         await shakeCursor
         DBS.println("-gesture_interpreter mem: ",gc.mem_free())
@@ -1015,7 +1043,7 @@ class Cato:
         mc.reset()
     
     async def stopwatch(n : float,ev : asyncio.Event = None):
-        if(n >= 0):
+        if(n > 0):
             await asyncio.sleep(n)
             if(ev is not None):
                 ev.set()

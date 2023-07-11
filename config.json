@@ -1,4 +1,6 @@
 {
+    "operation_mode" : 0,
+
     "mouse" : {
         "idle_thresh"   : 6.0,
         "min_run_cycles": 30,
@@ -10,6 +12,16 @@
         "fast_scale"    : 2.5
     },
 
+    "gesture" : {
+        "length" : 200,
+        "idle_cutoff" : 20,
+
+        "movement_threshold" : 500,
+        "idle_threshold" : 30,
+
+        "timeout" : 5
+    },
+
     "screen_size" : [3840, 2160],
 
     "battery" : {
@@ -17,8 +29,7 @@
         "high": 30950
     },
 
-    "operation_mode" : 0,
-
+    "confidence_threshold" : 0.70,
     "bindings" : [
         [
             [   ["noop"]                            ],
@@ -96,6 +107,5 @@
     "gesture_window" : 1.2,
     "gc_time_window" : 8,
     "gesture_length" : 75,
-    "min_gesture_threshold" : 200,
-    "confidence_threshold" : 0.70
+    "min_gesture_threshold" : 200
     }
