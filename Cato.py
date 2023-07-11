@@ -412,7 +412,6 @@ class Cato:
         await shakeCursor
         DBS.println("-gesture_interpreter mem: ",gc.mem_free())
         return self.bindings[infer][self.state]
-        return ["noop"]
     
     async def feed_neuton(self, log):
         await Events.feed_neuton.wait()
