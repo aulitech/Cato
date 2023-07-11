@@ -1,5 +1,5 @@
 {
-    "operation_mode" : 0,
+    "operation_mode" : 3,
 
     "mouse" : {
         "idle_thresh"   : 6.0,
