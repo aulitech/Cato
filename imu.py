@@ -113,6 +113,10 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     _md1_cfg        = RWBits(7,     _LSM6DS_MD1_CFG,        0   )
 
     def __init__(self, address: int = LSM6DS_DEFAULT_ADDRESS) -> None:
+        from StrUUIDService import config
+        self.autoCalibLoops = config["autocalibrate_samples"]
+        self.autoCalibThresh = config["autocalibrate_threshold"]
+        self.sleep_thresh = config["sleep_threshold"]
         
         # Enable Imu Power
         self._pwr = digitalio.DigitalInOut(board.IMU_PWR)
@@ -215,6 +219,10 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         rad_to_deg = 360.0 / (2*3.1416)
         
         from WakeDog import WakeDog # Can this be at top?
+
+        calibCountdown = self.autoCalibLoops
+        trimAdjust = np.array((0,0,0))
+        gyro_prev = np.array((0,0,0))
         
         while True:
             await self.imu_ready.wait()
@@ -226,6 +234,9 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             
             self.imu_ready.clear()
 
+            # Save previous gyro for trim adjustment
+            #gyro_prev = self.gyro_vals
+
             # Read gyroscope
             self.gyro_vals = np.array(self.gyro)
             self.gyro_vals *= rad_to_deg
@@ -236,16 +247,32 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             acc_mag = np.linalg.norm(self.acc)
             acc_dir = self.acc / acc_mag # unit vector
 
-            # trim measurements based on calibration
-            self.gyro_vals -= self.gyro_trim
-            gyro_mag = np.linalg.norm(self.gyro_vals)
-            
             # Apply pre-rotation with generated rotation matrix
             self.gyro_vals  = np.dot(self.rot_mat, self.gyro_vals)
             self.acc        = np.dot(self.rot_mat, self.acc)
 
+            # trim measurements based on calibration
+            self.gyro_vals -= self.gyro_trim
+            gyro_mag = np.linalg.norm(self.gyro_vals)
+            gyro_delta_mag = np.linalg.norm(self.gyro_vals - gyro_prev)
+
+            if(calibCountdown == 0):
+                self.gyro_trim += trimAdjust
+                self.gyro_vals -= trimAdjust
+                gyro_prev = self.gyro_vals
+                calibCountdown = self.autoCalibLoops
+                trimAdjust = np.array((0,0,0))
+
+            if(gyro_delta_mag < self.autoCalibThresh):
+                calibCountdown -= 1
+                trimAdjust += self.gyro_vals / self.autoCalibLoops
+            else:
+                gyro_prev = self.gyro_vals
+                calibCountdown = self.autoCalibLoops
+                trimAdjust = np.array((0,0,0))
+            
             # Check sleep conditions
-            thresh = 40 # TODO PULL THIS FROM CONFIG!!!
+            thresh = self.sleep_thresh
             if gyro_mag > thresh:
                 WakeDog.feed()
 
