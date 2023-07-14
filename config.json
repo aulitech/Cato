@@ -1,5 +1,9 @@
 {
-    "operation_mode" : 3,
+    "name" : "",
+
+    "operation_mode" : 0,
+
+    "screen_size" : [3840, 2160],
 
     "mouse" : {
         "idle_thresh"   : 6.0,
@@ -19,10 +23,18 @@
         "movement_threshold" : 500,
         "idle_threshold" : 30,
 
-        "timeout" : 5
+        "timeout" : 5,
+        "gc_timeout" : 10
     },
 
-    "screen_size" : [3840, 2160],
+    "calibration" :{
+        "drift" : [0,0,0],
+
+        "auto_samples" : 100,
+        "auto_threshold": 0.5
+
+    },
+    "sleep_threshold" : 40,
 
     "battery" : {
         "low" : 22100,
@@ -105,7 +117,6 @@
     "turbo_rate" : [1, 0.2, 0.9],
 
     "gesture_window" : 1.2,
-    "gc_time_window" : 8,
     "gesture_length" : 75,
     "min_gesture_threshold" : 200
     }
