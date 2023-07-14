@@ -80,10 +80,10 @@
         "Nod Left",
         "Tilt Right",
         "Tilt Left",
-        "Shake Vertical",
-        "Shake Horizontal",
-        "Circle Clockwise",
-        "Circle Counterclockwise"
+        "Shake Yes",
+        "Shake No",
+        "Circle CW",
+        "Circle CCW"
     ],
 
     "action_key" : [
