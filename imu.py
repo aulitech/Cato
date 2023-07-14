@@ -134,9 +134,9 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         # Build fields
         self.acc        = np.array([0.0, 0.0, 0.0]) # accelerometer fields
         self.gyro_vals  = np.array([0.0, 0.0, 0.0]) # gyro fields
-        self.gyro_trim  = config["calibrate"]["drift"] # Gyroscope trim values set by calibrate
-        self.autoCalibLoops = config["calibrate"]["auto_samples"]
-        self.autoCalibThresh = config["calibrate"]["auto_threshold"]
+        self.gyro_trim  = config["calibration"]["drift"] # Gyroscope trim values set by calibrate
+        self.autoCalibLoops = config["calibration"]["auto_samples"]
+        self.autoCalibThresh = config["calibration"]["auto_threshold"]
         self.sleep_thresh = config["sleep_threshold"]
 
         # Rotational Adjustment Values (From Calibrate)
