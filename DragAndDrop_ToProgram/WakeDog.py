@@ -5,7 +5,7 @@ import asyncio
 
 # This class is like a watchdog, but will monitor Cato and help it go to sleep and wake up.
 class WakeDog:
-    max_time = 40
+    max_time = 60
     curr_time = 0
     def feed():
         WakeDog.curr_time = 0
