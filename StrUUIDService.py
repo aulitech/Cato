@@ -51,6 +51,8 @@ class StrUUIDService(Service):
             "REBOOT"        : self.reboot,
             "REBOOTRO"      : self.reboot_forceRO,
             "BOOTLOADER"    : self.reboot_bootloader,
+
+            "DELTAS"        : self.imu_idle_deltas,     # dev handle for checking calibration stats
         }
 
         self.configUUID = "AWAITING INTERACTION"
@@ -167,6 +169,55 @@ class StrUUIDService(Service):
             SUS.configUUID = "Collect Gestures Dispatched"
         else:
             SUS.configUUID = "Gesture Collection Already In Progress"
+
+    async def imu_idle_deltas(self):
+        from math import sqrt
+        from Cato import Cato
+        imu = Cato.imu
+
+        samples = 50
+        iters = 20
+        maxDelta = 2
+        minMags = [maxDelta]*iters
+        maxMags = [0]*iters
+        ranges = []
+        for i in range(maxDelta*10 +1):
+            ranges.append(i/10)
+        buckets = [0]*(maxDelta*10 +1)
+
+        for i in range(iters):
+            await imu.wait()
+            initial = [imu.gx,imu.gy,imu.gz]
+            s = 0
+            while(s < samples):
+                await imu.wait()
+                delta = [imu.gx,imu.gy,imu.gz]
+                mag = 0
+                for d in range(len(delta)):
+                    delta[d] = abs(initial[d] - delta[d])
+                    #buckets[i][int(delta[i]*10)] += 1
+                    mag += delta[d]**2
+                mag = sqrt(mag)
+                
+                if(mag >= maxDelta):
+                    buckets[-1] += 1
+                else:
+                    buckets[int(mag*10)] += 1
+                
+                if(mag < minMags[i]):
+                    minMags[i] = mag
+                if(mag > maxMags[i]):
+                    maxMags[i] = mag
+                
+                s += 1
+        
+        print(",\t".join(str(v) for v in ranges))
+        print(",\t".join(str(v) for v in buckets))
+        print(maxMags)
+
+        self.configUUID = str(max(minMags))
+        self.configUUID = str(min(maxMags))
+        self.configUUID = "IDLE DELTAS COMPUTED"
 
 
 

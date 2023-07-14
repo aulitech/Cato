@@ -967,7 +967,6 @@ class Cato:
         try:
             #from StrUUIDService import SUS
             #SUS.collGestUUID = "go"
-            mc.nvm[2] = 0
 
             Events.gesture_collecting.set()
             Events.gesture_not_collecting.clear()
@@ -1067,6 +1066,6 @@ class Cato:
 
         while(True):
             DBS.println("looping")
-            DBS.print(self.imu.gyro_vals)
+            #DBS.print(self.imu.gyro_vals)
             i += 1
-            await asyncio.sleep(2)
+            await asyncio.sleep(20)

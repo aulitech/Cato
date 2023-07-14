@@ -30,9 +30,8 @@
     "calibration" :{
         "drift" : [0,0,0],
 
-        "auto_samples" : 100,
-        "auto_threshold": 0.5
-
+        "auto_threshold": 3.0,
+        "auto_samples" : 100
     },
     "sleep_threshold" : 40,
 
@@ -119,4 +118,4 @@
     "gesture_window" : 1.2,
     "gesture_length" : 75,
     "min_gesture_threshold" : 200
-    }
+}
