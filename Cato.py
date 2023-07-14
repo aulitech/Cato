@@ -196,6 +196,14 @@ class Cato:
     async def reboot():
         mc.reset()
 
+    def query_imu_regs(self):
+        msg = ""
+        msg += f"int1_ctrl:     {(hex)(self.imu.int1_ctrl)}\n"
+        msg += f"ctrl1_xl:      {(hex)(self.imu._ctrl1_xl)}\n"
+        msg += f"tap_cfg:       {(hex)(self.imu._tap_cfg)}\n"
+        msg += f"tap_ths_6d:    {(hex)(self.imu._tap_ths_6d)}\n"
+        msg += f"_int_dur2:     {(hex)(self.imu._int_dur2)}\n"
+        return msg
     
     async def go_to_sleep(self):
         # This method sets a Cato to go to sleep - presently after exactly 15 seconds, soon to be based on inactivity
@@ -204,8 +212,9 @@ class Cato:
             await Events.sleep.wait()
             self.tasks['interrupt'].cancel() #release pin int1
             await asyncio.sleep(0.1)
+            self.tasks['interrupt'] = None
 
-            self.imu.single_tap_cfg() # set wakeup condn to single tap detection
+            self.imu.tap_wake_cfg() # set wakeup condn to single tap detection
 
             pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
             
@@ -216,13 +225,29 @@ class Cato:
             print("LIGHT SLEEP")
             alarm.light_sleep_until_alarms(pin_alarm)
             print("WOKE UP")
-            Events.sleep.clear()
+
             del(pin_alarm) # release imu_int1
+            print("Del pin")
 
-            Cato.imu.data_ready_on_int1_setup() #setup imu data ready
+            if(config['operation_mode'] == 3):
+                Cato.imu.single_tap_cfg()
 
-            self.tasks['interrupt'] = asyncio.create_task( Cato.imu.interrupt() )
+                print("Mode 3")
+            else:
+                Cato.imu.data_ready_on_int1_setup() #setup imu data ready
+                print("Mode other")
+
+            Events.sleep.clear()
             WakeDog.feed()
+            
+            self.tasks['interrrpt'] = asyncio.create_task(self.imu.interrupt())
+            self.imu.data_ready.clear()
+            self.imu.imu_ready.set()
+            self.imu.tap_detect.clear()
+            
+            await asyncio.sleep(0.1)
+
+
             #await asyncio.sleep(1) # TAKE IMU READINGS BEFORE TRYING TO GO BACK TO SLEEP?
 
     async def monitor_battery(self):
@@ -489,8 +514,9 @@ class Cato:
         Cato.imu.single_tap_cfg()
         while True:
             await Cato.imu.wait()
+            WakeDog.feed()
             try:
-                #DBS.println("Click")
+                DBS.println("Click")
                 self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
             except ConnectionError as ce:
                 DBS.println("ConnectionError: connection lost in clicker_task()")

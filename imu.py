@@ -171,17 +171,22 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         # Don't call this, instead, call single, double, or single-double
         self.int1_ctrl      = 0x00 # step_detector, int1_Sign_motn, int1FullFlag, int1FIFO_OVR, int1_Fth, int1_Boot, int1DrdyG, int1DrdyXL
         self._ctrl1_xl      = 0x60 # accelerometer ODR (output data rate) control
-        self._tap_cfg       = 0x8E # timer, pedo, tilt, slope_fds, tap_x, tap_y, tap_z, latched interrupt
+        self._tap_cfg       = 0x8E # int_ena, inact_ena1, inact ena0, slope_fds, tap_x, tap_y, tap_z, latched interrupt
         self._tap_ths_6d    = 0x8B # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
         self._int_dur2      = 0x13 # Dur[3:0], Quiet[1:0], Shock[1:0]
         # self._wake_up_ths   = 0x80 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
         # self._ctrl10_c     = 0x05 # WristTiltEn, 0, TimerEn, PedoEn, TiltEn, FuncEn, PedoRST_Step, Sign_Motn_En
         # SELECT A TAP WITH SINGLE OR DOUBLE
 
+    def tap_wake_cfg(self):
+        self.tap_ena()
+        self._md1_cfg     = 0x40 # Int1_Inact, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
+        print("Single tap: Configured")
+
     def single_tap_cfg(self):
         self.tap_ena()
-        self._md1_cfg     = 0x40 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
-        print("Single tap: Configured")
+        self._md1_cfg   = 0x40
+        
 
     def double_tap_cfg(self):
         self.tap_ena()
