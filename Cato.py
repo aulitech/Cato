@@ -330,11 +330,11 @@ class Cato:
         confThresh = config["confidence_threshold"]
 
         param = config["gesture"]
-        maxLen = param["length"]
-        idleLen = param["idle_cutoff"]
-        gestThresh = param["movement_threshold"]
-        idleThresh = param["idle_threshold"]
-        timeout = param["timeout"]
+        maxLen      = param["length"]
+        idleLen     = param["idle_cutoff"]
+        gestThresh  = param["movement_threshold"]
+        idleThresh  = param["idle_threshold"]
+        timeout     = param["timeout"]
         param = None
 
         length = 1
@@ -946,82 +946,66 @@ class Cato:
             Events.gesture_collecting.set()
             Events.gesture_not_collecting.clear()
             DBS.println("Collecting Gesture (wired)")
-            gestID : int
-            gestLength = config["gesture_length"]
-            timeLimit = config["gc_time_window"]
 
-            '''
-            SUS.collGestUUID = "stop"
-            while(SUS.collGestUUID == "stop"):
-                await asyncio.sleep(0.1)
-            '''
-            try:
-                with open("config.cato",'r') as cgFlag:
-                    gestID = int(cgFlag.readline())
-            except Exception as ex:
-                DBS.println(ex)
-                gestID = 10
-            if(gestID < 0)or(gestID >= len(EV.gesture_key)):
-                import os
-                os.remove("config.cato")
-                raise Exception("Gesture ID "+gestID+" does not exist")
+            gestLen     = config["gesture"]["length"]
+            idleLen     = config["gesture"]["idle_cutoff"]
+            gestThresh  = config["gesture"]["movement_threshold"]
+            idleThresh  = config["gesture"]["movement_threshold"]
+            timeout     = config["gesture"]["gc_timeout"]
             
-            hist = []
-            maxGest = []
-            maxMag = 0
-            drift : tuple
+            gesture = [(0,0,0,0,0,0,0)]
+            mag = 0
 
-            DBS.println("Recording")
-
-            while(len(hist) < gestLength):
+            
+            # let premature motion pass
+            idle = 0
+            while(idle < idleLen):
                 await Cato.imu.wait()
-                hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
+                mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
+                if(mag < gestThresh):
+                    idle += 1
+                else:
+                    idle = 0
+            
             try:
                 import os
-                os.remove("config.cato")
+                os.remove("gesture.cato")
+                os.remove("log.txt")
             except:
-                DBS.println("Failed to delete config.cato")
+                DBS.println("Failed to delete gesture.cato")
             '''''
             with open("flag.txt",'w') as flag:
                 #from StrUUIDService import SUS
                 SUS.collGestUUID = "FLAGGED"
                 pass
             #'''
-            '''
-            SUS.collGestUUID = "stop"
-            while(SUS.collGestUUID == "stop"):
-                await asyncio.sleep(0.1)
-            print("Files Modified")
-            '''
-            drift = hist[gestLength-1]
-            maxGest = hist.copy()
-            maxMag = maxGest[int(gestLength/2)]
-            DBS.println(maxMag)
-            for g in maxMag:
-                DBS.println(type(g))
-            maxMag = (maxMag[3]-drift[3])**2 + (maxMag[4]-drift[4])**2 + (maxMag[5]-drift[5])**2
-            sw = asyncio.create_task(Cato.stopwatch(timeLimit))  # Timer starts here
-            DBS.println("Perform Gesture: ", EV.gesture_key[gestID],"(",str(gestID),")")
-            
-            while(not sw.done()):
-                print(mem())
-                await Cato.imu.wait()
-                hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
-                hist.pop(0)
 
-                currMid = hist[int(gestLength/2)]
-                currMag = (currMid[3]-drift[3])**2 + (currMid[4]-drift[4])**2 + (currMid[5]-drift[5])**2
-                if(currMag > maxMag):
-                    DBS.println("New Max Read")
-                    DBS.println(currMag, ">", maxMag)
-                    maxMag = currMag
-                    maxGest = hist.copy()
+            timeout = asyncio.create_task(Cato.stopwatch(timeout))
+
+            while(mag < gestThresh):
+                if(timeout.done()):
+                    raise Exception("CGTimeout: movement threshold was not exceeded within given time window")
+                await Cato.imu.wait()
+                gesture[0] = (Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz)
+                mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
+
+            # actual gesture is performed and recorded here
+            idle = 0
+            while(len(gesture) < gestLen)and(idle < idleLen):
+                await Cato.imu.wait()
+                gesture.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz))
+                mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
+
+                if(mag < idleThresh):
+                    idle += 1
+                else:
+                    idle = 0
 
             DBS.println("Gesture Recording Completed")
             with open("log.txt",'w') as log:
                 print(mem())
-                while(len(maxGest) > 0):
-                    d = maxGest.pop(0)
+                while(len(gesture) > 0):
+                    d = gesture.pop(0)
                     log.write(",".join(str(v) for v in d))
                     log.write("\n")
                     await asyncio.sleep(0)
@@ -1036,8 +1020,8 @@ class Cato:
             '''
         except Exception as ex:
             import os
-            os.remove("config.cato")
-            raise(ex)
+            os.remove("gesture.cato")
+            DBS.println(ex)
         mc.reset()
     
     async def stopwatch(n : float,ev : asyncio.Event = None):

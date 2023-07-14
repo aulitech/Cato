@@ -114,9 +114,6 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
 
     def __init__(self, address: int = LSM6DS_DEFAULT_ADDRESS) -> None:
         from StrUUIDService import config
-        self.autoCalibLoops = config["autocalibrate_samples"]
-        self.autoCalibThresh = config["autocalibrate_threshold"]
-        self.sleep_thresh = config["sleep_threshold"]
         
         # Enable Imu Power
         self._pwr = digitalio.DigitalInOut(board.IMU_PWR)
@@ -137,7 +134,10 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         # Build fields
         self.acc        = np.array([0.0, 0.0, 0.0]) # accelerometer fields
         self.gyro_vals  = np.array([0.0, 0.0, 0.0]) # gyro fields
-        self.gyro_trim  = np.array([0.0, 0.0, 0.0]) # Gyroscope trim values set by calibrate
+        self.gyro_trim  = config["calibrate"]["drift"] # Gyroscope trim values set by calibrate
+        self.autoCalibLoops = config["calibrate"]["auto_samples"]
+        self.autoCalibThresh = config["calibrate"]["auto_threshold"]
+        self.sleep_thresh = config["sleep_threshold"]
 
         # Rotational Adjustment Values (From Calibrate)
         # Default to Identity
@@ -257,7 +257,8 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             gyro_delta_mag = np.linalg.norm(self.gyro_vals - gyro_prev)
 
             if(calibCountdown == 0):
-                self.gyro_trim += trimAdjust
+                for i in range(len(self.gyro_trim)):
+                    self.gyro_trim[i] += trimAdjust[i]
                 self.gyro_vals -= trimAdjust
                 gyro_prev = self.gyro_vals
                 calibCountdown = self.autoCalibLoops
@@ -294,7 +295,8 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             gyro_avg    += self.gyro_vals
             WakeDog.feed()
 
-        self.gyro_trim += gyro_avg / num_calib_cycles
+        for i in range(len(self.gyro_trim)):
+            self.gyro_trim[i] += gyro_avg[i] / num_calib_cycles
         print("Done Calibrating")
     
     async def full_calibrate(self, num_calib_cycles):
@@ -312,7 +314,8 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             
             WakeDog.feed()
 
-        self.gyro_trim += gyro_avg / num_calib_cycles
+        for i in range(len(self.gyro_trim)):
+            self.gyro_trim[i] += gyro_avg[i] / num_calib_cycles
 
         # Find Average Direction of Gravity Over Calibration 
         accel_avg /= num_calib_cycles

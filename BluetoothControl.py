@@ -32,7 +32,7 @@ class Appearances:
 class BluetoothControl():
 
     from StrUUIDService import config
-    if(not("name" in config.keys())):
+    if(config["name"] == ""):
         config["name"] = "Cato_"
         from builtins import hex
         from microcontroller import cpu
