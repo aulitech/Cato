@@ -290,9 +290,11 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
 
             if(not self.imu_ready.is_set()):
                 self.tap_type = 1
+                # print("Setting single")
             else:
                 self.imu_ready.clear()
                 self.tap_type = 2
+                # print("Setting double")
             
             self.data_ready.set()
 

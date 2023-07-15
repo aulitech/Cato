@@ -480,12 +480,12 @@ class Cato:
             await Cato.imu.wait()
             WakeDog.feed()
             try:
-                print("Some tap")
+                # print("Some tap")
                 if Cato.imu.tap_type == 1:
-                    print("Single")
+                    # print("Single")
                     self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
                 if Cato.imu.tap_type == 2:
-                    print("Double")
+                    # print("Double")
                     self.blue.mouse.click(self.blue.mouse.RIGHT_BUTTON)
             except ConnectionError as ce:
                 DBS.println("ConnectionError: connection lost in clicker_task()")
