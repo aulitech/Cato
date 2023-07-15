@@ -27,6 +27,8 @@ from neutonml import Neuton
 from StrUUIDService import config
 from StrUUIDService import DebugStream as DBS
 
+from WakeDog import WakeDog
+
 #helpers and enums
 EV_NONE = 0
 class Events:
@@ -56,8 +58,6 @@ neuton_outputs = array.array( "f", [0]*len(config["gesture_key"]) )
 
 def mem( loc = "" ):
     print(f"Free Memory at {loc}: \n\t{gc.mem_free()}")
-
-from WakeDog import WakeDog
 
 class Cato:
     ''' Main Class of Cato Gesture Mouse '''
@@ -180,7 +180,7 @@ class Cato:
             await asyncio.sleep(0.1)
             self.tasks['interrupt'] = None
 
-            self.imu.tap_wake_cfg() # set wakeup condn to single tap detection
+            self.imu.single_tap_cfg() # set wakeup condn to single tap detection
 
             pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
             
@@ -197,8 +197,7 @@ class Cato:
 
             if(config['operation_mode'] == 3):
                 Cato.imu.single_tap_cfg()
-
-                print("Mode 3")
+                print("In op mode 3 @ wakeup")
             else:
                 Cato.imu.data_ready_on_int1_setup() #setup imu data ready
                 print("Mode other")
@@ -206,7 +205,7 @@ class Cato:
             Events.sleep.clear()
             WakeDog.feed()
             
-            self.tasks['interrrpt'] = asyncio.create_task(self.imu.interrupt())
+            self.tasks['interrupt'] = asyncio.create_task( self.imu.interrupt() )
             self.imu.data_ready.clear()
             self.imu.imu_ready.set()
             self.imu.tap_detect.clear()
@@ -225,9 +224,9 @@ class Cato:
                 self.led.value = False
             await asyncio.sleep(5)
             temp = self.battery.raw_value
-            DBS.println(f"bat_ena True: {temp[0]}")
-            await asyncio.sleep(0.1)
-            DBS.println(f"bat_ena False: {temp[1]}")
+            # DBS.println(f"bat_ena True: {temp[0]}")
+            # await asyncio.sleep(0.1)
+            # DBS.println(f"bat_ena False: {temp[1]}")
             self.blue.battery_service.level = self.battery.level
 
     async def _move_mouse(self, hall_pass: asyncio.Event = None):
@@ -475,15 +474,19 @@ class Cato:
         scaled = (y_span / x_span) * (input - x_min)
         shifted = scaled + y_min
         return shifted
-
     async def clicker_task(self):
         Cato.imu.single_tap_cfg()
         while True:
             await Cato.imu.wait()
             WakeDog.feed()
             try:
-                DBS.println("Click")
-                self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
+                print("Some tap")
+                if Cato.imu.tap_type == 1:
+                    print("Single")
+                    self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
+                if Cato.imu.tap_type == 2:
+                    print("Double")
+                    self.blue.mouse.click(self.blue.mouse.RIGHT_BUTTON)
             except ConnectionError as ce:
                 DBS.println("ConnectionError: connection lost in clicker_task()")
                 DBS.println(str(ce))
@@ -565,7 +568,7 @@ class Cato:
 
             # mouse with dynamic acceleration for fine and coarse control
             if(mouse_type == "ACCEL"):
-                scale = Cato.translate(slow_thresh, fast_thresh, slow_scale, fast_scale, mag)
+                scale = translate(slow_thresh, fast_thresh, slow_scale, fast_scale, mag)
                 scale *= screen_scale
 
             # Begin idle checking -- only after minimum duration

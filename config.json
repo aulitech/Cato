@@ -1,7 +1,7 @@
 {
     "name" : "",
 
-    "operation_mode" : 0,
+    "operation_mode" : 3,
 
     "screen_size" : [3840, 2160],
 
@@ -37,8 +37,8 @@
     "sleep_threshold" : 40,
 
     "battery" : {
-        "low" : 22100,
-        "high": 30950
+        "low" : 23000,
+        "high": 30000
     },
 
     "confidence_threshold" : 0.65,
