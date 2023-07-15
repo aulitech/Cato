@@ -1,9 +1,5 @@
 {
-    "name" : "",
-
     "operation_mode" : 0,
-
-    "screen_size" : [3840, 2160],
 
     "mouse" : {
         "idle_thresh"   : 6.0,
@@ -23,18 +19,10 @@
         "movement_threshold" : 500,
         "idle_threshold" : 30,
 
-        "timeout" : 5,
-        "gc_timeout" : 10
+        "timeout" : 5
     },
 
-    "calibration" :{
-        "drift" : [0,0,0],
-
-        "auto_samples" : 100,
-        "auto_threshold": 0.5
-
-    },
-    "sleep_threshold" : 40,
+    "screen_size" : [3840, 2160],
 
     "battery" : {
         "low" : 22100,
@@ -92,10 +80,10 @@
         "Nod Left",
         "Tilt Right",
         "Tilt Left",
-        "Shake Yes",
-        "Shake No",
-        "Circle CW",
-        "Circle CCW"
+        "Shake Vertical",
+        "Shake Horizontal",
+        "Circle Clockwise",
+        "Circle Counterclockwise"
     ],
 
     "action_key" : [
@@ -117,6 +105,7 @@
     "turbo_rate" : [1, 0.2, 0.9],
 
     "gesture_window" : 1.2,
+    "gc_time_window" : 8,
     "gesture_length" : 75,
     "min_gesture_threshold" : 200
     }

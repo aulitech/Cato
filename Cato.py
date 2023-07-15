@@ -162,6 +162,14 @@ class Cato:
     async def reboot():
         mc.reset()
 
+    def query_imu_regs(self):
+        msg = ""
+        msg += f"int1_ctrl:     {(hex)(self.imu.int1_ctrl)}\n"
+        msg += f"ctrl1_xl:      {(hex)(self.imu._ctrl1_xl)}\n"
+        msg += f"tap_cfg:       {(hex)(self.imu._tap_cfg)}\n"
+        msg += f"tap_ths_6d:    {(hex)(self.imu._tap_ths_6d)}\n"
+        msg += f"_int_dur2:     {(hex)(self.imu._int_dur2)}\n"
+        return msg
     
     async def go_to_sleep(self):
         # This method sets a Cato to go to sleep - presently after exactly 15 seconds, soon to be based on inactivity
@@ -170,8 +178,9 @@ class Cato:
             await Events.sleep.wait()
             self.tasks['interrupt'].cancel() #release pin int1
             await asyncio.sleep(0.1)
+            self.tasks['interrupt'] = None
 
-            self.imu.single_tap_cfg() # set wakeup condn to single tap detection
+            self.imu.tap_wake_cfg() # set wakeup condn to single tap detection
 
             pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
             
@@ -182,13 +191,29 @@ class Cato:
             print("LIGHT SLEEP")
             alarm.light_sleep_until_alarms(pin_alarm)
             print("WOKE UP")
-            Events.sleep.clear()
+
             del(pin_alarm) # release imu_int1
+            print("Del pin")
 
-            Cato.imu.data_ready_on_int1_setup() #setup imu data ready
+            if(config['operation_mode'] == 3):
+                Cato.imu.single_tap_cfg()
 
-            self.tasks['interrupt'] = asyncio.create_task( Cato.imu.interrupt() )
+                print("Mode 3")
+            else:
+                Cato.imu.data_ready_on_int1_setup() #setup imu data ready
+                print("Mode other")
+
+            Events.sleep.clear()
             WakeDog.feed()
+            
+            self.tasks['interrrpt'] = asyncio.create_task(self.imu.interrupt())
+            self.imu.data_ready.clear()
+            self.imu.imu_ready.set()
+            self.imu.tap_detect.clear()
+            
+            await asyncio.sleep(0.1)
+
+
             #await asyncio.sleep(1) # TAKE IMU READINGS BEFORE TRYING TO GO BACK TO SLEEP?
 
     async def monitor_battery(self):
@@ -296,11 +321,11 @@ class Cato:
         confThresh = config["confidence_threshold"]
 
         param = config["gesture"]
-        maxLen = param["length"]
-        idleLen = param["idle_cutoff"]
-        gestThresh = param["movement_threshold"]
-        idleThresh = param["idle_threshold"]
-        timeout = param["timeout"]
+        maxLen      = param["length"]
+        idleLen     = param["idle_cutoff"]
+        gestThresh  = param["movement_threshold"]
+        idleThresh  = param["idle_threshold"]
+        timeout     = param["timeout"]
         param = None
 
         length = 1
@@ -455,8 +480,9 @@ class Cato:
         Cato.imu.single_tap_cfg()
         while True:
             await Cato.imu.wait()
+            WakeDog.feed()
             try:
-                #DBS.println("Click")
+                DBS.println("Click")
                 self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
             except ConnectionError as ce:
                 DBS.println("ConnectionError: connection lost in clicker_task()")
@@ -912,82 +938,66 @@ class Cato:
             Events.gesture_collecting.set()
             Events.gesture_not_collecting.clear()
             DBS.println("Collecting Gesture (wired)")
-            gestID : int
-            gestLength = config["gesture_length"]
-            timeLimit = config["gc_time_window"]
 
-            '''
-            SUS.collGestUUID = "stop"
-            while(SUS.collGestUUID == "stop"):
-                await asyncio.sleep(0.1)
-            '''
-            try:
-                with open("config.cato",'r') as cgFlag:
-                    gestID = int(cgFlag.readline())
-            except Exception as ex:
-                DBS.println(ex)
-                gestID = 10
-            if(gestID < 0)or(gestID >= len(EV.gesture_key)):
-                import os
-                os.remove("config.cato")
-                raise Exception("Gesture ID "+gestID+" does not exist")
+            gestLen     = config["gesture"]["length"]
+            idleLen     = config["gesture"]["idle_cutoff"]
+            gestThresh  = config["gesture"]["movement_threshold"]
+            idleThresh  = config["gesture"]["movement_threshold"]
+            timeout     = config["gesture"]["gc_timeout"]
             
-            hist = []
-            maxGest = []
-            maxMag = 0
-            drift : tuple
+            gesture = [(0,0,0,0,0,0,0)]
+            mag = 0
 
-            DBS.println("Recording")
-
-            while(len(hist) < gestLength):
+            
+            # let premature motion pass
+            idle = 0
+            while(idle < idleLen):
                 await Cato.imu.wait()
-                hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
+                mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
+                if(mag < gestThresh):
+                    idle += 1
+                else:
+                    idle = 0
+            
             try:
                 import os
-                os.remove("config.cato")
+                os.remove("gesture.cato")
+                os.remove("log.txt")
             except:
-                DBS.println("Failed to delete config.cato")
+                DBS.println("Failed to delete gesture.cato")
             '''''
             with open("flag.txt",'w') as flag:
                 #from StrUUIDService import SUS
                 SUS.collGestUUID = "FLAGGED"
                 pass
             #'''
-            '''
-            SUS.collGestUUID = "stop"
-            while(SUS.collGestUUID == "stop"):
-                await asyncio.sleep(0.1)
-            print("Files Modified")
-            '''
-            drift = hist[gestLength-1]
-            maxGest = hist.copy()
-            maxMag = maxGest[int(gestLength/2)]
-            DBS.println(maxMag)
-            for g in maxMag:
-                DBS.println(type(g))
-            maxMag = (maxMag[3]-drift[3])**2 + (maxMag[4]-drift[4])**2 + (maxMag[5]-drift[5])**2
-            sw = asyncio.create_task(Cato.stopwatch(timeLimit))  # Timer starts here
-            DBS.println("Perform Gesture: ", EV.gesture_key[gestID],"(",str(gestID),")")
-            
-            while(not sw.done()):
-                print(mem())
-                await Cato.imu.wait()
-                hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
-                hist.pop(0)
 
-                currMid = hist[int(gestLength/2)]
-                currMag = (currMid[3]-drift[3])**2 + (currMid[4]-drift[4])**2 + (currMid[5]-drift[5])**2
-                if(currMag > maxMag):
-                    DBS.println("New Max Read")
-                    DBS.println(currMag, ">", maxMag)
-                    maxMag = currMag
-                    maxGest = hist.copy()
+            timeout = asyncio.create_task(Cato.stopwatch(timeout))
+
+            while(mag < gestThresh):
+                if(timeout.done()):
+                    raise Exception("CGTimeout: movement threshold was not exceeded within given time window")
+                await Cato.imu.wait()
+                gesture[0] = (Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz)
+                mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
+
+            # actual gesture is performed and recorded here
+            idle = 0
+            while(len(gesture) < gestLen)and(idle < idleLen):
+                await Cato.imu.wait()
+                gesture.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz))
+                mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
+
+                if(mag < idleThresh):
+                    idle += 1
+                else:
+                    idle = 0
 
             DBS.println("Gesture Recording Completed")
             with open("log.txt",'w') as log:
                 print(mem())
-                while(len(maxGest) > 0):
-                    d = maxGest.pop(0)
+                while(len(gesture) > 0):
+                    d = gesture.pop(0)
                     log.write(",".join(str(v) for v in d))
                     log.write("\n")
                     await asyncio.sleep(0)
@@ -1002,8 +1012,8 @@ class Cato:
             '''
         except Exception as ex:
             import os
-            os.remove("config.cato")
-            raise(ex)
+            os.remove("gesture.cato")
+            DBS.println(ex)
         mc.reset()
     
     async def stopwatch(n : float,ev : asyncio.Event = None):
