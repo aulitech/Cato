@@ -240,7 +240,7 @@ class Cato:
             Events.sleep.clear()
             WakeDog.feed()
             
-            self.tasks['interrrpt'] = asyncio.create_task(self.imu.interrupt())
+            self.tasks['interrupt'] = asyncio.create_task(self.imu.interrupt())
             self.imu.data_ready.clear()
             self.imu.imu_ready.set()
             self.imu.tap_detect.clear()
