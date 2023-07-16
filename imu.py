@@ -129,7 +129,8 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self.imu_enable = asyncio.Event()   # enable:       Whether imu should allow reads
         self.imu_ready  = asyncio.Event()   # imu_rdy:      Set when imu has fresh data
         self.data_ready = asyncio.Event()   # data_rdt:     Set when imu data has been read and assigned to values
-        self.tap_detect = asyncio.Event()   # tap_detect:   Set when imu interrupt 1 detects tap.
+        self.tap_detect = asyncio.Event()
+        self.tap_type = None # 1 for single, 2 for double
 
         # Build fields
         self.acc        = np.array([0.0, 0.0, 0.0]) # accelerometer fields
@@ -150,16 +151,16 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
 
         # Configure IMU for accel and gyro stream
         self.data_ready_on_int1_setup()
+        
+        self.tasks = {}
 
-        self.tasks = {
-            "interrupt" : asyncio.create_task( self.interrupt() ),
-            "read"      : asyncio.create_task( self.read() ),
-            # "stream"    : asyncio.create_task( self.stream() )
-        }
+        if config["operation_mode"] == 3:
+            self.tasks.update({"read_click" : asyncio.create_task(self.read_clicks())})
+        else:
+            self.tasks.update({"read"      : asyncio.create_task( self.read() )})
 
-        # if(config["operation_mode"] == 12):
-        #     self.tasks["imu_stream"] = asyncio.create_task( self.stream() )
-    
+        self.tasks.update({"interrupt" : asyncio.create_task( self.interrupt() ) })
+
     def data_ready_on_int1_setup(self):
         self.int1_ctrl = 0x02
  
@@ -179,23 +180,18 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         # self._ctrl10_c     = 0x05 # WristTiltEn, 0, TimerEn, PedoEn, TiltEn, FuncEn, PedoRST_Step, Sign_Motn_En
         # SELECT A TAP WITH SINGLE OR DOUBLE
 
-    def tap_wake_cfg(self):
-        self.tap_ena()
-        self._md1_cfg     = 0x40 # Int1_Inact, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
-        print("Single tap: Configured")
-
     def single_tap_cfg(self):
         self.tap_ena()
         self._md1_cfg   = 0x40
-        
 
-    def double_tap_cfg(self):
-        self.tap_ena()
-        self._md1_cfg     = 0x08 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
+    # NOTE: TO ENABLE DBL TAP, MUST CONFIGURE WAKE_THS
+    # def double_tap_cfg(self):
+    #     self.tap_ena()
+    #     self._md1_cfg     = 0x08 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
     
-    def sgl_dbl_tap_cfg(self):
-        self.tap_ena()
-        self._md1_cfg = 0x48
+    # def sgl_dbl_tap_cfg(self):
+    #     self.tap_ena()
+    #     self._md1_cfg = 0x48
 
     @property
     def pwr(self):
@@ -285,6 +281,24 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             if gyro_mag > thresh:
                 WakeDog.feed()
 
+            self.data_ready.set()
+
+    async def read_clicks(self):
+        dbl_click_dur = 0.5 # TODO: Config entry - double_click_speed
+        while True:
+            await self.imu_ready.wait()
+            self.imu_ready.clear()
+
+            await asyncio.sleep(dbl_click_dur)
+
+            if(not self.imu_ready.is_set()):
+                self.tap_type = 1
+                # print("Setting single")
+            else:
+                self.imu_ready.clear()
+                self.tap_type = 2
+                # print("Setting double")
+            
             self.data_ready.set()
 
     async def wait(self):
