@@ -33,4 +33,3 @@ class Battery:
     @property
     def level(self):
         return 100
- 
