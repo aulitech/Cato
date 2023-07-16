@@ -113,6 +113,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     _md1_cfg        = RWBits(7,     _LSM6DS_MD1_CFG,        0   )
 
     def __init__(self, address: int = LSM6DS_DEFAULT_ADDRESS) -> None:
+        from StrUUIDService import config
         
         # Enable Imu Power
         self._pwr = digitalio.DigitalInOut(board.IMU_PWR)
@@ -128,12 +129,17 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self.imu_enable = asyncio.Event()   # enable:       Whether imu should allow reads
         self.imu_ready  = asyncio.Event()   # imu_rdy:      Set when imu has fresh data
         self.data_ready = asyncio.Event()   # data_rdt:     Set when imu data has been read and assigned to values
-        self.tap_detect = asyncio.Event()   # tap_detect:   Set when imu interrupt 1 detects tap.
+        self.tap_detect = asyncio.Event()
+        self.tap_type = None # 1 for single, 2 for double
 
         # Build fields
         self.acc        = np.array([0.0, 0.0, 0.0]) # accelerometer fields
         self.gyro_vals  = np.array([0.0, 0.0, 0.0]) # gyro fields
-        self.gyro_trim  = np.array([0.0, 0.0, 0.0]) # Gyroscope trim values set by calibrate
+        self.gyro_trim  = config["calibration"]["drift"] # Gyroscope trim values set by calibrate
+        self.not_calibrated = True
+        self.autoCalibLoops = config["calibration"]["auto_samples"]
+        self.autoCalibThresh = config["calibration"]["auto_threshold"]
+        self.sleep_thresh = config["sleep_threshold"]
 
         # Rotational Adjustment Values (From Calibrate)
         # Default to Identity
@@ -145,16 +151,16 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
 
         # Configure IMU for accel and gyro stream
         self.data_ready_on_int1_setup()
+        
+        self.tasks = {}
 
-        self.tasks = {
-            "interrupt" : asyncio.create_task( self.interrupt() ),
-            "read"      : asyncio.create_task( self.read() ),
-            # "stream"    : asyncio.create_task( self.stream() )
-        }
+        if config["operation_mode"] == 3:
+            self.tasks.update({"read_click" : asyncio.create_task(self.read_clicks())})
+        else:
+            self.tasks.update({"read"      : asyncio.create_task( self.read() )})
 
-        # if(config["operation_mode"] == 12):
-        #     self.tasks["imu_stream"] = asyncio.create_task( self.stream() )
-    
+        self.tasks.update({"interrupt" : asyncio.create_task( self.interrupt() ) })
+
     def data_ready_on_int1_setup(self):
         self.int1_ctrl = 0x02
  
@@ -167,7 +173,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         # Don't call this, instead, call single, double, or single-double
         self.int1_ctrl      = 0x00 # step_detector, int1_Sign_motn, int1FullFlag, int1FIFO_OVR, int1_Fth, int1_Boot, int1DrdyG, int1DrdyXL
         self._ctrl1_xl      = 0x60 # accelerometer ODR (output data rate) control
-        self._tap_cfg       = 0x8E # timer, pedo, tilt, slope_fds, tap_x, tap_y, tap_z, latched interrupt
+        self._tap_cfg       = 0x8E # int_ena, inact_ena1, inact ena0, slope_fds, tap_x, tap_y, tap_z, latched interrupt
         self._tap_ths_6d    = 0x8B # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
         self._int_dur2      = 0x13 # Dur[3:0], Quiet[1:0], Shock[1:0]
         # self._wake_up_ths   = 0x80 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
@@ -176,16 +182,16 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
 
     def single_tap_cfg(self):
         self.tap_ena()
-        self._md1_cfg     = 0x40 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
-        print("Single tap: Configured")
+        self._md1_cfg   = 0x40
 
-    def double_tap_cfg(self):
-        self.tap_ena()
-        self._md1_cfg     = 0x08 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
+    # NOTE: TO ENABLE DBL TAP, MUST CONFIGURE WAKE_THS
+    # def double_tap_cfg(self):
+    #     self.tap_ena()
+    #     self._md1_cfg     = 0x08 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
     
-    def sgl_dbl_tap_cfg(self):
-        self.tap_ena()
-        self._md1_cfg = 0x48
+    # def sgl_dbl_tap_cfg(self):
+    #     self.tap_ena()
+    #     self._md1_cfg = 0x48
 
     @property
     def pwr(self):
@@ -215,6 +221,10 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         rad_to_deg = 360.0 / (2*3.1416)
         
         from WakeDog import WakeDog # Can this be at top?
+
+        calibCountdown = self.autoCalibLoops
+        trimAdjust = np.array((0,0,0))
+        gyro_prev = np.array((0,0,0))
         
         while True:
             await self.imu_ready.wait()
@@ -226,6 +236,9 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             
             self.imu_ready.clear()
 
+            # Save previous gyro for trim adjustment
+            #gyro_prev = self.gyro_vals
+
             # Read gyroscope
             self.gyro_vals = np.array(self.gyro)
             self.gyro_vals *= rad_to_deg
@@ -236,19 +249,56 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             acc_mag = np.linalg.norm(self.acc)
             acc_dir = self.acc / acc_mag # unit vector
 
-            # trim measurements based on calibration
-            self.gyro_vals -= self.gyro_trim
-            gyro_mag = np.linalg.norm(self.gyro_vals)
-            
             # Apply pre-rotation with generated rotation matrix
             self.gyro_vals  = np.dot(self.rot_mat, self.gyro_vals)
             self.acc        = np.dot(self.rot_mat, self.acc)
 
+            # trim measurements based on calibration
+            self.gyro_vals -= self.gyro_trim
+            gyro_mag = np.linalg.norm(self.gyro_vals)
+
+            if(self.not_calibrated):
+                gyro_delta_mag = np.linalg.norm(self.gyro_vals - gyro_prev)
+
+                if(calibCountdown == 0):
+                    for i in range(len(self.gyro_trim)):
+                        self.gyro_trim[i] += trimAdjust[i]
+                    self.gyro_vals -= trimAdjust
+                    gyro_prev = self.gyro_vals
+                    calibCountdown = self.autoCalibLoops
+                    trimAdjust = np.array((0,0,0))
+
+                if(gyro_delta_mag < self.autoCalibThresh):
+                    calibCountdown -= 1
+                    trimAdjust += self.gyro_vals / self.autoCalibLoops
+                else:
+                    gyro_prev = self.gyro_vals
+                    calibCountdown = self.autoCalibLoops
+                    trimAdjust = np.array((0,0,0))
+            
             # Check sleep conditions
-            thresh = 40 # TODO PULL THIS FROM CONFIG!!!
+            thresh = self.sleep_thresh
             if gyro_mag > thresh:
                 WakeDog.feed()
 
+            self.data_ready.set()
+
+    async def read_clicks(self):
+        dbl_click_dur = 0.5 # TODO: Config entry - double_click_speed
+        while True:
+            await self.imu_ready.wait()
+            self.imu_ready.clear()
+
+            await asyncio.sleep(dbl_click_dur)
+
+            if(not self.imu_ready.is_set()):
+                self.tap_type = 1
+                # print("Setting single")
+            else:
+                self.imu_ready.clear()
+                self.tap_type = 2
+                # print("Setting double")
+            
             self.data_ready.set()
 
     async def wait(self):
@@ -267,7 +317,10 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             gyro_avg    += self.gyro_vals
             WakeDog.feed()
 
-        self.gyro_trim += gyro_avg / num_calib_cycles
+        for i in range(len(self.gyro_trim)):
+            self.gyro_trim[i] += gyro_avg[i] / num_calib_cycles
+        
+        self.not_calibrated = False
         print("Done Calibrating")
     
     async def full_calibrate(self, num_calib_cycles):
@@ -285,7 +338,8 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             
             WakeDog.feed()
 
-        self.gyro_trim += gyro_avg / num_calib_cycles
+        for i in range(len(self.gyro_trim)):
+            self.gyro_trim[i] += gyro_avg[i] / num_calib_cycles
 
         # Find Average Direction of Gravity Over Calibration 
         accel_avg /= num_calib_cycles
@@ -305,6 +359,8 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         th = asin(mag_n)
 
         self.rot_mat = rot_mat( q_gen(n, th) )
+        
+        self.not_calibrated = False
         print("Done Calibrating")
 
     async def stream(self):
