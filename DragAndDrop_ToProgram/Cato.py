@@ -180,7 +180,7 @@ class Cato:
             await asyncio.sleep(0.1)
             self.tasks['interrupt'] = None
 
-            self.imu.tap_wake_cfg() # set wakeup condn to single tap detection
+            self.imu.single_tap_cfg() # set wakeup condn to single tap detection
 
             pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
             

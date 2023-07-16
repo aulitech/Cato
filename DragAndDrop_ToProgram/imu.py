@@ -180,7 +180,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         # self._ctrl10_c     = 0x05 # WristTiltEn, 0, TimerEn, PedoEn, TiltEn, FuncEn, PedoRST_Step, Sign_Motn_En
         # SELECT A TAP WITH SINGLE OR DOUBLE
 
-    def tap_wake_cfg(self):
+    def single_tap_cfg(self):
         self.tap_ena()
         self._md1_cfg   = 0x40
 
