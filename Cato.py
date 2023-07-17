@@ -205,7 +205,7 @@ class Cato:
             Events.sleep.clear()
             WakeDog.feed()
             
-            self.tasks['interrupt'] = asyncio.create_task( self.imu.interrupt() )
+            self.tasks['interrupt'] = asyncio.create_task(self.imu.interrupt())
             self.imu.data_ready.clear()
             self.imu.imu_ready.set()
             self.imu.tap_detect.clear()
@@ -936,7 +936,6 @@ class Cato:
         try:
             #from StrUUIDService import SUS
             #SUS.collGestUUID = "go"
-            mc.nvm[2] = 0
 
             Events.gesture_collecting.set()
             Events.gesture_not_collecting.clear()
@@ -999,11 +998,12 @@ class Cato:
             DBS.println("Gesture Recording Completed")
             with open("log.txt",'w') as log:
                 print(mem())
-                while(len(gesture) > 0):
-                    d = gesture.pop(0)
+                for d in gesture:
                     log.write(",".join(str(v) for v in d))
                     log.write("\n")
                     await asyncio.sleep(0)
+                for z in range(len(gesture),gestLen):
+                    log.write("0,0,0,0,0,0\n")
             
             Events.gesture_collecting.clear()
             Events.gesture_not_collecting.set()
@@ -1035,6 +1035,6 @@ class Cato:
 
         while(True):
             DBS.println("looping")
-            DBS.print(self.imu.gyro_vals)
+            #DBS.print(self.imu.gyro_vals)
             i += 1
-            await asyncio.sleep(2)
+            await asyncio.sleep(20)
