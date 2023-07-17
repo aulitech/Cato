@@ -24,7 +24,7 @@ import gc
 
 from neutonml import Neuton
 
-from StrUUIDService import config
+from ValDict import config
 from StrUUIDService import DebugStream as DBS
 
 from WakeDog import WakeDog

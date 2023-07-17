@@ -1,4 +1,5 @@
 {
+    "HW_UID" : "",
     "name" : "",
 
     "operation_mode" : 0,
@@ -119,5 +120,24 @@
     "gesture_length" : 75,
     "min_gesture_threshold" : 200,
 
-    "HW_UID" : ""
+    "key_order" : {
+        "label" : "key_order",
+        "description" : "dev key for displying key/val's in resonable ordering on webapp",
+        "access" : "r",
+        "value" : [
+            "HW_UID",
+            "name",
+            "operation_mode",
+            "screen_size",
+            "mouse",
+            "gesture",
+            "calibration",
+            "sleep_threshold",
+            "battery",
+            "confidence_threshold",
+            "bindings",
+            "turbo_rate",
+            "key_order"
+        ]
+    }
 }

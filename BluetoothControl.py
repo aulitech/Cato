@@ -13,7 +13,7 @@ from adafruit_hid.keycode import Keycode as Keycode
 from adafruit_hid.mouse import Mouse
 
 from StrUUIDService import SUS
-#from StrUUIDService import config
+#from ValDict import config
 #from StrUUIDService import DebugStream as DBS
 
 import asyncio
@@ -31,7 +31,7 @@ class Appearances:
 
 class BluetoothControl():
 
-    from StrUUIDService import config
+    from ValDict import config
     if(config["HW_UID"] == ""):
         from builtins import hex
         from microcontroller import cpu
@@ -42,7 +42,7 @@ class BluetoothControl():
         import json
         try:
             with open("config.json", 'w') as f:
-                json.dump(config, f)
+                json.dump(config, f,sort_keys = True)
         except OSError as oser:
             print("ERROR SAVING UID: "+str(oser))
 
@@ -51,7 +51,7 @@ class BluetoothControl():
         import json
         try:
             with open("config.json", 'w') as f:
-                json.dump(config, f)
+                json.dump(config, f, separators=(",\n"," : "))
         except OSError as oser:
             print("ERROR SAVING NAME: "+str(oser))
     
