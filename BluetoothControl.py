@@ -32,18 +32,26 @@ class Appearances:
 class BluetoothControl():
 
     from StrUUIDService import config
-    if(config["name"] == ""):
-        config["name"] = "Cato_"
+    if(config["HW_UID"] == ""):
         from builtins import hex
         from microcontroller import cpu
-        uid = cpu.uid
-        for i in range(-3,0,1):
-            config["name"] += str(hex(uid[i])[-2:])
+        struid = ""
+        for b in cpu.uid:
+            struid += str(hex(b)[-2:])
+        config["HW_UID"] = struid
         import json
         try:
             with open("config.json", 'w') as f:
-                json.dump(config, f)    #for some reason "indent" kwarg is not recognized
-                ##json formatter method would be nice here to make config.json human readable
+                json.dump(config, f)
+        except OSError as oser:
+            print("ERROR SAVING UID: "+str(oser))
+
+    if(config["name"] == ""):
+        config["name"] = "Cato_" + config["HW_UID"][-6:]
+        import json
+        try:
+            with open("config.json", 'w') as f:
+                json.dump(config, f)
         except OSError as oser:
             print("ERROR SAVING NAME: "+str(oser))
     
@@ -136,6 +144,7 @@ class BluetoothControl():
     async def monitor_connections(self):
         #print("+ monitor_connections")
         while True:
+            print(*self.ble.connections)
             # Check connection
             if self.ble.connected: # When connected
                 if not self.is_connected.is_set():

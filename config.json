@@ -1,7 +1,7 @@
 {
     "name" : "",
 
-    "operation_mode" : 3,
+    "operation_mode" : 0,
 
     "screen_size" : [3840, 2160],
 
@@ -117,5 +117,7 @@
 
     "gesture_window" : 1.2,
     "gesture_length" : 75,
-    "min_gesture_threshold" : 200
+    "min_gesture_threshold" : 200,
+
+    "HW_UID" : ""
 }

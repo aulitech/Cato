@@ -124,8 +124,8 @@ class Cato:
         
         elif(mode == 2):
             self.tasks = {
-                "point" : asyncio.create_task(self.move_mouse(forever = True)),
-                "sleep" : asyncio.create_task(self.go_to_sleep())
+                "point"             : asyncio.create_task(self.move_mouse(forever = True)),
+                "sleep"             : asyncio.create_task(self.go_to_sleep())
             }
         elif(mode == 3):
             self.tasks = {
@@ -134,9 +134,9 @@ class Cato:
                 "sleep"             : asyncio.create_task(self.go_to_sleep()),
             }
         elif(mode >= 10):
+            self.bindings = config["bindings"][0]
             self.tasks = {
-                "test_loop"         : asyncio.create_task(self.test_loop())
-
+                "test_loop"         : asyncio.create_task(self.gesture_loop())
             }
             '''
             if(mode == 10):
@@ -315,7 +315,7 @@ class Cato:
                 prev_task = "noop"
 
     async def gesture_interpreter(self):
-        DBS.println("+gesture_interpreter mem: ",gc.mem_free())
+        #DBS.println("+gesture_interpreter mem: ",gc.mem_free())
         infer = 0
         confThresh = config["confidence_threshold"]
 
@@ -379,12 +379,13 @@ class Cato:
             else:
                 idle = 0
         DBS.println("Gesture Length: ",length)
+        '''''
         if(idle == idleLen):
             DBS.println("Broke for idle timeout")
         elif(length == maxLen):
             DBS.println("Broke for full gesture")
         else:
-            DBS.println("Broke for premature neuton fill")
+            DBS.println("Broke for premature neuton fill")#'''
 
         # fill remaining space w 0's
         while(idle == idleLen)and(length < maxLen):
@@ -392,15 +393,16 @@ class Cato:
             if(not self.n.set_inputs(array.array('f', [0]*6)))and(length < maxLen):
                 DBS.println("WARNING: PREMATURE NEUTON FILL")
                 break
-        DBS.println("Filled length: ", length)
+        #DBS.println("Filled length: ", length)
 
         infer = self.n.inference()+1
         DBS.println(neuton_outputs)
         if(max(neuton_outputs) < confThresh):
             infer = 0
+        DBS.println("Interpreted "+config["gesture_key"][infer]+"("+str(max(neuton_outputs))+")")
 
         await shakeCursor
-        DBS.println("-gesture_interpreter mem: ",gc.mem_free())
+        #DBS.println("-gesture_interpreter mem: ",gc.mem_free())
         return self.bindings[infer][self.state]
     
     async def feed_neuton(self, log):
@@ -1038,3 +1040,12 @@ class Cato:
             #DBS.print(self.imu.gyro_vals)
             i += 1
             await asyncio.sleep(20)
+    
+    
+    async def gesture_loop(self):
+        DBS.println("+ gesture_loop")
+        while True:
+            action = await self.gesture_interpreter()
+            DBS.println(action)
+            DBS.println()
+            await asyncio.sleep(0.5)
