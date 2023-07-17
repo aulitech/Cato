@@ -384,7 +384,7 @@
                 }
             }
         }
-    }
+    },
     "key_order" : {
         "label" : "key_order",
         "description" : "dev key for displying key/val's in resonable ordering on webapp",
@@ -404,4 +404,5 @@
             "turbo_rate",
             "key_order"
         ]
+    }
 }
