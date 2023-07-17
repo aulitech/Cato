@@ -4,10 +4,7 @@ import microcontroller as mc
 import json
 import asyncio
 
-
-config = dict
-with open("config.json",'r') as f:
-    config = json.load(f)
+from ValDict import config
 
 class StrUUIDService(Service):
     from adafruit_ble.uuid import VendorUUID

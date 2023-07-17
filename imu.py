@@ -21,7 +21,7 @@ import supervisor as sp
 
 from ulab import numpy as np
 
-#from StrUUIDService import config
+#from ValDict import config
 #from StrUUIDService import DebugStream
 
 from math import pi, sin, cos, sqrt, asin
@@ -113,7 +113,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     _md1_cfg        = RWBits(7,     _LSM6DS_MD1_CFG,        0   )
 
     def __init__(self, address: int = LSM6DS_DEFAULT_ADDRESS) -> None:
-        from StrUUIDService import config
+        from ValDict import config
         
         # Enable Imu Power
         self._pwr = digitalio.DigitalInOut(board.IMU_PWR)
