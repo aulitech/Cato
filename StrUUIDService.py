@@ -121,8 +121,15 @@ class StrUUIDService(Service):
         return str
     
     async def save_config(self):
+        self.configUUID = "SAVE NON-OPERATIONAL"
+        return
         self.configUUID = "SAVING"
+        def repacker():
+            return
         try:
+            with open("config.json",'w'):
+                pass
+            temp_dict = {}
             # config.dump()
             self.configUUID = "SAVE COMPLETE"
         except OSError as oser:
