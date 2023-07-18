@@ -15,7 +15,6 @@ from adafruit_hid.mouse import Mouse
 
 from StrUUIDService import SUS
 from utils import config
-#from StrUUIDService import DebugStream as DBS
 
 import asyncio
 
@@ -32,12 +31,9 @@ class Appearances:
 
 class BluetoothControl():
     if(config["HW_UID"] == ""):
-        from builtins import hex
         from microcontroller import cpu
-        struid = ""
-        for b in cpu.uid:
-            struid += str(hex(b)[-2:])
-        config["HW_UID"] = struid
+        from binascii import hexlify
+        config["HW_UID"] = str(hexlify(cpu.uid))[2:-1]
 
 
     if(config["name"] == ""):

@@ -74,6 +74,11 @@ async def main():
     await asyncio.sleep(0.3)
     Cato.imu.imu_enable.set()
     Events.control_loop.set()
-    await asyncio.gather(*tasks.values())
+    try:
+        await asyncio.gather(*tasks.values())
+    except Exception as ex:
+        import traceback
+        with open("ErrorLog.txt",'w') as el: 
+            el.write(traceback.format_exception(ex))
 
 asyncio.run(main())

@@ -41,7 +41,7 @@
                 "label" : "Sleep Threshold",
                 "description" : "Movement level below which Cato starts counting towards sleep",
                 "access" : "rw",
-                "value" : 40,
+                "value" : 4.0,
                 "range" : {
                     "min" : 20,
                     "max" : 100
