@@ -42,7 +42,7 @@ class StrUUIDService(Service):
             "CALIBRATE"     : self.calibrate_imu,
         }
 
-        self.cgUUID = "AWAITING INTERACTION"
+        self.cgUUID = "WAITING FOR MSG"
         while(True):
             ##test w different time lengths or async event triggers
             await E.gesture_not_collecting.wait()
@@ -54,17 +54,17 @@ class StrUUIDService(Service):
             await coro()
     
     async def reboot(self):
-        self.cgUUID = "REBOOTING"
+        self.cgUUID = "REBOOT"
         mc.reset()
     async def reboot_forceRO(self):
-        self.cgUUID = "REBOOTING READ ONLY"
+        self.cgUUID = "REBOOT RO"
         mc.nvm[0] = False
         mc.reset()
 
     async def collGest_dispatch(self):
         from Cato import Events as E
         E.gesture_collecting.set()
-        SUS.cgUUID = "Collect Gestures Dispatched"
+        SUS.cgUUID = "CG Sent"
 
     async def calibrate_imu(self):
         from Cato import Cato
@@ -72,7 +72,7 @@ class StrUUIDService(Service):
         await asyncio.sleep(0.5)
         self.cgUUID = "calibrating..."
         await Cato.imu.calibrate(200)
-        self.cgUUID = "Calibration Complete"
+        self.cgUUID = "Calib Done"
 
 
 
