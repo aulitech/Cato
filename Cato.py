@@ -11,7 +11,7 @@ import digitalio
 import alarm
 
 from math import sqrt, atan2, sin, cos
-from utils import translate, stopwatch
+from utils import translate, stopwatch, get_mag
 
 import array
 
@@ -257,17 +257,20 @@ class Cato:
         gestThresh  = config["gesture"]["start_threshold"]
         idleThresh  = config["gesture"]["idle_threshold"]
         timeout     = config["gesture"]["timeout"]
-
+        
         # counters for in-progress gestures
         length = 1 # number of samples in gesture at present
         mag = 0 # magnitude (squared for now) of gestures gyro movement
         infer = 0 # ID of Neuton's inference
         idle = 0 # Current number of consecutive idle samples
 
+        def gyro_mag():
+            return get_mag((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz))
+
         while(idle < idleLen):
             await Cato.imu.wait()
-            mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
-            if(mag < gestThresh):
+            mag = gyro_mag()
+            if(mag**2 < gestThresh):
                 idle += 1
             else:
                 DBS.println("Premature Motion")
@@ -280,12 +283,12 @@ class Cato:
         # wait to recieve significant motion and return if the timeout threshold is passed
         timeoutEv = asyncio.Event()
         asyncio.create_task(stopwatch(timeout, ev = timeoutEv))
-        while(mag < gestThresh):
+        while(mag**2 < gestThresh):
             if(timeoutEv.is_set()):
                 DBS.println("No Gesture Caused Timout")
                 return self.bindings[EV_NONE][self.state]
             await Cato.imu.wait()
-            mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
+            mag = gyro_mag()
             #DBS.println((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz,mag))
 
         # motion recieved
@@ -303,11 +306,11 @@ class Cato:
                                     Cato.imu.gx, Cato.imu.gy, Cato.imu.gz])
             if(not self.n.set_inputs(data)):
                 break
-            mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
+            mag = gyro_mag()
             #DBS.println((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz,mag))
             length += 1
 
-            if(mag < idleThresh):
+            if(mag**2 < idleThresh):
                 idle += 1
             else:
                 idle = 0
@@ -423,8 +426,9 @@ class Cato:
         min_run_cycles = config['mouse']['min_run_cycles']
         
         #scale is "base" for acceleration - do adjustments here
-        screen_mag = sqrt(config['screen_size']['width'] ** 2 + config['screen_size']['width'] ** 2)
-        screen_scale = screen_mag / sqrt(1920**2 + 1080**2) # default scale to 1920 * 1080 - use diagonal number of pixels as scalar
+        screen_mag = get_mag(tuple(config['screen_size'].values()))
+        print(config['screen_size'].values())
+        screen_scale = screen_mag / get_mag((1920,1080)) # default scale to 1920 * 1080 - use diagonal number of pixels as scalar
         usr_scale = config['mouse']['scale'] #user multiplier
 
         scale = 1.0
@@ -754,13 +758,15 @@ class Cato:
             gesture = [(0,0,0,0,0,0,0)]
             mag = 0
 
+            def gyro_mag():
+                return get_mag(Cato.imu.gx,Cato.imu.gy,Cato.imu.gz)
             
             # let premature motion pass
             idle = 0
             while(idle < idleLen):
                 await Cato.imu.wait()
-                mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
-                if(mag < gestThresh):
+                mag = gyro_mag()
+                if(mag**2 < gestThresh):
                     idle += 1
                 else:
                     idle = 0
@@ -780,21 +786,21 @@ class Cato:
 
             timeout = asyncio.create_task(stopwatch(timeout))
 
-            while(mag < gestThresh):
+            while(mag**2 < gestThresh):
                 if(timeout.done()):
                     raise Exception("CGTimeout: movement threshold was not exceeded within given time window")
                 await Cato.imu.wait()
                 gesture[0] = (Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz)
-                mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
+                mag = gyro_mag()
 
             # actual gesture is performed and recorded here
             idle = 0
             while(len(gesture) < gestLen)and(idle < idleLen):
                 await Cato.imu.wait()
                 gesture.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz))
-                mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
+                mag = gyro_mag()
 
-                if(mag < idleThresh):
+                if(mag**2 < idleThresh):
                     idle += 1
                 else:
                     idle = 0

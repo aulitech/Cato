@@ -309,7 +309,6 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
                     self.imu_ready.clear()
                 await asyncio.sleep(0)
             print("TAP TYPE: ", self.tap_type)
-            print(f"Click Get. Type: {['None', 'Single', 'Double'][self.tap_type]}")
             self.data_ready.set()
 
     async def wait(self):
