@@ -4,8 +4,10 @@ import asyncio
 # from StrUUIDService import DebugStream
 
 # This class is like a watchdog, but will monitor Cato and help it go to sleep and wake up.
+
+from utils import config
 class WakeDog:
-    max_time = 40
+    max_time = config["sleep"]["timeout"]
     curr_time = 0
     def feed():
         WakeDog.curr_time = 0
@@ -14,10 +16,8 @@ class WakeDog:
         while True:
             await asyncio.sleep(1)
             WakeDog.curr_time += 1
-            if(WakeDog.curr_time % 5 == 0 and WakeDog.curr_time >= WakeDog.max_time / 2):
-
-                pass
-                print(f"Sleep Timer (WakeDog) {WakeDog.curr_time} / {WakeDog.max_time}")
+            # if(WakeDog.curr_time % 5 == 0 and WakeDog.curr_time >= WakeDog.max_time / 2):
+            #     print(f"Sleep Timer (WakeDog) {WakeDog.curr_time} / {WakeDog.max_time}")
         
     async def watch():
         from Cato import Events

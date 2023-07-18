@@ -1,11 +1,12 @@
 
-import adafruit_ble
+from adafruit_ble import BLERadio
 
-from adafruit_ble.advertising import Advertisement#, AdvertisingFlag, AdvertisingFlags
+from adafruit_ble.advertising import Advertisement #, AdvertisingFlag, AdvertisingFlags
 
 from adafruit_ble.advertising.standard import ProvideServicesAdvertisement
 from adafruit_ble.services.standard.hid import HIDService
 from adafruit_ble.services.standard.device_info import DeviceInfoService
+from adafruit_ble.services.standard import BatteryService
 
 from adafruit_hid.keyboard import Keyboard
 from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
@@ -13,7 +14,7 @@ from adafruit_hid.keycode import Keycode as Keycode
 from adafruit_hid.mouse import Mouse
 
 from StrUUIDService import SUS
-#from ValDict import config
+from utils import config
 #from StrUUIDService import DebugStream as DBS
 
 import asyncio
@@ -30,8 +31,6 @@ class Appearances:
     control_device = 0x04C0 # 0x04C0 to 0x04FF
 
 class BluetoothControl():
-
-    from ValDict import config
     if(config["HW_UID"] == ""):
         from builtins import hex
         from microcontroller import cpu
@@ -39,24 +38,15 @@ class BluetoothControl():
         for b in cpu.uid:
             struid += str(hex(b)[-2:])
         config["HW_UID"] = struid
-        import json
-        try:
-            with open("config.json", 'w') as f:
-                json.dump(config, f,sort_keys = True)
-        except OSError as oser:
-            print("ERROR SAVING UID: "+str(oser))
+
 
     if(config["name"] == ""):
         config["name"] = "Cato_" + config["HW_UID"][-6:]
-        import json
-        try:
-            with open("config.json", 'w') as f:
-                json.dump(config, f, separators=(",\n"," : "))
-        except OSError as oser:
-            print("ERROR SAVING NAME: "+str(oser))
+
+    # config.dump()
     
     # BLERadio can toggle advertising state
-    ble = adafruit_ble.BLERadio()
+    ble = BLERadio()
     ble.name = config["name"]
 
     def __init__(self):
@@ -67,9 +57,9 @@ class BluetoothControl():
             # github will manage
             # on commit, how is a piece of your code updated
             # can set up new repo to play with - google "how to do revision control in github"
-            software_revision = adafruit_ble.__version__, # This is the Cato version
+            software_revision = "v0.0",
             model_number = None,  # our model number can be "Cato 1"
-            serial_number = None, # look on nrf52840 for hardware serial - can ask on Seeed forum - anything unique per board
+            serial_number = config["HW_UID"], # look on nrf52840 for hardware serial - can ask on Seeed forum - anything unique per board
             firmware_revision = "v0.0",
             hardware_revision = "v0.0",
             service = None
@@ -97,16 +87,17 @@ class BluetoothControl():
         self.mouse = Mouse(self.hid.devices)
         
         # Battery service. Can inform central of battery level with this.level
-        self.battery_service = adafruit_ble.services.standard.BatteryService()
+        self.battery_service = BatteryService()
 
         self.ena_adv = asyncio.Event()          # enable advertising
         self.is_connected = asyncio.Event()     # indicates connection
         self.is_disconnected = asyncio.Event()  # indicates disconnection
 
         self.is_disconnected.set() #board starts without connection
+        
         import microcontroller as mc
         self.tasks = {}
-        if((BluetoothControl.config["operation_mode"]>=20)or not(mc.nvm[2])):
+        if( not(mc.nvm[2]) ): # Should always be true, unless specifically wired training routine
             self.tasks = {  # tasks
                 "characteristic_loop"   : asyncio.create_task(SUS.config_loop()),
                 "manage_connection"     : asyncio.create_task(self.manage_connection()),
@@ -144,7 +135,6 @@ class BluetoothControl():
     async def monitor_connections(self):
         #print("+ monitor_connections")
         while True:
-            print(*self.ble.connections)
             # Check connection
             if self.ble.connected: # When connected
                 if not self.is_connected.is_set():

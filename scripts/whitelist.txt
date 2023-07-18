@@ -1,12 +1,10 @@
 battery.py
-BluetoothControl.py
-StrUUIDService.py
 boot.py
+BluetoothControl.py
 Cato.py
-DummyBT.py
+config.json
 imu.py
 main.py
-mode.py
-config.json
+StrUUIDService.py
+utils.py
 WakeDog.py
-ValDict.py

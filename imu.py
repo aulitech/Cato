@@ -18,10 +18,10 @@ import time
 import board
 import gc
 import supervisor as sp
-
+from utils import stopwatch
 from ulab import numpy as np
 
-#from ValDict import config
+from utils import config
 #from StrUUIDService import DebugStream
 
 from math import pi, sin, cos, sqrt, asin
@@ -113,7 +113,6 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     _md1_cfg        = RWBits(7,     _LSM6DS_MD1_CFG,        0   )
 
     def __init__(self, address: int = LSM6DS_DEFAULT_ADDRESS) -> None:
-        from ValDict import config
         
         # Enable Imu Power
         self._pwr = digitalio.DigitalInOut(board.IMU_PWR)
@@ -139,7 +138,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self.not_calibrated = True
         self.autoCalibLoops = config["calibration"]["auto_samples"]
         self.autoCalibThresh = config["calibration"]["auto_threshold"]
-        self.sleep_thresh = config["sleep_threshold"]
+        self.sleep_thresh = config["sleep"]["threshold"]
 
         # Rotational Adjustment Values (From Calibrate)
         # Default to Identity
@@ -154,7 +153,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         
         self.tasks = {}
 
-        if config["operation_mode"] == 3:
+        if config["operation_mode"] == "clicker": # TODO: if clicker in op_mode
             self.tasks.update({"read_click" : asyncio.create_task(self.read_clicks())})
         else:
             self.tasks.update({"read"      : asyncio.create_task( self.read() )})
@@ -284,21 +283,33 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             self.data_ready.set()
 
     async def read_clicks(self):
-        dbl_click_dur = 0.5 # TODO: Config entry - double_click_speed
+        click_spacing = config["clicker"]["max_click_spacing"]
+        timeout_ev = asyncio.Event()
+        timeout_ev.clear()
+        max_clicks = len(config["bindings"]["clicker"])-1
+        print("Max Clicks: ", max_clicks)
         while True:
+            # print("Read Click Awaiting")
             await self.imu_ready.wait()
-            self.imu_ready.clear()
+            # print("Read Click Get ")
+            #Reset tap_type and timer
+            self.tap_type = 0 # passed first imu_ready - already have one tap
+            timeout_ev.clear()
 
-            await asyncio.sleep(dbl_click_dur)
+            # create timer and restart it each time a tap occurs
+            sw = None
 
-            if(not self.imu_ready.is_set()):
-                self.tap_type = 1
-                # print("Setting single")
-            else:
-                self.imu_ready.clear()
-                self.tap_type = 2
-                # print("Setting double")
-            
+            while (not timeout_ev.is_set()) and (self.tap_type < max_clicks):
+                if self.imu_ready.is_set():
+                    # print("imu awaiting inside")
+                    self.tap_type += 1
+                    if sw is not None:
+                        sw.cancel()
+                    sw = asyncio.create_task( stopwatch(click_spacing, timeout_ev) )
+                    self.imu_ready.clear()
+                await asyncio.sleep(0)
+            print("TAP TYPE: ", self.tap_type)
+            print(f"Click Get. Type: {['None', 'Single', 'Double'][self.tap_type]}")
             self.data_ready.set()
 
     async def wait(self):

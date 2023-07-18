@@ -2,6 +2,8 @@
 # Finn Biggs - finn@auli.tech
 # 17-Nov-2022
 
+from utils import config
+
 import microcontroller as mc
 from microcontroller import watchdog as w
 from watchdog import WatchDogMode
@@ -22,14 +24,6 @@ batt_ev = asyncio.Event()
 
 def mem( loc = "" ):
     print(f"Free Memory at {loc}: \n\t{gc.mem_free()}")
-
-async def feed_dog():
-    ''' feed the watchdog '''
-    w.timeout = 10 #seconds
-    w.mode = WatchDogMode.RAISE
-    while True:
-        w.feed()
-        await asyncio.sleep(8)
 
 async def control_loop(c : Cato):
     """Control loop for Cato standard operation (MODE 0)"""
@@ -68,21 +62,18 @@ async def main():
             DBS.println("COM port detected")
     else:
         DBS.println("No remount necessary")
-    # print(f"+ main/main {gc.mem_free()}")
+
     c = Cato( bt = True, do_calib = True)
-    # print(f"+ main/cato_created {gc.mem_free()}")
     Cato.imu.imu_enable.set()
-    # print(f"+ main/imu_ena set {gc.mem_free()}")
 
     tasks = {
-        # "dog"           : asyncio.create_task(feed_dog()),
         "control_loop"  : asyncio.create_task(control_loop( c )),
     }
+
     tasks.update(c.tasks)
     await asyncio.sleep(0.3)
     Cato.imu.imu_enable.set()
     Events.control_loop.set()
     await asyncio.gather(*tasks.values())
-
 
 asyncio.run(main())
