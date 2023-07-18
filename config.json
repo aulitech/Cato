@@ -43,8 +43,8 @@
                 "access" : "rw",
                 "value" : 4.0,
                 "range" : {
-                    "min" : 20,
-                    "max" : 100
+                    "min" : 2.0,
+                    "max" : 10.0
                 }
             }
         }
