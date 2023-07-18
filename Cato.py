@@ -194,9 +194,9 @@ class Cato:
         while True:
             for i in range(3):
                 await asyncio.sleep(0.2)
-                self.led.value = True
-                await asyncio.sleep(0.2)
                 self.led.value = False
+                await asyncio.sleep(0.2)
+                self.led.value = True
             await asyncio.sleep(5)
             temp = self.battery.raw_value
             # DBS.println(f"bat_ena True: {temp[0]}")
