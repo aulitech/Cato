@@ -39,10 +39,10 @@ class EV(): #these are actually gestures
         "Nod Left",
         "Tilt Right",
         "Tilt Left",
-        "Shake Vertical",
-        "Shake Horizontal",
-        "Circle Clockwise",
-        "Circle Counterclockwise"
+        "Shake Yes",
+        "Shake No",
+        "Circle CW",
+        "Circle CCW"
     ]
     ''' enum events '''
     NONE = 0
@@ -112,39 +112,6 @@ class Cato:
         mc.reset()
 
 
-    @property
-    def gx(self):
-        return Cato.imu.gx
-    
-    @property
-    def gy(self):
-        return Cato.imu.gy
-
-    @property
-    def gz(self):
-        return Cato.imu.gz
-
-    @property
-    def ax(self):
-        return Cato.imu.ax
-
-    @property
-    def ay(self):
-        return Cato.imu.ay
-
-    @property
-    def az(self):
-        return Cato.imu.az
-    
-    async def monitor_battery(self):
-        while True:
-            await asyncio.sleep(3)
-            temp = self.battery.raw_value
-            # DebugStream.println(f"bat_ena True: {temp[0]}")
-            await asyncio.sleep(0.1)
-            # uDebugStream.println(f"bat_ena False: {temp[1]}")
-            self.blue.battery_service.level = self.battery.level
-
     async def collect_gestures_control():
         from StrUUIDService import SUS
         
@@ -159,127 +126,22 @@ class Cato:
             Cato.shuffle(to_train)
             DebugStream.println(to_train)
             n = 5
-            logName = f"log{mc.nvm[2]:2}.txt"
+            logName = f"log{mc.nvm[2]}.csv"
 
-            await Cato.collect_large_gestures(to_train=to_train,n=n,logName=logName)
+            await Cato.collect_gestures(to_train=to_train,n=n,logName=logName)
 
-            
             if(SUS.cgUUID == "Gesture Collection Completed"):
                 mc.nvm[2] += 1
             
             Events.gesture_collecting.clear()
             Events.gesture_not_collecting.set()
     
-    async def collect_gestures(to_train = range(1,len(EV.gesture_key)), n = 10, logName = "log.txt", gestLen = 5):
-        from StrUUIDService import SUS
-
-        DebugStream.println("+ collect_gestures")
-        try:
-            with open(logName, 'w') as log:
-                pass
-        except:
-            pass
-
-        if(isinstance(to_train,int)):
-            to_train = (to_train,)
-        
-        if(mc.nvm[1]):
-            SUS.cgUUID = "WARNING: Cato did not boot selfwritable.  Values will not be recorded"
-            DebugStream.println("WARNING: Cato did not boot selfwritable.  Values will not be recorded")
-
-        await asyncio.sleep(3)
-
-        gest_timer = asyncio.Event()
-        SUS.cgUUID = "Collecting Gestures"
-        DebugStream.println(SUS.cgUUID)
-        #try:
-        for gestID in to_train:
-            #SUS.collGestUUID = "Gesture: "+EV.gesture_key[gestID]+"("+str(gestID)+")"
-            i = 0
-            while(i < n):
-                i += 1
-                hist = []
-                maxGest = []
-                maxMag = 0
-
-                SUS.cgUUID = EV.gesture_key[gestID]+"("+str(gestID)+")"
-                while(SUS.cgUUID == EV.gesture_key[gestID]+"("+str(gestID)+")"):
-                    await asyncio.sleep(0.1)
-
-                while(len(hist) < gestLen):
-                    await Cato.imu.wait()
-                    hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
-                    maxGest.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
-                
-                delta = []
-                for col in range(0,len(hist[0])-1):
-                    delta.append(hist[gestLen//2][col] - hist[gestLen//2 -1][col])
-                maxMag = (delta[3])**2 + (delta[4])**2 + (delta[5])**2
-                
-                SUS.cgUUID = str(maxMag)
-                asyncio.create_task(Cato.stopwatch(3, ev = gest_timer))  # Timer starts here
-                DebugStream.println("Perform Gesture: ", EV.gesture_key[gestID])
-                SUS.cgUUID = "Perform Gesture ("+str(i)+")"
-
-                while(not gest_timer.is_set()):
-                    await Cato.imu.wait()
-                    hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
-                    hist.pop(0)
-
-                    delta = []
-                    for col in range(0,len(hist[0])-1):
-                        delta.append(hist[gestLen//2][col] - hist[gestLen//2 -1][col])
-                    currMag = (delta[3])**2 + (delta[4])**2 + (delta[5])**2
-
-                    if(currMag > maxMag):
-                        DebugStream.println("New Max Read")
-                        DebugStream.println(currMag, ">", maxMag)
-                        maxMag = currMag
-                        maxGest = hist.copy()
-                        
-                gest_timer.clear()
-                DebugStream.println("recording length: "+str(len(maxGest)))
-                # record data
-                SUS.cgUUID = "Keep this input?(y/n)"
-                while(SUS.cgUUID not in ('Y','y','N','n','Q','q','S','s')):
-                    await asyncio.sleep(0.1)
-                if(SUS.cgUUID in ('Y','y')):
-                    ''''''
-                    # write to local log until app is functional
-                    try:
-                        with open(logName, 'a') as log:
-                            SUS.cgUUID = "Logging gesture to "+logName
-                            DebugStream.println("Writing to",logName)
-                            for d in maxGest:
-                                log.write(",".join(str(v) for v in d))
-                                log.write("\n")
-                    except OSError as oser:
-                        SUS.cgUUID = "Gestures cannot be logged"
-                        SUS.cgUUID = str(oser)
-                        continue
-                    
-                elif(SUS.cgUUID in ('N','n')):
-                    SUS.cgUUID = "Rerecording Gesture"
-                    i -= 1
-                elif(SUS.cgUUID in ('Q','q')):
-                    SUS.cgUUID = "Session Canceled"
-                    os.remove(logName)
-                    return
-                else:
-                    SUS.cgUUID = "Recording Skipped"
-
-            SUS.cgUUID = "Finished Recordings of " + EV.gesture_key[gestID]
     
-        SUS.cgUUID = "Gesture Collection Completed"
-        DebugStream.println("Gesture Collection Completed")
-    
-    
-    async def collect_large_gestures(to_train = range(1,len(EV.gesture_key)), n = 5, logName = "log.txt", 
+    async def collect_gestures(to_train = range(1,len(EV.gesture_key)), n = 5, logName = "log.csv", 
                                     gestLen = config["gesture_length"], idleLen = config["gesture_idle_cutoff"],
                                     gestThresh = config["gesture_movement_threshold"], idleThresh = config["gesture_idle_threshold"]):
         from StrUUIDService import SUS
 
-        DebugStream.println("+ collect_gestures")
         try:
             with open(logName, 'w') as log:
                 pass
@@ -291,11 +153,34 @@ class Cato:
         
         if(mc.nvm[1]):
             SUS.cgUUID = "WARNING: Cato did not boot selfwritable.  Values will not be recorded"
-            DebugStream.println("WARNING: Cato did not boot selfwritable.  Values will not be recorded")
 
         await asyncio.sleep(3)
+        SUS.cgUUID = "Begin?"
+        while(SUS.cgUUID not in "YySsQq"):
+            if(SUS.cgUUID in 'Rr'):
+                if(mc.nvm[1]):
+                    SUS.cgUUID = "Rebooting"
+                    mc.nvm[0] = False
+                    mc.reset()
+                else:
+                    SUS.cgUUID = "Not Required"
+            await asyncio.sleep(0.1)
+        
+        if(SUS.cgUUID in 'Ss'):
+            SUS.cgUUID = f"Skipping {logName}"
+            mc.nvm[2] += 1
+            return
+        elif(SUS.cgUUID in 'Qq'):
+            SUS.cgUUID = "Exiting CG"
+            return
+        
+        gestID = 0
+        def imu_tuple():
+            return (Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID)
+        def gyro_mag():
+            return (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
 
-        SUS.cgUUID = "Collecting Gestures"
+        SUS.cgUUID = "Collecting"
         DebugStream.println(SUS.cgUUID)
         #try:
         for gestID in to_train:
@@ -305,37 +190,33 @@ class Cato:
                 i += 1
                 gesture = [(0,0,0,0,0,0,0)]
                 mag = 0
-
-                SUS.cgUUID = EV.gesture_key[gestID]+"("+str(gestID)+")"
-                while(SUS.cgUUID == EV.gesture_key[gestID]+"("+str(gestID)+")"):
-                    await asyncio.sleep(0.1)
                 
                 # let premature motion pass
                 idle = 0
                 while(idle < idleLen):
                     await Cato.imu.wait()
-                    mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
+                    mag = gyro_mag()
                     if(mag < gestThresh):
                         idle += 1
                     else:
                         idle = 0
                 
-                DebugStream.println("Perform Gesture: ", EV.gesture_key[gestID])
-                SUS.cgUUID = "Perform Gesture ("+str(i)+")"
+                DebugStream.println(f"Perform: {EV.gesture_key[gestID]} {i}")
+                SUS.cgUUID = f"{EV.gesture_key[gestID]} {i}"
 
                 # wait to recieve significant motion
                 while(mag < gestThresh):
                     await Cato.imu.wait()
-                    gesture[0] = (Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID)
-                    mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
+                    gesture[0] = imu_tuple()
+                    mag = gyro_mag()
 
                 SUS.cgUUID = "RECORDING"
                 # actual gesture is performed and recorded here
                 idle = 0
                 while(len(gesture) < gestLen)and(idle < idleLen):
                     await Cato.imu.wait()
-                    gesture.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
-                    mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
+                    gesture.append(imu_tuple())
+                    mag = gyro_mag()
 
                     if(mag < idleThresh):
                         idle += 1
@@ -344,42 +225,41 @@ class Cato:
 
                     DebugStream.println("magnitude:\t",mag)
                 
-                SUS.cgUUID = "gesture length: "+str(len(gesture))
+                SUS.cgUUID = f"gestleng:{+len(gesture)}"
                 DebugStream.println(SUS.cgUUID)
 
                 # record data
-                SUS.cgUUID = "Keep this input?(y/n)"
-                while(SUS.cgUUID not in ('Y','y','N','n','Q','q','S','s')):
+                SUS.cgUUID = "Keep input?(y/n)"
+                while(SUS.cgUUID not in 'YyNnQqSs'):
                     await asyncio.sleep(0.1)
                 
-                if(SUS.cgUUID in ('Y','y')):
+                if(SUS.cgUUID in 'Yy'):
                     # write to local log until app is functional
                     try:
                         with open(logName, 'a') as log:
-                            SUS.cgUUID = "Logging gesture to "+logName
-                            DebugStream.println("Writing to ",logName)
+                            SUS.cgUUID = f"Logging {logName}"
                             for d in gesture:
                                 log.write(",".join(str(v) for v in d))
                                 log.write("\n")
                             for d in range(len(gesture),gestLen):
                                 log.write("0,0,0,0,0,0,"+str(gestID)+'\n')
                     except OSError as oser:
-                        SUS.cgUUID = "Gestures cannot be logged"
+                        SUS.cgUUID = "Log Failed"
                         SUS.cgUUID = str(oser)
 
-                elif(SUS.cgUUID in ('N','n')):
+                elif(SUS.cgUUID in 'Nn'):
                     SUS.cgUUID = "Rerecording Gesture"
                     i -= 1
 
-                elif(SUS.cgUUID in ('S','s')):
+                elif(SUS.cgUUID in 'Ss'):
                     SUS.cgUUID = "Recording Skipped"
 
-                elif(SUS.cgUUID in ('Q','q')):
+                elif(SUS.cgUUID in 'Qq'):
                     SUS.cgUUID = "Session Canceled"
                     os.remove(logName)
                     return
 
-            SUS.cgUUID = "Finished Recordings of " + EV.gesture_key[gestID]
+            SUS.cgUUID = f"{EV.gesture_key[gestID]} Complete"
     
         SUS.cgUUID = "Gesture Collection Completed"
         DebugStream.println("Gesture Collection Completed")

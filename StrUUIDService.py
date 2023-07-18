@@ -48,7 +48,7 @@ class StrUUIDService(Service):
             await E.gesture_not_collecting.wait()
             await asyncio.sleep(0.2)
             try:
-                coro = SIGNAL_STRING[self.cgUUID]
+                coro = SIGNAL_STRING[self.cgUUID.upper()]
             except:
                 continue
             await coro()

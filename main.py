@@ -55,9 +55,7 @@ async def main():
     print("Cato created")
     Cato.imu.imu_enable.set()
     print("imu_enable set")
-    tasks = {
-        "dog"           : asyncio.create_task(feed_dog())
-    }
+    tasks = {}
     print("dog task created")
     tasks.update(c.tasks)
     await asyncio.sleep(1)
