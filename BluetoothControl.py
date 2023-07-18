@@ -41,7 +41,7 @@ class BluetoothControl():
 
 
     if(config["name"] == ""):
-        config["name"] = "Cato_" + config["HW_UID"][-6:]
+        config["name"] = f"Cato_{config['operation_mode']}_{config['HW_UID'][-6:]}"
 
     # config.dump()
     
