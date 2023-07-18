@@ -32,12 +32,11 @@ class BluetoothControl():
     # BLERadio can toggle advertising state
     ble = adafruit_ble.BLERadio()
 
-    ble.name = "Cato_BULKY_COLLECTOR"
-    from builtins import hex
+    ble.name = "Cato_Slider_"
+    from binascii import hexlify
     from microcontroller import cpu
     uid = cpu.uid
-    for i in range(-3,0,1):
-        ble.name += str(hex(uid[i])[-2:])
+    ble.name += str(hexlify(uid)[-6:])[-7:-2]
 
     def __init__(self):
         

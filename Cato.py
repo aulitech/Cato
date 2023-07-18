@@ -92,7 +92,7 @@ class Cato:
             Cato.shuffle(to_train)
             DebugStream.println(to_train)
 
-            logName = f"log{mc.nvm[2]:2}.txt"
+            logName = f"log{mc.nvm[2]}.txt"
 
             await Cato.collect_gestures(to_train=to_train, logName=logName)
             
@@ -109,7 +109,7 @@ class Cato:
         return (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
 
     async def collect_gestures(to_train     = range(1,len(gesture_key)), 
-                               n            = 2, 
+                               n            = 5, 
                                logName      = "log.txt", 
                                gestLen      = config["gesture_length"], 
                                idleLen      = config["gesture_idle_cutoff"],
@@ -139,7 +139,9 @@ class Cato:
         while(i < n):
             i += 1
             Cato.shuffle(to_train)
-            for gestID in to_train:
+            j = 0
+            while(j < len(to_train)):
+                gestID = to_train[j]
                 backlog = []
                 mag = 0
                 curr_id_msg = f"{gesture_key[gestID]} ({str(gestID)})"
@@ -210,7 +212,7 @@ class Cato:
                 curr_id_msg = "Keep this input?(y/n)"
                 DebugStream.println(curr_id_msg)
                 SUS.cgUUID = curr_id_msg
-                while(SUS.cgUUID not in ('Y','y','N','n','Q','q','S','s')):
+                while(SUS.cgUUID not in "YyNnQqSs"):
                     await asyncio.sleep(0.1)
                 
                 if(SUS.cgUUID in "Yy"):
@@ -228,7 +230,7 @@ class Cato:
 
                 elif(SUS.cgUUID in "Nn"):
                     SUS.cgUUID = "Rerecording Gesture"
-                    i -= 1
+                    j -= 1
 
                 elif(SUS.cgUUID in "Ss"):
                     SUS.cgUUID = "Recording Skipped"
@@ -237,8 +239,8 @@ class Cato:
                     SUS.cgUUID = "Session Canceled"
                     os.remove(logName)
                     return
-
-            SUS.cgUUID = "Finished Recordings of " + gesture_key[gestID]
+                
+                j += 1
     
         SUS.cgUUID = "Gesture Collection Completed"
         DebugStream.println("Gesture Collection Completed")
