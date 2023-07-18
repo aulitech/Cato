@@ -46,9 +46,13 @@ async def stopwatch(n : float, ev : asyncio.Event = None):
             # print("Stopwatch, setting event")
 
 def translate(x_min, x_max, y_min, y_max, input):
+        
         if input < x_min:
+            # print(f"Input ({input}) was less than x_min({x_min})")
             return y_min
+        
         if input > x_max:
+            # print(f"Input ({input}) was greater than x_max({x_max})")
             return y_max
         
         x_span = x_max - x_min
@@ -56,4 +60,5 @@ def translate(x_min, x_max, y_min, y_max, input):
         
         scaled = (y_span / x_span) * (input - x_min)
         shifted = scaled + y_min
+
         return shifted
