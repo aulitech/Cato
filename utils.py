@@ -10,11 +10,11 @@ def unpack_val_dict(d):
         d[key] = unpack_val_dict(d[key]["value"])
     return d
     
-
 config = {}
 with open("config.json", "r") as f:
     import json
     config = unpack_val_dict(json.load(f))
+    
 
 import asyncio
 import microcontroller as mc

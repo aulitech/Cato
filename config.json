@@ -376,6 +376,7 @@
                 "label" : "Clicker",
                 "description" : "Operation Loop: Click -> multiple click timeout -> Action",
                 "access" : "rw",
+                "note" : "available tap combos depend on number of bindings",
                 "value" : [
                     [   ["noop"]                            ],
                     [   ["button_action",0,"tap",1]         ],
@@ -407,6 +408,7 @@
     "turbo_rate" : {
         "label" : "Turbo Options",
         "description" : "Options for 'Turbo' (repeated, accelerating button presses until cancelled)",
+        "note" : "TODO: not yet implemented with current button acctions",
         "access" : "rw",
         "value" : {
             "initial" : {
