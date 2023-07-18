@@ -426,8 +426,9 @@ class Cato:
         min_run_cycles = config['mouse']['min_run_cycles']
         
         #scale is "base" for acceleration - do adjustments here
-        screen_mag = get_mag(config['screen_size'])
-        screen_scale = screen_mag / sqrt(1920**2 + 1080**2) # default scale to 1920 * 1080 - use diagonal number of pixels as scalar
+        screen_mag = get_mag(tuple(config['screen_size'].values()))
+        print(config['screen_size'].values())
+        screen_scale = screen_mag / get_mag((1920,1080)) # default scale to 1920 * 1080 - use diagonal number of pixels as scalar
         usr_scale = config['mouse']['scale'] #user multiplier
 
         scale = 1.0
@@ -757,7 +758,7 @@ class Cato:
             gesture = [(0,0,0,0,0,0,0)]
             mag = 0
 
-            def gyro_mag()
+            def gyro_mag():
                 return get_mag(Cato.imu.gx,Cato.imu.gy,Cato.imu.gz)
             
             # let premature motion pass

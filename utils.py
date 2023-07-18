@@ -14,7 +14,7 @@ config = {}
 with open("config.json", "r") as f:
     import json
     config = unpack_val_dict(json.load(f))
-    
+
 
 import asyncio
 import microcontroller as mc
@@ -27,8 +27,7 @@ def get_mag(arr):
         sum = 0.0
         for i in arr:
             sum += i*i
-        sum = np.sqrt(sum)
-        return sum
+        return np.sqrt(sum)
 
 def comp_writable():
     mc.nvm[0] = True
