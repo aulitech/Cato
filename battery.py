@@ -3,10 +3,10 @@ import time
 import analogio
 import digitalio
 import asyncio
-from utils import config
+# from StrUUIDService import DebugStream as DBS
+from utils import config, translate
 class Battery:
     def __init__(self):
-        # config["battery"]["low"/"high"]
         self.b_pin = analogio.AnalogIn(board.VBATT)
         self.read_bat_ena = digitalio.DigitalInOut( board.READ_BATT_ENABLE )
         self.read_bat_ena.direction = digitalio.Direction.OUTPUT
@@ -16,14 +16,20 @@ class Battery:
         
     @property
     def raw_value(self):
-        temp_true = self.b_pin.value
+
         self.read_bat_ena.value = False # Active Low
         time.sleep(0.1)
-        temp_false = self.b_pin.value
+
+        temp = self.b_pin.value
+
         self.read_bat_ena.value = True
         time.sleep(0.1)
-        return (temp_true, temp_false)
+
+        # DBS.println(f"Battery analog level: {temp}")
+        return temp 
 
     @property
     def level(self):
-        return 100
+        level = translate(config["battery"]["low"], config["battery"]["high"], 0, 100, self.raw_value)
+        # print(f"level = {level}")
+        return int(level)

@@ -41,10 +41,8 @@ class Events:
     scroll_lr               = asyncio.Event()   # scroll left to right
     scroll_lr_done          = asyncio.Event()   # indicates that scroll_lr has completed
     sleep                   = asyncio.Event()   # indicates time to go to sleep
-    wait_for_motion         = asyncio.Event()   # wait_for_motion
-    wait_for_motion_done    = asyncio.Event()   # wait-for-motion exit indicator
     feed_neuton             = asyncio.Event()   # prevent multiple instances of neuton being fed
-    sig_motion              = asyncio.Event()   # indicates that there has been significant motion during wait_for_motion's window
+    sig_motion              = asyncio.Event()   # indicates that there has been significant motion during the movement
     stream_imu              = asyncio.Event()   # stream data from the imu onto console -- useful for debugging
     mouse_event             = asyncio.Event()   # triggers detection of Cato gesture
     idle                    = asyncio.Event()   # triggered when no events change for some time
@@ -92,36 +90,33 @@ class Cato:
         
         elif(mode == "gesture_mouse"):
             self.tasks = {
-                "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
                 "move_mouse"        : asyncio.create_task(self.move_mouse()),
                 "mouse_event"       : asyncio.create_task(self.mouse_event()),
-                "scroll"            : asyncio.create_task(self.scroll()),
-                "sleep"             : asyncio.create_task(self.go_to_sleep()),
+                "scroll"            : asyncio.create_task(self.scroll())
             }
         elif(mode == "tv_remote"):
             self.tasks = {
-                "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
                 "tv_control"        : asyncio.create_task(self.tv_control()),
-                "sleep"             : asyncio.create_task(self.go_to_sleep()),
             }
         elif(mode == "pointer"):
             self.tasks = {
                 "point"             : asyncio.create_task(self.move_mouse(forever = True)),
-                "sleep"             : asyncio.create_task(self.go_to_sleep())
             }
         elif(mode == "clicker"):
             self.tasks = {
                 "clicker"           : asyncio.create_task(self.clicker_task()),
-                # "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app()),
-                "sleep"             : asyncio.create_task(self.go_to_sleep()),
             }
         elif("dev" in mode):
             self.bindings = config["bindings"]["gesture_mouse"]
             self.tasks = {
                 "test_loop"         : asyncio.create_task(self.gesture_loop())
             }
+
+        if not mc.nvm[2] and "dev" not in mode:
+            self.tasks.update( { 
+                "monitor_battery"   : asyncio.create_task(self.monitor_battery()),
+                "sleep"             : asyncio.create_task(self.go_to_sleep())} )
         
-        self.tasks.update( {"monitor_battery"   : asyncio.create_task(self.monitor_battery())} )
         self.tasks.update( Cato.imu.tasks )   # functions for t1he imu
         self.tasks.update( self.blue.tasks )  # functions for bluetooth
         self.tasks.update( WakeDog.tasks )    # functions for waking / sleeping monitoring
@@ -192,9 +187,9 @@ class Cato:
         while True:
             for i in range(3):
                 await asyncio.sleep(0.2)
-                self.led.value = True
-                await asyncio.sleep(0.2)
                 self.led.value = False
+                await asyncio.sleep(0.2)
+                self.led.value = True
             await asyncio.sleep(5)
             temp = self.battery.raw_value
             # DBS.println(f"bat_ena True: {temp[0]}")
@@ -617,16 +612,17 @@ class Cato:
             hall_pass.set()
     
     '''
-    INPUTS
-        action(str): string key corresponding to desired action to be performed
-        actor(int): index of hid object in actor_key to perform specified action on buttons
-        *buttons(hex): hex keycodes of buttons to be accted upon
-        hall_pass(Event): event indicating completion of method
-    OUTPUTS
-        None
-    DESCRIPTION
-        Uses available hid object in actor_key (indexed by actor input) to perforrm a common button
-        action (from selection of tap, double tap, press, release, and toggle) on specified keycodes'''
+        INPUTS
+            action(str): string key corresponding to desired action to be performed
+            actor(int): index of hid object in actor_key to perform specified action on buttons
+            *buttons(hex): hex keycodes of buttons to be acted upon
+            hall_pass(Event): event indicating completion of method
+        OUTPUTS
+            None
+        DESCRIPTION
+            Uses available hid object in actor_key (indexed by actor input) to perforrm a common button
+            action (from selection of tap, double tap, press, release, and toggle) on specified keycodes
+    '''
     async def button_action(self, actor:int, action: str, *buttons: hex, hall_pass: asyncio.Event = None):
         actor_key = (self.blue.mouse, self.blue.k)
         if(actor in range(len(actor_key))):
@@ -698,114 +694,7 @@ class Cato:
             DBS.println(str(ce))
         if hall_pass is not None:
             hall_pass.set()
-        
-    # cato keyboard actions
-    async def type_enter_key(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.blue.k.press(Keycode.ENTER)
-        self.blue.k.release(Keycode.ENTER)
-        if hall_pass is not None:
-            hall_pass.set()
-    
-    async def type_esc_key(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.blue.k.press(Keycode.ESCAPE)
-        self.blue.k.release(Keycode.ESCAPE)
-        if hall_pass is not None:
-            hall_pass.set()
 
-    async def type_meta_key(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.blue.k.press(Keycode.GUI)
-        self.blue.k.release(Keycode.GUI)
-        if hall_pass is not None:
-            hall_pass.set()
-    
-    async def type_up_key(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.blue.k.press(Keycode.UP_ARROW)
-        self.blue.k.release(Keycode.UP_ARROW)
-        if hall_pass is not None:
-            hall_pass.set()
-    
-    async def type_down_key(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.blue.k.press(Keycode.DOWN_ARROW)
-        self.blue.k.release(Keycode.DOWN_ARROW)
-        if hall_pass is not None:
-            hall_pass.set()
-    
-    async def type_left_key(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.blue.k.press(Keycode.LEFT_ARROW)
-        self.blue.k.release(Keycode.LEFT_ARROW)
-        if hall_pass is not None:
-            hall_pass.set()
-    
-    async def type_right_key(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.blue.k.press(Keycode.RIGHT_ARROW)
-        self.blue.k.release(Keycode.RIGHT_ARROW)
-        if hall_pass is not None:
-            hall_pass.set()
-
-    # ToDo, the rest of the keyboard buttons
-
-    @property
-    def o_str(self):
-        return "{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f}".format(self.last_read, Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz)
-
-    async def _wait_for_motion(self, hall_pass: asyncio.Event = None):
-        Events.wait_for_motion.set()
-        await Events.wait_for_motion_done.wait()
-        Events.wait_for_motion_done.clear()
-        hall_pass.set()
-
-    async def wait_for_motion(self, thresh = 150, *, num = -1):
-        #NOTE: THIS COULD BE MADE MUCH CHEAPER WITH THE INT1_SIGN_MOT INTERRUPT!
-        """
-            thresh      = threshold of motion to break loop             \n
-            num         = number of cycles max before return False      \n
-                -1          = indefinite wait for motion                \n
-                Positive Int= breaks after num loops
-        """
-        cycles = 0 # count number of waited cycles
-        val = 0.0
-        while True:
-            # print("A: ", gc.mem_free())
-            
-            await Events.wait_for_motion.wait()
-            Events.sig_motion.clear()
-            # DBS.println("+ Wait_for_motion triggered")
-            # DBS.println("B: ", gc.mem_free())
-            await Cato.imu.wait()
-            # DBS.println("C: ", gc.mem_free())
-            cycles += 1
-
-            val = Cato.imu.gx ** 2 + Cato.imu.gy ** 2 + Cato.imu.gz ** 2
-
-            # BREAK CONDN 1: SIGNIFICANT MOTION
-            if val > thresh:
-                Events.wait_for_motion.clear()
-                Events.sig_motion.set()
-            # if cycles > 60*104:
-            #     Events.sleep.set()
-            #     await asyncio.sleep(0)
-                Events.sleep.clear()
-            #Break CONDN 2: TIMEOUT
-            if num != -1:
-                if cycles > num:
-                    Events.wait_for_motion.clear()
-                    Events.sig_motion.clear()
-            # print("D: ", gc.mem_free())
-            # exiting cleanup
-            if not Events.wait_for_motion.is_set():
-                exit_reason = "MOTION" if Events.sig_motion.is_set() else "TIMEOUT"
-                # DBS.println( f"WAIT FOR MOTION: EXIT : { exit_reason }" )
-                Events.wait_for_motion_done.set()
-                cycles = 0
-            # DBS.println("E: ", gc.mem_free())
-            # DBS.println("")
     '''
     async def collect_gestures_app():
         from StrUUIDService import SUS
@@ -953,7 +842,6 @@ class Cato:
 
             DBS.println("Gesture Recording Completed")
             with open("log.txt",'w') as log:
-                print(mem())
                 for d in gesture:
                     log.write(",".join(str(v) for v in d))
                     log.write("\n")
