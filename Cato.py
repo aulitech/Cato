@@ -355,11 +355,10 @@ class Cato:
         if hall_pass is not None:
             hall_pass.set()
 
-        
     # Cato Mouse Actions
     async def shake_cursor(self, hall_pass: asyncio.Event = None):
-        mv_size = 4
-        num_wiggles = 1
+        mv_size = config['mouse']['shake_size']
+        num_wiggles = config['mouse']['num_shake']
         moves = [
             # L R R L (horizontal wiggle)
             (-mv_size,  0,          0),
@@ -380,6 +379,7 @@ class Cato:
                     for _ in range(2):
                         await asyncio.sleep(0.02)
                         self.blue.mouse.move( *move )
+
         except ConnectionError as ce:
             DBS.println("ConnectionError: connection lost in shake_cursor()")
             DBS.println(str(ce))

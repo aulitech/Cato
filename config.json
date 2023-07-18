@@ -182,6 +182,24 @@
                         }
                     }
                 }
+            },
+            "shake_size" : {
+                "label" : "Shake Size",
+                "description" : "Settings for gesture indicator",
+                "access" : "rw",
+                "note" : "size of movement of cursor indicating 'do gesture now'",
+                "value" : 6,
+                "range" : {
+                    "min" : 0,
+                    "max" : 20
+                }
+            },
+            "num_shake" : {
+                "label" : "Number of Shakes",
+                "description" : "Number of times to repeat gesture ready indicator",
+                "access" : "rw",
+                "value" : 1,
+                "options" : [1, 2, 3, 4]
             }
         }
     },
