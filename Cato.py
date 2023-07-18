@@ -28,6 +28,8 @@ from utils import config
 from StrUUIDService import DebugStream as DBS
 from BluetoothControl import BluetoothControl
 
+from adafruit_hid.keycode import Keycode
+
 from WakeDog import WakeDog
 
 #helpers and enums
@@ -242,48 +244,15 @@ class Cato:
             #DBS.println("Detect Event: Finished Dispatching")
             Events.control_loop.set()
     
-    #TODO: refactor to use button_action exclusively
     async def tv_control(self):
         Cato.imu.data_ready_on_int1_setup()
-        turbo_terminate = asyncio.Event()
-        task_dict = {
-            "noop"  :   None,
-            "up"    :   (self.turbo_input,
-                            (self.type_up_key, config["turbo_rate"], turbo_terminate)),
-            "down"  :   (self.turbo_input,
-                            (self.type_down_key, config["turbo_rate"], turbo_terminate)),
-            "left"  :   (self.turbo_input,
-                            (self.type_left_key, config["turbo_rate"], turbo_terminate)),
-            "right" :   (self.turbo_input,
-                            (self.type_right_key, config["turbo_rate"], turbo_terminate)),
-            "enter" :   (self.type_enter_key,()),
-            "esc"   :   (self.type_esc_key,()),
-            "meta"  :   (self.type_meta_key,())
-        }
-        task = None
-        prev_task = "noop"
         DBS.println("tv_control")
+        config["gesture"]["timeout"] = 0
         while True:
             await Events.gesture_not_collecting.wait()
-            task_name = await self.tv_interpreter()
-
-            # needs a check for sigMotion upon new gestInterpreter
-            # needs a check for sigMotion upon new gestInterpreter
-            if(Events.sig_motion.is_set())and(task != None):
-                turbo_terminate.set()
-                await task
-                turbo_terminate.clear()
-
-            if(task_name != "noop"):                
-                func_tuple = task_dict[task_name]
-                if((func_tuple[0].__name__ != self.turbo_input.__name__) or (task_name != prev_task)):
-                    task = asyncio.create_task(func_tuple[0](*func_tuple[1]))
-                    prev_task = task_name
-                else:
-                    prev_task = "noop"
-                await asyncio.sleep(0.3)
-            elif(Events.sig_motion.is_set()):
-                prev_task = "noop"
+            target = await self.gesture_interpreter()
+            DBS.println(target)
+            await self.block_on(eval("self."+target[0], {"self":self}), *target[1:])
 
     async def gesture_interpreter(self):
         # load interpreter specific parameters
@@ -382,16 +351,6 @@ class Cato:
             if(not self.n.set_inputs(data)):
                 break
         DBS.println("Successful Feed")
-    
-    # TODO: unimplement this method after tv refactor
-    async def turbo_input(self, coro, rate, terminator: asyncio.Event):
-        delay = rate[0]
-        while(not(terminator.is_set())):
-            DBS.print(delay,":\n\t")
-            await coro()
-            await asyncio.sleep(delay)
-            if(delay > rate[1]):
-                delay *= rate[2]
     
     # Cato Actions
     # CircuitPython Docs: https://docs.circuitpython.org/projects/hid/en/latest/api.html#adafruit-hid-mouse-mouse '''
@@ -698,58 +657,7 @@ class Cato:
             DBS.println(str(ce))
         if hall_pass is not None:
             hall_pass.set()
-        
-    # cato keyboard actions
-    async def type_enter_key(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.blue.k.press(Keycode.ENTER)
-        self.blue.k.release(Keycode.ENTER)
-        if hall_pass is not None:
-            hall_pass.set()
     
-    async def type_esc_key(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.blue.k.press(Keycode.ESCAPE)
-        self.blue.k.release(Keycode.ESCAPE)
-        if hall_pass is not None:
-            hall_pass.set()
-
-    async def type_meta_key(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.blue.k.press(Keycode.GUI)
-        self.blue.k.release(Keycode.GUI)
-        if hall_pass is not None:
-            hall_pass.set()
-    
-    async def type_up_key(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.blue.k.press(Keycode.UP_ARROW)
-        self.blue.k.release(Keycode.UP_ARROW)
-        if hall_pass is not None:
-            hall_pass.set()
-    
-    async def type_down_key(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.blue.k.press(Keycode.DOWN_ARROW)
-        self.blue.k.release(Keycode.DOWN_ARROW)
-        if hall_pass is not None:
-            hall_pass.set()
-    
-    async def type_left_key(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.blue.k.press(Keycode.LEFT_ARROW)
-        self.blue.k.release(Keycode.LEFT_ARROW)
-        if hall_pass is not None:
-            hall_pass.set()
-    
-    async def type_right_key(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.blue.k.press(Keycode.RIGHT_ARROW)
-        self.blue.k.release(Keycode.RIGHT_ARROW)
-        if hall_pass is not None:
-            hall_pass.set()
-
-    # ToDo, the rest of the keyboard buttons
 
     @property
     def o_str(self):
@@ -974,12 +882,6 @@ class Cato:
             os.remove("gesture.cato")
             DBS.println(ex)
         mc.reset()
-    
-    async def stopwatch(n : float,ev : asyncio.Event = None):
-        if(n > 0):
-            await asyncio.sleep(n)
-            if(ev is not None):
-                ev.set()
 
     async def test_loop(self):
         DBS.println("+ test_loop")
