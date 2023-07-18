@@ -11,9 +11,28 @@ def unpack_val_dict(d):
     return d
     
 config = {}
-with open("config.json", "r") as f:
+with open("config.json", 'r') as cfg:
     import json
-    config = unpack_val_dict(json.load(f))
+    config = json.load(cfg)
+
+if(config["HW_UID"]["value"] == ""):
+    import microcontroller as mc
+    try:
+        with open("config.json",'w') as cfg:
+            import json
+            from binascii import hexlify
+            config["HW_UID"]["value"] = str(hexlify(mc.cpu.uid))[2:-1]
+            json.dump(config, cfg)
+        print("SUCCESSFUL HW_UID WRITE")
+        print("STANDARD REBOOT")
+        mc.reset()
+    except OSError as ose:
+        print("REBOOTING FOR HW_UID")
+        mc.nvm[0] = False
+        mc.reset()
+
+config = unpack_val_dict(config)
+        
 
 
 import asyncio
