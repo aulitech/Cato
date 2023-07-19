@@ -142,12 +142,6 @@ class Cato:
                                     gestThresh = config["gesture_movement_threshold"], idleThresh = config["gesture_idle_threshold"]):
         from StrUUIDService import SUS
 
-        try:
-            with open(logName, 'w') as log:
-                pass
-        except:
-            pass
-
         if(isinstance(to_train,int)):
             to_train = (to_train,)
         
@@ -173,6 +167,12 @@ class Cato:
         elif(SUS.cgUUID in 'Qq'):
             SUS.cgUUID = "Exiting CG"
             return
+        
+        try:
+            with open(logName, 'w') as log:
+                pass
+        except:
+            pass
         
         gestID = 0
         def imu_tuple():
