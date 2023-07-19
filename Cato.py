@@ -47,6 +47,7 @@ class Events:
     sig_motion              = asyncio.Event()   # indicates that there has been significant motion during the movement
     stream_imu              = asyncio.Event()   # stream data from the imu onto console -- useful for debugging
     mouse_event             = asyncio.Event()   # triggers detection of Cato gesture
+    turbo                   = asyncio.Event()
     idle                    = asyncio.Event()   # triggered when no events change for some time
 
     gesture_collecting      = asyncio.Event()   # signal that collect_gestures() is currently running
@@ -81,6 +82,9 @@ class Cato:
         mode = config["operation_mode"]
         if mode in config["bindings"].keys():
             self.bindings = config["bindings"][mode]
+            Cato.actor_key = (self.blue.mouse, self.blue.k)
+            self.turboTarget = None
+
         
         self.tasks = {}
 
@@ -94,7 +98,8 @@ class Cato:
             self.tasks = {
                 "move_mouse"        : asyncio.create_task(self.move_mouse()),
                 "mouse_event"       : asyncio.create_task(self.mouse_event()),
-                "scroll"            : asyncio.create_task(self.scroll())
+                "scroll"            : asyncio.create_task(self.scroll()),
+                "turbo"             : asyncio.create_task(self.turbo())
             }
         elif(mode == "tv_remote"):
             self.tasks = {
@@ -146,6 +151,7 @@ class Cato:
         while True:
             # await asyncio.sleep(1) # TAKE IMU READINGS BEFORE TRYING TO GO BACK TO SLEEP?
             await Events.sleep.wait()
+            print("SleepEventStatus: ",Events.sleep.is_set())
             self.tasks['interrupt'].cancel() #release pin int1
             await asyncio.sleep(0.1)
             self.tasks['interrupt'] = None
@@ -587,14 +593,12 @@ class Cato:
             action (from selection of tap, double tap, press, release, and toggle) on specified keycodes
     '''
     async def button_action(self, actor:int, action: str, *buttons: hex, hall_pass: asyncio.Event = None):
-        actor_key = (self.blue.mouse, self.blue.k)
-        if(actor in range(len(actor_key))):
-            actor = actor_key[actor]
+        if(actor in range(len(self.actor_key))):
+            actor = self.actor_key[actor]
         else:
             DBS.println("No hid device with actor index "+str(actor))
             hall_pass.set()
             return
-        actor_key = None
 
         def ispressed(actor,button):
             if(isinstance(actor,type(self.blue.mouse))):
@@ -636,8 +640,16 @@ class Cato:
                     actor.press(b)
 
         elif(action == "turbo"):
-            #TODO
-            DBS.println("turbo button-action not functional")
+            turboTarget = (actor,buttons)
+            if(self.turboTarget == None):
+                self.turboTarget = turboTarget
+                Events.turbo.set()
+            elif(self.turboTarget != turboTarget):
+                self.turboTarget = turboTarget
+                Events.turbo.clear()
+            else:
+                self.turboTarget = None
+                Events.turbo.clear()
         
         else:
             # curretnly undefined behavior for undefined actions
@@ -647,11 +659,36 @@ class Cato:
         
         hall_pass.set()
         return
+    
+    async def turbo(self):
+        Events.turbo.clear()
+        decay = config["turbo_rate"]["decay_rate"]
+        minDelay = config["turbo_rate"]["minimum"]
+        while(True):
+            await Events.turbo.wait()
+            print("TURBO FOUND")
+
+            actor = self.turboTarget[0]
+            buttons = self.turboTarget[1]
+            print(type(actor))
+            print(buttons)
+            
+            delay = config["turbo_rate"]["initial"]
+            while(Events.turbo.is_set()):
+                actor.press(*buttons)
+                actor.release(*buttons)
+                await asyncio.sleep(delay)
+                if(delay > minDelay):
+                    delay *= decay
+            if(self.turboTarget != None):
+                Events.turbo.set()
+
 
     async def all_release(self, hall_pass: asyncio.Event = None):
         ''' docstring stub '''
         try:
             self.blue.mouse.release_all()
+            self.blue.k.release_all()
         except ConnectionError as ce:
             DBS.println("ConnectionError: connection lost in all_release()")
             DBS.println(str(ce))
@@ -850,3 +887,4 @@ class Cato:
             DBS.println(action)
             # DBS.println()
             await asyncio.sleep(0.5)
+
