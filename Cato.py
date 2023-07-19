@@ -40,9 +40,7 @@ class EV(): #these are actually gestures
         "Tilt Right",
         "Tilt Left",
         "Shake Yes",
-        "Shake No",
-        "Circle CW",
-        "Circle CCW"
+        "Shake No"
     ]
     ''' enum events '''
     NONE = 0

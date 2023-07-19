@@ -1,7 +1,7 @@
 
 import adafruit_ble
 
-from adafruit_ble.advertising import Advertisement, AdvertisingFlag, AdvertisingFlags
+from adafruit_ble.advertising import Advertisement
 
 from adafruit_ble.advertising.standard import ProvideServicesAdvertisement
 from adafruit_ble.services.standard.hid import HIDService
