@@ -33,29 +33,20 @@ class ST():
 class EV(): #these are actually gestures
     gesture_key = [
         "None",
-        "Nod Up",
-        "Nod Down",
-        "Nod Right",
-        "Nod Left",
-        "Tilt Right",
-        "Tilt Left",
-        "Shake Yes",
-        "Shake No",
-        "Circle CW",
-        "Circle CCW"
+        "Roll Left",
+        "Roll Right",
+        "Oscillate",
+        "Down",
+        "Up"
     ]
     ''' enum events '''
     NONE = 0
-    UP = 1
-    DOWN = 2
-    RIGHT = 3
-    LEFT = 4
-    ROLL_R = 5
-    ROLL_L = 6
-    SHAKE_YES = 7
-    SHAKE_NO = 8,
-    CIRCLE_CW = 9,
-    CIRCLE_CCW = 10
+    ROLL_LEFT = 1
+    ROLL_RIGHT = 2
+    OSCILLATE = 3
+    DOWN = 4
+    UP = 5
+    
 
 class Events:
     gesture_collecting      = asyncio.Event()   # signal that collect_gestures() is currently running
@@ -63,7 +54,7 @@ class Events:
     gesture_not_collecting.set()
 
 # I can't make the "Neuton: Constructing buffer from ... go away unless I crack open the circuitpython uf2"
-neuton_outputs = array.array( "f", [0, 0, 0, 0, 0, 0, 0, 0] )
+neuton_outputs = array.array( "f", [0, 0, 0, 0, 0, 0] )
 
 def mem( loc = "" ):
     DebugStream.println(f"Free Memory at {loc}: \n\t{gc.mem_free()}")
