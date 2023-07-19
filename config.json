@@ -11,14 +11,14 @@
         "label" : "Hardware Unique Identity",
         "description" : "Unique hex code for identifying different devices",
         "access" : "r",
-        "value" : "0123456789abcdef"
+        "value" : ""
     },
 
     "operation_mode" : {
         "label" : "Mode",
         "description" : "a user-settable integer defining the operation mode of Cato",
         "access"  : "rw",
-        "value" : "gesture_mouse",
+        "value" : "tv_remote",
         "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker"]
     },
 

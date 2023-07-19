@@ -104,6 +104,7 @@ class Cato:
         elif(mode == "tv_remote"):
             self.tasks = {
                 "tv_control"        : asyncio.create_task(self.tv_control()),
+                "turbo"             : asyncio.create_task(self.turbo())
             }
         elif(mode == "pointer"):
             self.tasks = {
@@ -675,6 +676,7 @@ class Cato:
             
             delay = config["turbo_rate"]["initial"]
             while(Events.turbo.is_set()):
+                print(":turbo: ",buttons)
                 actor.press(*buttons)
                 actor.release(*buttons)
                 await asyncio.sleep(delay)
