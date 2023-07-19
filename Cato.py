@@ -138,12 +138,6 @@ class Cato:
                                     gestThresh = config["gesture_movement_threshold"], idleThresh = config["gesture_idle_threshold"]):
         from StrUUIDService import SUS
 
-        try:
-            with open(logName, 'w') as log:
-                pass
-        except:
-            pass
-
         if(isinstance(to_train,int)):
             to_train = (to_train,)
         
@@ -152,7 +146,7 @@ class Cato:
 
         await asyncio.sleep(3)
         SUS.cgUUID = "Begin?"
-        while(SUS.cgUUID not in "YySsQq"):
+        while(SUS.cgUUID[0] not in "YySsQq"):
             if(SUS.cgUUID in 'Rr'):
                 if(mc.nvm[1]):
                     SUS.cgUUID = "Rebooting"
@@ -162,13 +156,22 @@ class Cato:
                     SUS.cgUUID = "Not Required"
             await asyncio.sleep(0.1)
         
-        if(SUS.cgUUID in 'Ss'):
-            SUS.cgUUID = f"Skipping {logName}"
-            mc.nvm[2] += 1
+        if(SUS.cgUUID[0] in 'Ss'):
+            try:
+                mc.nvm[2] = int(SUS.cgUUID[1:])
+            except:
+                mc.nvm[2] += 1
+            SUS.cgUUID = f"{logName} skipped"
             return
         elif(SUS.cgUUID in 'Qq'):
             SUS.cgUUID = "Exiting CG"
             return
+        
+        try:
+            with open(logName, 'w') as log:
+                pass
+        except:
+            pass
         
         gestID = 0
         def imu_tuple():
