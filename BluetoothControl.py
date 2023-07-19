@@ -30,14 +30,9 @@ class Appearances:
     control_device = 0x04C0 # 0x04C0 to 0x04FF
 
 class BluetoothControl():
-    if(config["HW_UID"] == ""):
-        from microcontroller import cpu
-        from binascii import hexlify
-        config["HW_UID"] = str(hexlify(cpu.uid))[2:-1]
-
 
     if(config["name"] == ""):
-        config["name"] = f"Cato_{config['operation_mode']}_{config['HW_UID'][-6:]}"
+        config["name"] = f"Cato_{config['HW_UID'][-6:]}"
 
     # config.dump()
     
@@ -101,7 +96,7 @@ class BluetoothControl():
                 "reconnect"             : asyncio.create_task(self.reconnect())
             }
         
- 
+
     async def manage_connection(self):
         #print("+ manage_connection")
         while True:
