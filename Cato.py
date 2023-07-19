@@ -115,9 +115,10 @@ class Cato:
             }
 
         if not mc.nvm[2] and "dev" not in mode:
-            self.tasks.update( { 
+            self.tasks.update( {
                 "monitor_battery"   : asyncio.create_task(self.monitor_battery()),
-                "sleep"             : asyncio.create_task(self.go_to_sleep())} )
+                "sleep"             : asyncio.create_task(self.go_to_sleep())}
+                )
         
         self.tasks.update( Cato.imu.tasks )   # functions for t1he imu
         self.tasks.update( self.blue.tasks )  # functions for bluetooth
