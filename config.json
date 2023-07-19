@@ -215,16 +215,14 @@
                 "access" : "rw",
                 "value" : [
                     "None",
-                    "Nod Up",
-                    "Nod Down",
-                    "Nod Right",
-                    "Nod Left",
-                    "Tilt Right",
-                    "Tilt Left",
-                    "Shake Yes",
-                    "Shake No",
-                    "Circle CW",
-                    "Circle CCW"
+                    "Kick F - Left",
+                    "Kick B - Double Click",
+                    "Twist R - Right Click",
+                    "Twist L - Initiate Click_drag",
+                    "Lift",
+                    "Shake - sleep",
+                    "Tilt R",
+                    "Tilt L"
                 ]
             },
             "length" : {
@@ -356,13 +354,13 @@
                 "access" : "rw",
                 "value" : [
                     [   ["noop"]                            ],
-                    [   ["button_action",0,"double_tap",1]  ],
                     [   ["button_action",0,"tap",1]      ],
+                    [   ["button_action",0,"double_tap",1]  ],
                     [   ["button_action",0,"tap",2]         ],
                     [   ["button_action",0,"toggle",1]         ],
-                    [   ["_scroll_lr"]                      ],
-                    [   ["_scroll"]                         ],
-                    [   ["button_action",0,"double_tap",1]  ],
+                    [   ["noop"]                      ],
+                    [   ["noop"]                      ],
+                    [   ["quick_sleep"]  ],
                     [   ["noop"]                            ],
                     [   ["quick_sleep"]                     ],
                     [   ["quick_sleep"]                     ]
@@ -373,15 +371,15 @@
                 "description" : "Operation Loop: Gesture -> (Turbo) Action",
                 "access" : "rw",
                 "value" : [
-                    [   ["noop"]                            ],
-                    [   ["button_action", 0, "tap", 1]     ],
-                    [   ["button_action", 0, "double_tap", 1]     ],
-                    [   ["button_action", 0, "tap", 2]     ],
-                    [   ["button_action", 0, "toggle", 1]     ],
-                    [   ["noop"]       ],
-                    [   ["quick_sleep"]                            ],
-                    [   ["noop"]        ],
-                    [   ["noop"]        ]
+                    [   ["noop"]                                    ],
+                    [   ["button_action", 0, "tap", 1]              ],
+                    [   ["button_action", 0, "double_tap", 1]       ],
+                    [   ["button_action", 0, "tap", 2]              ],
+                    [   ["button_action", 0, "toggle", 1]           ],
+                    [   ["noop"]                                    ],
+                    [   ["quick_sleep"]                             ],
+                    [   ["noop"]                                    ],
+                    [   ["noop"]                                    ]
                 ]
             },
             "clicker" : {
