@@ -33,29 +33,25 @@ class ST():
 class EV(): #these are actually gestures
     gesture_key = [
         "None",
-        "Nod Up",
-        "Nod Down",
-        "Nod Right",
-        "Nod Left",
-        "Tilt Right",
-        "Tilt Left",
-        "Shake Yes",
-        "Shake No",
-        "Circle CW",
-        "Circle CCW"
+        "Kick F",
+        "Kick B",
+        "Twist R",
+        "Twist L",
+        "Lift",
+        "Shake",
+        "Tilt R",
+        "Tilt L"
     ]
     ''' enum events '''
     NONE = 0
-    UP = 1
-    DOWN = 2
-    RIGHT = 3
-    LEFT = 4
-    ROLL_R = 5
-    ROLL_L = 6
-    SHAKE_YES = 7
-    SHAKE_NO = 8,
-    CIRCLE_CW = 9,
-    CIRCLE_CCW = 10
+    Kick_F = 1
+    Kick_B = 2
+    Twist_R = 3
+    Twist_L = 4
+    LIFT = 5
+    SHAKE = 6
+    TILT_R = 7
+    TILT_L = 8
 
 class Events:
     gesture_collecting      = asyncio.Event()   # signal that collect_gestures() is currently running
