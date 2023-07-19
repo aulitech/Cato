@@ -150,7 +150,7 @@ class Cato:
 
         await asyncio.sleep(3)
         SUS.cgUUID = "Begin?"
-        while(SUS.cgUUID not in "YySsQq"):
+        while(SUS.cgUUID[0] not in "YySsQq"):
             if(SUS.cgUUID in 'Rr'):
                 if(mc.nvm[1]):
                     SUS.cgUUID = "Rebooting"
@@ -160,9 +160,12 @@ class Cato:
                     SUS.cgUUID = "Not Required"
             await asyncio.sleep(0.1)
         
-        if(SUS.cgUUID in 'Ss'):
-            SUS.cgUUID = f"Skipping {logName}"
-            mc.nvm[2] += 1
+        if(SUS.cgUUID[0] in 'Ss'):
+            try:
+                mc.nvm[2] = int(SUS.cgUUID[1:])
+            except:
+                mc.nvm[2] += 1
+            SUS.cgUUID = f"{logName} skipped"
             return
         elif(SUS.cgUUID in 'Qq'):
             SUS.cgUUID = "Exiting CG"
