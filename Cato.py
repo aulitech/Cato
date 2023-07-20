@@ -47,6 +47,7 @@ class Events:
     sig_motion              = asyncio.Event()   # indicates that there has been significant motion during the movement
     stream_imu              = asyncio.Event()   # stream data from the imu onto console -- useful for debugging
     mouse_event             = asyncio.Event()   # triggers detection of Cato gesture
+    gesturing               = asyncio.Event()   # 
     idle                    = asyncio.Event()   # triggered when no events change for some time
 
     gesture_collecting      = asyncio.Event()   # signal that collect_gestures() is currently running
@@ -218,6 +219,9 @@ class Cato:
         if hall_pass is not None:
             hall_pass.set()
     
+    async def block_on_eval(self,target: str):
+        await self.block_on(eval("self."+target[0], {"self":self}), *target[1:])
+    
     async def block_on(self, coro, *args):
         '''
             await target function having uncertain runtime which also needs to use async imu functionality  \n
@@ -234,7 +238,7 @@ class Cato:
             Events.mouse_event.clear()
             await Events.gesture_not_collecting.wait()
             target = await self.gesture_interpreter()
-            await self.block_on(eval("self."+target[0], {"self":self}), *target[1:])
+            await self.block_on_eval(target)
             print(f"\t \"{target}\" finished at mouse_event")
             
             #DBS.println("Detect Event: Finished Dispatching")
@@ -249,11 +253,12 @@ class Cato:
             await Events.gesture_not_collecting.wait()
             target = await self.gesture_interpreter(timeout = 0)
             DBS.println(target)
-            action = asyncio.create_task(self.block_on(eval("self."+target[0], {"self":self}), *target[1:]))
+            action = asyncio.create_task(self.block_on_eval(target))
             if(await_actions):
                 await action
 
     async def gesture_interpreter(self, timeout = config["gesture"]["timeout"]):
+        gc.collect()
         DBS.println("+gesture_interpreter mem: ",gc.mem_free())
         # load interpreter specific parameters
         confThresh  = config["confidence_threshold"]
@@ -277,7 +282,8 @@ class Cato:
             DBS.println("Premature Motion")
             return ["noop"]
         
-        shakeCursor = asyncio.create_task(self.shake_cursor()) #ADD PRINT TO SHAKE CURSOR
+        Events.gesturing.set()
+        shakeCursor = asyncio.create_task(self.shake_cursor())
         DBS.println("+ MouseEvent: Looking for Gesture")
 
         # wait to recieve significant motion and return if the timeout threshold is passed
@@ -285,6 +291,7 @@ class Cato:
         asyncio.create_task(stopwatch(timeout, ev = timeoutEv))
         await asyncio.create_task(self.wait_for_motion(sqrt(gestThresh),timeoutEv.is_set))
         if(not Events.sig_motion.is_set()):
+            Events.gesturing.clear()
             return self.bindings[EV_NONE][self.state]
         Events.sig_motion.clear()
         
@@ -336,7 +343,9 @@ class Cato:
         DBS.println("Interpreted "+config["gesture"]["key"][infer]+"("+str(max(neuton_outputs))+")")
 
         await shakeCursor
+        gc.collect()
         DBS.println("-gesture_interpreter mem: ",gc.mem_free())
+        Events.gesturing.clear()
         return self.bindings[infer][self.state]
     
     async def wait_for_motion(self, thresh, terminator = None):
@@ -391,11 +400,12 @@ class Cato:
                         displacement[0] -= move[0]
                         displacement[1] -= move[1]
                         displacement[2] -= move[2]
-                    if(Events.sig_motion.is_set()):
-                        self.blue.mouse.move(*displacement)
-                        if hall_pass is not None:
-                            hall_pass.set()
-                        return
+                    if(not Events.gesturing.is_set()):
+                        break
+                else: continue
+                break
+
+            self.blue.mouse.move(*displacement)
 
         except ConnectionError as ce:
             DBS.println("ConnectionError: connection lost in shake_cursor()")
@@ -407,12 +417,16 @@ class Cato:
     async def clicker_task(self):
         Cato.imu.single_tap_cfg()
         while True:
+            Events.gesturing.set()
             await Cato.imu.wait()
+            Events.sig_motion.set()
             WakeDog.feed()
             try:
                 target = self.bindings[Cato.imu.tap_type][self.state]
+                Events.sig_motion.clear()
+                Events.gesturing.clear()
                 print(target)
-                await self.block_on(eval("self."+target[0], {"self":self}), *target[1:])
+                await self.block_on_eval(target)
             except ConnectionError as ce:
                 DBS.println("ConnectionError: connection lost in clicker_task()")
                 DBS.println(str(ce))
@@ -663,11 +677,10 @@ class Cato:
 
         elif(action == "hold_till_idle"):
             actor.press(*buttons)
-            asyncio.create_task(self.event_release(actor, *buttons, triggers = (Events.mouse_done,)))
+            asyncio.create_task(self.event_release(actor, *buttons, triggers = (Events.gesturing,)))
         elif(action == "hold_till_sig_motion"):
             actor.press(*buttons)
-            asyncio.create_task(self.event_release(actor, *buttons, triggers = (Events.sig_motion,)))
-        
+            asyncio.create_task(self.event_release(actor, *buttons, triggers = (Events.gesturing,Events.sig_motion)))
         elif(action == "turbo"):
             thresh = buttons[0]
             buttons = buttons[1:]
