@@ -342,10 +342,10 @@ class Cato:
             infer = 0
         DBS.println("Interpreted "+config["gesture"]["key"][infer]+"("+str(max(neuton_outputs))+")")
 
+        Events.gesturing.clear()
         await shakeCursor
         gc.collect()
         DBS.println("-gesture_interpreter mem: ",gc.mem_free())
-        Events.gesturing.clear()
         return self.bindings[infer][self.state]
     
     async def wait_for_motion(self, thresh, terminator = None):
@@ -404,8 +404,8 @@ class Cato:
                         break
                 else: continue
                 break
-
-            self.blue.mouse.move(*displacement)
+            if(displacement != [0,0,0]):
+                self.blue.mouse.move(*displacement)
 
         except ConnectionError as ce:
             DBS.println("ConnectionError: connection lost in shake_cursor()")
