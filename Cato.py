@@ -77,7 +77,7 @@ class Cato:
         
         self.blue = BluetoothControl()
 
-        self.state = 0 # CHOPPING BLOCK?
+        self.state = 0 # CHOPPING BLOCK??
 
         mode = config["operation_mode"]
         if mode in config["bindings"].keys():

@@ -96,7 +96,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     CHIP_ID = 0x6A # LSM address on nRF52840
 
     # config info at:
-    # https://cdn.sparkfun.com/assets/learn_tutorials/4/1/6/AN4650_DM00157511.pdf
+    # https://www.st.com/resource/en/datasheet/lsm6ds3tr-c.pdf
     _status_reg = ROUnaryStruct(    _LSM6DS_STATUS_REG,     "<b")
 
     _int1_ctrl      = RWBits(7,     _LSM6DS_INT1_CTRL,      0   ) # "The pad's output will supply the OR combination of all enabled signals"
