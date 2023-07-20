@@ -268,14 +268,14 @@ class Cato:
         def gyro_mag():
             return get_mag((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz))
 
-        while(idle < idleLen):
-            await Cato.imu.wait()
-            mag = gyro_mag()
-            if(mag**2 < gestThresh):
-                idle += 1
-            else:
-                DBS.println("Premature Motion")
-                return ["noop"]
+        # while(idle < idleLen):
+        #     await Cato.imu.wait()
+        #     mag = gyro_mag()
+        #     if(mag**2 < gestThresh):
+        #         idle += 1
+        #     else:
+        #         DBS.println("Premature Motion")
+        #         return ["noop"]
         
         shakeCursor = asyncio.create_task(self.shake_cursor()) #ADD PRINT TO SHAKE CURSOR
         DBS.println("+ MouseEvent: Looking for Gesture")
