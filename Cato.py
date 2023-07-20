@@ -268,14 +268,11 @@ class Cato:
         def gyro_mag():
             return get_mag((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz))
 
-        while(idle < idleLen):
-            await Cato.imu.wait()
-            mag = gyro_mag()
-            if(mag**2 < gestThresh):
-                idle += 1
-            else:
-                DBS.println("Premature Motion")
-                return ["noop"]
+        await Cato.imu.wait()
+        mag = gyro_mag()
+        if(mag**2 > gestThresh):
+            DBS.println("Premature Motion")
+            return ["noop"]
         
         shakeCursor = asyncio.create_task(self.shake_cursor()) #ADD PRINT TO SHAKE CURSOR
         DBS.println("+ MouseEvent: Looking for Gesture")
@@ -300,7 +297,6 @@ class Cato:
                               Cato.imu.gx, Cato.imu.gy, Cato.imu.gz]))
 
         # feed neuton until idled for 'idleLen' loops
-        idle = 0
         while(length < maxLen)and(idle < idleLen):
             await Cato.imu.wait()
             data = array.array('f',[Cato.imu.ax, Cato.imu.ay, Cato.imu.az,
@@ -378,12 +374,21 @@ class Cato:
             (0,         mv_size,    0),
         ]
 
+        displacement = [0,0,0]
         try:
             for wiggle in range(num_wiggles):
                 for move in moves:
                     for _ in range(2):
                         await asyncio.sleep(0.02)
                         self.blue.mouse.move( *move )
+                        displacement[0] -= move[0]
+                        displacement[1] -= move[1]
+                        displacement[2] -= move[2]
+                    if(Events.sig_motion.is_set()):
+                        self.blue.mouse.move(*displacement)
+                        if hall_pass is not None:
+                            hall_pass.set()
+                        return
 
         except ConnectionError as ce:
             DBS.println("ConnectionError: connection lost in shake_cursor()")
