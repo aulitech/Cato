@@ -111,13 +111,14 @@ class Cato:
         elif("dev" in mode):
             self.bindings = config["bindings"]["gesture_mouse"]
             self.tasks = {
-                "test_loop"         : asyncio.create_task(self.gesture_loop())
+                "test_loop"         : asyncio.create_task(self.test_loop())
             }
 
         if not mc.nvm[2] and "dev" not in mode:
-            self.tasks.update( { 
+            self.tasks.update( {
                 "monitor_battery"   : asyncio.create_task(self.monitor_battery()),
-                "sleep"             : asyncio.create_task(self.go_to_sleep())} )
+                "sleep"             : asyncio.create_task(self.go_to_sleep())}
+                )
         
         self.tasks.update( Cato.imu.tasks )   # functions for t1he imu
         self.tasks.update( self.blue.tasks )  # functions for bluetooth
@@ -315,6 +316,7 @@ class Cato:
             else:
                 idle = 0
         DBS.println("Gesture Length: ",length)
+        Events.sig_motion.clear()
         '''''
         if(idle == idleLen):
             DBS.println("Broke for idle timeout")
@@ -574,27 +576,31 @@ class Cato:
             DBS.println("\t- _scroll_lr")
             hall_pass.set()
     
+    async def event_release(self,actor,*buttons, triggers = None):
+        for t in triggers:
+            if(t != None):
+                await t.wait()
+        actor.release(*buttons)
+        print(f"EventRelease: {type(actor)} released {buttons}")
+    
     '''
         INPUTS
             action(str): string key corresponding to desired action to be performed
-            actor(int): index of hid object in actor_key to perform specified action on buttons
+            actorInd(int): index of hid object in actor_key to perform specified action on buttons
             *buttons(hex): hex keycodes of buttons to be acted upon
             hall_pass(Event): event indicating completion of method
         OUTPUTS
             None
         DESCRIPTION
-            Uses available hid object in actor_key (indexed by actor input) to perforrm a common button
+            Uses available hid object in actor_key (indexed by actorInd input) to perforrm a common button
             action (from selection of tap, double tap, press, release, and toggle) on specified keycodes
     '''
-    async def button_action(self, actor:int, action: str, *buttons: hex, hall_pass: asyncio.Event = None):
+    async def button_action(self, actorInd:int, action: str, *buttons: hex, hall_pass: asyncio.Event = None):
         actor_key = (self.blue.mouse, self.blue.k)
-        if(actor in range(len(actor_key))):
-            actor = actor_key[actor]
-        else:
-            DBS.println("No hid device with actor index "+str(actor))
+        if(actorInd not in range(len(actor_key))):
+            DBS.println("No hid device with actor index "+str(actorInd))
             hall_pass.set()
             return
-        actor_key = None
 
         def ispressed(actor,button):
             if(isinstance(actor,type(self.blue.mouse))):
@@ -611,6 +617,10 @@ class Cato:
                     return ip
             else:
                 return False
+        
+
+        actor = actor_key[actorInd]
+        actor_key = None
         
         if(action == "tap"):
             actor.press(*buttons)
@@ -635,6 +645,13 @@ class Cato:
                 else:
                     actor.press(b)
 
+        elif(action == "hold_till_idle"):
+            actor.press(*buttons)
+            asyncio.create_task(self.event_release(actor, *buttons, triggers = (Events.mouse_done,)))
+        elif(action == "hold_till_sig_motion"):
+            actor.press(*buttons)
+            asyncio.create_task(self.event_release(actor, *buttons, triggers = (Events.sig_motion,)))
+        
         elif(action == "turbo"):
             #TODO
             DBS.println("turbo button-action not functional")
@@ -830,17 +847,29 @@ class Cato:
 
     async def test_loop(self):
         DBS.println("+ test_loop")
-        #from StrUUIDService import SUS
-        #SUS.collGestUUID = "test_loop"
-        #await self.blue.is_connected.wait()
-        i = 0
-        t = asyncio.create_task(stopwatch(10))
-
+        trigger = asyncio.Event()
+        trigger.set()
+        asyncio.create_task(self.trigger_watcher(trigger))
+        asyncio.create_task(self.trigger_clearer(trigger))
+        await asyncio.sleep(2)
         while(True):
+            print()
             DBS.println("looping")
-            #DBS.print(self.imu.gyro_vals)
-            i += 1
-            await asyncio.sleep(20)
+            trigger.set()
+            print("Trigger Set")
+            await asyncio.sleep(2)
+    async def trigger_clearer(self, trigger : asyncio.Event):
+        print("+ trigger_clearer")
+        while(True):
+            await trigger.wait()
+            trigger.clear()
+            print("Trigger Cleared")
+    async def trigger_watcher(self, trigger : asyncio.Event):
+        print("+ trigger_watcher")
+        while(True):
+            await trigger.wait()
+            print("Trigger Found")
+            await asyncio.sleep(0.1)
     
     
     async def gesture_loop(self):
@@ -850,3 +879,4 @@ class Cato:
             DBS.println(action)
             # DBS.println()
             await asyncio.sleep(0.5)
+    
