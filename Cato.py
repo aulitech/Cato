@@ -763,6 +763,7 @@ class Cato:
     #'''
 
     async def collect_gestures_wired():
+        await asyncio.sleep(5)
         try:
             #from StrUUIDService import SUS
             #SUS.collGestUUID = "go"
@@ -771,18 +772,28 @@ class Cato:
             Events.gesture_not_collecting.clear()
             DBS.println("Collecting Gesture (wired)")
 
+            try:
+                import os
+                os.remove("gesture.cato")
+                os.remove("log.txt")
+            except:
+                DBS.println("Failed to delete gesture.cato")
+
             gestLen     = config["gesture"]["length"]
             idleLen     = config["gesture"]["idle_cutoff"]
-            gestThresh  = config["gesture"]["movement_threshold"]
+            gestThresh  = config["gesture"]["start_threshold"]
             idleThresh  = config["gesture"]["idle_threshold"]
-            timeout     = config["gesture"]["gc_timeout"]
+            # timeout     = config["gesture"]["gc_timeout"]
+            gc.collect()
+            print(gc.mem_free())
             
             gesture = [(0,0,0,0,0,0,0)]
             mag = 0
 
             def gyro_mag():
-                return get_mag(Cato.imu.gx,Cato.imu.gy,Cato.imu.gz)
+                return get_mag((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz))
             
+            print("Thrash Window")
             # let premature motion pass
             idle = 0
             while(idle < idleLen):
@@ -792,29 +803,19 @@ class Cato:
                     idle += 1
                 else:
                     idle = 0
-            
-            try:
-                import os
-                os.remove("gesture.cato")
-                os.remove("log.txt")
-            except:
-                DBS.println("Failed to delete gesture.cato")
-            '''''
-            with open("flag.txt",'w') as flag:
-                #from StrUUIDService import SUS
-                SUS.collGestUUID = "FLAGGED"
-                pass
-            #'''
 
-            timeout = asyncio.create_task(stopwatch(timeout))
-
+            # timeout = asyncio.create_task(stopwatch(timeout))
+            print("Ready for Gesture")
+            gc.collect()
+            print(gc.mem_free())
             while(mag**2 < gestThresh):
-                if(timeout.done()):
-                    raise Exception("CGTimeout: movement threshold was not exceeded within given time window")
+                # if(timeout.done()):
+                #     raise Exception("CGTimeout: movement threshold was not exceeded within given time window")
                 await Cato.imu.wait()
                 gesture[0] = (Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz)
                 mag = gyro_mag()
-
+            print("Recording")
+            print(gc.mem_free())
             # actual gesture is performed and recorded here
             idle = 0
             while(len(gesture) < gestLen)and(idle < idleLen):
@@ -828,12 +829,15 @@ class Cato:
                     idle = 0
 
             DBS.println("Gesture Recording Completed")
+            gc.collect()
+            print(gc.mem_free())
             with open("log.txt",'w') as log:
-                for d in gesture:
-                    log.write(",".join(str(v) for v in d))
+                l = len(gesture)
+                while(gesture):
+                    log.write(",".join(str(v) for v in gesture.pop(0)))
                     log.write("\n")
                     await asyncio.sleep(0)
-                for z in range(len(gesture),gestLen):
+                for z in range(l,gestLen):
                     log.write("0,0,0,0,0,0\n")
             
             Events.gesture_collecting.clear()
@@ -844,10 +848,14 @@ class Cato:
             while(SUS.collGestUUID == "stop"):
                 await asyncio.sleep(0.1)
             '''
+            print(gc.mem_free())
+            print("Gesture Finnished Logging")
         except Exception as ex:
             import os
             os.remove("gesture.cato")
+            print("ERRORED OUT!!")
             DBS.println(ex)
+        await asyncio.sleep(5)
         mc.reset()
 
     async def test_loop(self):
