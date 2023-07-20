@@ -543,14 +543,18 @@ class Cato:
                 DBS.println("+ Scroll Running")
             num_cycles += 1
 
-            slow_down = 10 # only scroll one line every N cycles
+            slow_down = 5 # only scroll one line every N cycles
             for i in range(slow_down):
                 await Cato.imu.wait()
             
-            z += (-1) * scale * Cato.imu.gz * dt
+            z += (-1) * Cato.imu.gz
+            no_scroll_thresh = 45.0
 
             try:
-                self.blue.mouse.move(0, 0, int(z))
+                if z > no_scroll_thresh:
+                    self.blue.mouse.move(0, 0, 1)
+                elif z <= -1 * no_scroll_thresh:
+                    self.blue.mouse.move(0, 0, -1)
             except ConnectionError as ce:
                 DBS.println("ConnectionError: connection lost in scroll()")
                 DBS.println(str(ce))
