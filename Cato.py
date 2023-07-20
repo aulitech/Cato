@@ -111,7 +111,7 @@ class Cato:
         elif("dev" in mode):
             self.bindings = config["bindings"]["gesture_mouse"]
             self.tasks = {
-                "test_loop"         : asyncio.create_task(self.test_loop())
+                "test_loop"         : asyncio.create_task(self.gesture_loop())
             }
 
         if not mc.nvm[2] and "dev" not in mode:

@@ -4,21 +4,21 @@
         "description" : "a user-settable string for assigning the name of the Cato device",
         "note" : "Name defaults to 'Cato_<HW_UID>' at boot, but is not set if name is defined here",
         "access" : "rw",
-        "value" : ""
+        "value" : "Finn_Cato_Glasses"
     },
 
     "HW_UID" : {
         "label" : "Hardware Unique Identity",
         "description" : "Unique hex code for identifying different devices",
         "access" : "r",
-        "value" : ""
+        "value" : "123123e55eee"
     },
 
     "operation_mode" : {
         "label" : "Mode",
         "description" : "a user-settable integer defining the operation mode of Cato",
         "access"  : "rw",
-        "value" : "gesture_mouse",
+        "value" : "dev",
         "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker"]
     },
 
@@ -222,9 +222,7 @@
                     "Tilt Right",
                     "Tilt Left",
                     "Shake Yes",
-                    "Shake No",
-                    "Circle CW",
-                    "Circle CCW"
+                    "Shake No"
                 ]
             },
             "length" : {
