@@ -44,9 +44,7 @@ async def main():
         mc.nvm[2] = True
     except OSError as ose:
         print(ose)
-        if(ose.errno == 2):
-            print("File Not Found")
-        elif(ose.errno == 30):
+        if(ose.errno == 30):
             print("Rebooting for Gesture Training")
             mc.nvm[0] = False
             mc.reset()
