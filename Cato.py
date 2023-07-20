@@ -254,6 +254,7 @@ class Cato:
                 await action
 
     async def gesture_interpreter(self, timeout = config["gesture"]["timeout"]):
+        DBS.println("+gesture_interpreter mem: ",gc.mem_free())
         # load interpreter specific parameters
         confThresh  = config["confidence_threshold"]
         maxLen      = config["gesture"]["length"]
@@ -335,7 +336,7 @@ class Cato:
         DBS.println("Interpreted "+config["gesture"]["key"][infer]+"("+str(max(neuton_outputs))+")")
 
         await shakeCursor
-        #DBS.println("-gesture_interpreter mem: ",gc.mem_free())
+        DBS.println("-gesture_interpreter mem: ",gc.mem_free())
         return self.bindings[infer][self.state]
     
     async def wait_for_motion(self, thresh, terminator = None):
