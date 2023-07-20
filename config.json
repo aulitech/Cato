@@ -4,21 +4,21 @@
         "description" : "a user-settable string for assigning the name of the Cato device",
         "note" : "Name defaults to 'Cato_<HW_UID>' at boot, but is not set if name is defined here",
         "access" : "rw",
-        "value" : ""
+        "value" : "CatoMicl"
     },
 
     "HW_UID" : {
         "label" : "Hardware Unique Identity",
         "description" : "Unique hex code for identifying different devices",
         "access" : "r",
-        "value" : ""
+        "value" : "Tester"
     },
 
     "operation_mode" : {
         "label" : "Mode",
         "description" : "a user-settable integer defining the operation mode of Cato",
         "access"  : "rw",
-        "value" : "gesture_mouse",
+        "value" : "tv_remote",
         "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker"]
     },
 
@@ -376,10 +376,10 @@
                 "access" : "rw",
                 "value" : [
                     [   ["noop"]                            ],
-                    [   ["button_action",1,"toggle",82]     ],
-                    [   ["button_action",1,"toggle",81]     ],
-                    [   ["button_action",1,"toggle",79]     ],
-                    [   ["button_action",1,"toggle",80]     ],
+                    [   ["button_action",1,"turbo",82]     ],
+                    [   ["button_action",1,"turbo",81]     ],
+                    [   ["button_action",1,"turbo",79]     ],
+                    [   ["button_action",1,"turbo",80]     ],
                     [   ["button_action",1,"tap",227]       ],
                     [   ["noop"]                            ],
                     [   ["button_action",1,"tap",40]        ],

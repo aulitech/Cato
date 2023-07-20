@@ -162,6 +162,13 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
 
     def data_ready_on_int1_setup(self):
         self.int1_ctrl = 0x02
+    
+    @property
+    def setup_type(self):
+        if(self.int1_ctrl == 0x00):
+            return "tap"
+        elif(self.int1_ctrl == 0x02):
+            return "gyro"
  
     def sign_motn_ena(self):
         self._sm_ths        = 0x06 # significant motion threshold [7:0] (default 0x06)

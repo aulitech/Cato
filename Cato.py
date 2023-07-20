@@ -246,18 +246,17 @@ class Cato:
         config["gesture"]["timeout"] = 0
         while True:
             await Events.gesture_not_collecting.wait()
-            target = await self.gesture_interpreter()
+            target = await self.gesture_interpreter(timeout = 0)
             DBS.println(target)
             await self.block_on(eval("self."+target[0], {"self":self}), *target[1:])
 
-    async def gesture_interpreter(self):
+    async def gesture_interpreter(self, timeout = config["gesture"]["timeout"]):
         # load interpreter specific parameters
         confThresh  = config["confidence_threshold"]
         maxLen      = config["gesture"]["length"]
         idleLen     = config["gesture"]["idle_cutoff"]
         gestThresh  = config["gesture"]["start_threshold"]
         idleThresh  = config["gesture"]["idle_threshold"]
-        timeout     = config["gesture"]["timeout"]
         
         # counters for in-progress gestures
         length = 1 # number of samples in gesture at present
@@ -276,18 +275,15 @@ class Cato:
         
         shakeCursor = asyncio.create_task(self.shake_cursor()) #ADD PRINT TO SHAKE CURSOR
         DBS.println("+ MouseEvent: Looking for Gesture")
-        Events.sig_motion.clear()
 
         # wait to recieve significant motion and return if the timeout threshold is passed
         timeoutEv = asyncio.Event()
         asyncio.create_task(stopwatch(timeout, ev = timeoutEv))
-        while(mag**2 < gestThresh):
-            if(timeoutEv.is_set()):
-                DBS.println("No Gesture Caused Timout")
-                return self.bindings[EV_NONE][self.state]
-            await Cato.imu.wait()
-            mag = gyro_mag()
-            #DBS.println((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz,mag))
+        await asyncio.create_task(self.wait_for_motion(sqrt(gestThresh),timeoutEv.is_set))
+        if(not Events.sig_motion.is_set()):
+            return self.bindings[EV_NONE][self.state]
+        Events.sig_motion.clear()
+        
 
         # motion recieved
         DBS.println("Motion Recieved: ",(Cato.imu.gx,Cato.imu.gy,Cato.imu.gz,mag))
@@ -339,14 +335,19 @@ class Cato:
         #DBS.println("-gesture_interpreter mem: ",gc.mem_free())
         return self.bindings[infer][self.state]
     
-    async def feed_neuton(self, log):
-        await Events.feed_neuton.wait()
-        Events.feed_neuton.clear()
-        DBS.println("Feeding Neuton")
-        for data in log:
-            if(not self.n.set_inputs(data)):
-                break
-        DBS.println("Successful Feed")
+    async def wait_for_motion(self, thresh, terminator = None):
+        Events.sig_motion.clear()
+        mag = 0
+        while(mag < thresh):
+            if((terminator != None)and(terminator())):
+                return False
+            await Cato.imu.wait()
+            if(Cato.imu.setup_type == "tap"):
+                mag = Cato.imu.tap_type
+            elif(Cato.imu.setup_type == "gyro"):
+                mag = get_mag((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz))
+        Events.sig_motion.set()
+        return True
     
     # Cato Actions
     # CircuitPython Docs: https://docs.circuitpython.org/projects/hid/en/latest/api.html#adafruit-hid-mouse-mouse '''
@@ -658,7 +659,19 @@ class Cato:
             asyncio.create_task(self.event_release(actor, *buttons, triggers = (Events.sig_motion,)))
         
         elif(action == "turbo"):
-            #TODO
+            asyncio.create_task(self.wait_for_motion(sqrt(config["gesture"]["idle_threshold"])))
+            
+            delay = config["turbo_rate"]["initial"]
+            minDelay = config["turbo_rate"]["minimum"]
+            decay = config["turbo_rate"]["decay_rate"]
+            while(not Events.sig_motion.is_set()):
+                actor.press(*buttons)
+                actor.release(*buttons)
+                await asyncio.sleep(delay)
+                if(delay > minDelay):
+                    delay *= decay
+            Events.sig_motion.clear()
+
             DBS.println("turbo button-action not functional")
         
         else:
