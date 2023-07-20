@@ -244,11 +244,14 @@ class Cato:
         Cato.imu.data_ready_on_int1_setup()
         DBS.println("tv_control")
         config["gesture"]["timeout"] = 0
+        await_actions = config["tv_control"]["await_actions"]
         while True:
             await Events.gesture_not_collecting.wait()
             target = await self.gesture_interpreter(timeout = 0)
             DBS.println(target)
-            await self.block_on(eval("self."+target[0], {"self":self}), *target[1:])
+            action = asyncio.create_task(self.block_on(eval("self."+target[0], {"self":self}), *target[1:]))
+            if(await_actions):
+                await action
 
     async def gesture_interpreter(self, timeout = config["gesture"]["timeout"]):
         # load interpreter specific parameters
@@ -341,10 +344,12 @@ class Cato:
         while(mag < thresh):
             if((terminator != None)and(terminator())):
                 return False
-            await Cato.imu.wait()
             if(Cato.imu.setup_type == "tap"):
-                mag = Cato.imu.tap_type
+                if(Cato.imu.data_ready.is_set()):
+                    mag = Cato.imu.tap_type
+                await asyncio.sleep(0.05)
             elif(Cato.imu.setup_type == "gyro"):
+                await Cato.imu.wait()
                 mag = get_mag((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz))
         Events.sig_motion.set()
         return True
@@ -663,7 +668,9 @@ class Cato:
             asyncio.create_task(self.event_release(actor, *buttons, triggers = (Events.sig_motion,)))
         
         elif(action == "turbo"):
-            asyncio.create_task(self.wait_for_motion(sqrt(config["gesture"]["idle_threshold"])))
+            thresh = buttons[0]
+            buttons = buttons[1:]
+            asyncio.create_task(self.wait_for_motion(thresh))
             
             delay = config["turbo_rate"]["initial"]
             minDelay = config["turbo_rate"]["minimum"]
@@ -675,8 +682,6 @@ class Cato:
                 if(delay > minDelay):
                     delay *= decay
             Events.sig_motion.clear()
-
-            DBS.println("turbo button-action not functional")
         
         else:
             # curretnly undefined behavior for undefined actions
