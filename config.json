@@ -198,7 +198,7 @@
                 "label" : "Number of Shakes",
                 "description" : "Number of times to repeat gesture ready indicator",
                 "access" : "rw",
-                "value" : 2,
+                "value" : 3,
                 "options" : [1, 2, 3, 4]
             }
         }
@@ -285,7 +285,7 @@
                 "label" : "Timeout",
                 "description" : "Maximum Time to Wait for Gesture Start before returning 'noop'",
                 "access" : "rw",
-                "value" : 6.0
+                "value" : 1.0
             },
             "gc_timeout" : {
                 "label" : "Gesture Collection Timeout",
