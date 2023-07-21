@@ -214,7 +214,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         with countio.Counter(board.IMU_INT1, edge = countio.Edge.RISE) as interrupt:
             self.spark() # grab a few samples - guarantees a rising edge
             while True:
-                await asyncio.sleep(0)      # release    
+                await asyncio.sleep(0)      # release
                 if interrupt.count > 0:     # if rising edge seen
                     interrupt.count = 0     # reset
                     self.imu_ready.set()    # indicate detection
