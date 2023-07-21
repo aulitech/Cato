@@ -22,7 +22,6 @@ from utils import stopwatch
 from ulab import numpy as np
 
 from utils import config
-#from StrUUIDService import DebugStream
 
 from math import pi, sin, cos, sqrt, asin
 
@@ -96,7 +95,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     CHIP_ID = 0x6A # LSM address on nRF52840
 
     # config info at:
-    # https://cdn.sparkfun.com/assets/learn_tutorials/4/1/6/AN4650_DM00157511.pdf
+    # https://www.st.com/resource/en/datasheet/lsm6ds3tr-c.pdf
     _status_reg = ROUnaryStruct(    _LSM6DS_STATUS_REG,     "<b")
 
     _int1_ctrl      = RWBits(7,     _LSM6DS_INT1_CTRL,      0   ) # "The pad's output will supply the OR combination of all enabled signals"
@@ -215,7 +214,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         with countio.Counter(board.IMU_INT1, edge = countio.Edge.RISE) as interrupt:
             self.spark() # grab a few samples - guarantees a rising edge
             while True:
-                await asyncio.sleep(0)      # release    
+                await asyncio.sleep(0)      # release
                 if interrupt.count > 0:     # if rising edge seen
                     interrupt.count = 0     # reset
                     self.imu_ready.set()    # indicate detection
@@ -229,7 +228,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         
         from WakeDog import WakeDog # Can this be at top?
 
-        calibCountdown = self.autoCalibLoops
+        calibCountdown = 0
         trimAdjust = np.array((0,0,0))
         gyro_prev = np.array((0,0,0))
         
@@ -267,7 +266,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             if(self.not_calibrated):
                 gyro_delta_mag = np.linalg.norm(self.gyro_vals - gyro_prev)
 
-                if(calibCountdown == 0):
+                if(calibCountdown == self.autoCalibLoops):
                     for i in range(len(self.gyro_trim)):
                         self.gyro_trim[i] += trimAdjust[i]
                     self.gyro_vals -= trimAdjust
@@ -276,11 +275,11 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
                     trimAdjust = np.array((0,0,0))
 
                 if(gyro_delta_mag < self.autoCalibThresh):
-                    calibCountdown -= 1
+                    calibCountdown += 1
                     trimAdjust += self.gyro_vals / self.autoCalibLoops
                 else:
                     gyro_prev = self.gyro_vals
-                    calibCountdown = self.autoCalibLoops
+                    calibCountdown = 0
                     trimAdjust = np.array((0,0,0))
             
             # Check sleep conditions
