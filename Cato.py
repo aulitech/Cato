@@ -205,7 +205,7 @@ class Cato:
             await asyncio.sleep(10)
             Events.battery.clear()
             await Events.battery.wait()
-            print("BATTERY")
+            # print("BATTERY")
             #temp = self.battery.raw_value
             # DBS.println(f"bat_ena True: {temp[0]}")
             # await asyncio.sleep(0.1)
