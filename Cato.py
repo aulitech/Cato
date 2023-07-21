@@ -264,7 +264,7 @@ class Cato:
 
     async def gesture_interpreter(self, timeout = config["gesture"]["timeout"]):
         gc.collect()
-        DBS.println("+gesture_interpreter mem: ",gc.mem_free())
+        # DBS.println("+gesture_interpreter mem: ",gc.mem_free())
         # load interpreter specific parameters
         confThresh  = config["confidence_threshold"]
         maxLen      = config["gesture"]["length"]
@@ -283,26 +283,28 @@ class Cato:
 
         await Cato.imu.wait()
         mag = gyro_mag()
-        if(mag**2 > gestThresh):
-            DBS.println("Premature Motion")
-            return ["noop"]
+        # if(mag**2 > gestThresh):
+        #     DBS.println("Premature Motion")
+        #     return ["noop"]
         
         Events.gesturing.set()
         shakeCursor = asyncio.create_task(self.shake_cursor())
-        DBS.println("+ MouseEvent: Looking for Gesture")
+        
+        DBS.println("Perform Gesture Now")
+        DBS.println("\tWatching for significant motion...")
 
         # wait to recieve significant motion and return if the timeout threshold is passed
         timeoutEv = asyncio.Event()
         asyncio.create_task(stopwatch(timeout, ev = timeoutEv))
-        await asyncio.create_task(self.wait_for_motion(sqrt(gestThresh),timeoutEv.is_set))
+        await asyncio.create_task(self.wait_for_motion(sqrt(gestThresh), timeoutEv.is_set))
         if(not Events.sig_motion.is_set()):
             Events.gesturing.clear()
-            return self.bindings[EV_NONE][self.state]
+            DBS.println("\tTimeout")
+            return self.bindings[EV_NONE][self.state] 
         Events.sig_motion.clear()
         
-
         # motion recieved
-        DBS.println("Motion Recieved: ",(Cato.imu.gx,Cato.imu.gy,Cato.imu.gz,mag))
+        DBS.println("\tMotion recieved")
         Events.sig_motion.set()
         self.n.set_inputs(
             array.array('f', [Cato.imu.ax, Cato.imu.ay, Cato.imu.az, 
@@ -323,7 +325,7 @@ class Cato:
                 idle += 1
             else:
                 idle = 0
-        DBS.println("Gesture Length: ",length)
+        # DBS.println("Gesture Length: ",length)
         Events.sig_motion.clear()
         '''''
         if(idle == idleLen):
@@ -342,15 +344,20 @@ class Cato:
         #DBS.println("Filled length: ", length)
 
         infer = self.n.inference()+1
-        DBS.println(neuton_outputs)
+        # DBS.println(neuton_outputs)
         if(max(neuton_outputs) < confThresh):
             infer = 0
-        DBS.println("Interpreted "+config["gesture"]["key"][infer]+"("+str(max(neuton_outputs))+")")
+        
+        gesture_result_str = f"Result: {config['gesture']['key'][infer]} \n"
+        for idx, gesture in enumerate(config['gesture']['key'][1:]):
+            gesture_result_str += f"\t{gesture:12}: {neuton_outputs[idx]:>5.1%}\n"
+        print(gesture_result_str)
+        # DBS.println("Interpreted "+config["gesture"]["key"][infer]+"("+str(max(neuton_outputs))+")")
 
         Events.gesturing.clear()
         await shakeCursor
         gc.collect()
-        DBS.println("-gesture_interpreter mem: ",gc.mem_free())
+        # DBS.println("-gesture_interpreter mem: ",gc.mem_free())
         return self.bindings[infer][self.state]
     
     async def wait_for_motion(self, thresh, terminator = None):
@@ -933,5 +940,5 @@ class Cato:
             action = await self.gesture_interpreter()
             #DBS.println(action)
             DBS.println()
-            await asyncio.sleep(1)
+            # await asyncio.sleep(1)
     
