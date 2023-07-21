@@ -895,8 +895,11 @@ class Cato:
             print(gc.mem_free())
             print("Gesture Finnished Logging")
         except Exception as ex:
-            import os
-            os.remove("gesture.cato")
+            try:
+                import os
+                os.remove("gesture.cato")
+            except:
+                print("Already Removed gesture.cato")
             print("ERRORED OUT!!")
             DBS.println(ex)
         await asyncio.sleep(5)
