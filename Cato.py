@@ -127,9 +127,10 @@ class Cato:
         self.n = Neuton(outputs=neuton_outputs)
         self.gesture = 0 # None
 
-        self.led_pin = board.LED_GREEN
-        self.led = digitalio.DigitalInOut(self.led_pin)
-        self.led.direction = digitalio.Direction.OUTPUT
+        self.pins = {
+            "led_green" : digitalio.DigitalInOut( board.LED_GREEN )
+        }
+        self.pins['led_green'] = digitalio.Direction.OUTPUT
 
         DBS.println("- Cato Init")
 
@@ -151,12 +152,12 @@ class Cato:
             await asyncio.sleep(0.1)
             self.tasks['interrupt'] = None
 
-            self.imu.single_tap_cfg() # set wakeup condn to single tap detection
+            self.imu.sig_mot_ena() # set wakeup condn to single tap detection
 
             pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
             
             # ensure that LED is OFF
-            while( self.led.value == False ):
+            while( self.pins["led_green"] == False ):
                 await asyncio.sleep(0.001)
 
             print("LIGHT SLEEP")
@@ -188,11 +189,14 @@ class Cato:
 
     async def monitor_battery(self):
         while True:
-            for i in range(3):
-                await asyncio.sleep(0.2)
-                self.led.value = False
-                await asyncio.sleep(0.2)
-                self.led.value = True
+            try:
+                for i in range(3):
+                    await asyncio.sleep(0.2)
+                    self.pins['led_green'].value = False
+                    await asyncio.sleep(0.2)
+                    self.pins['led_green'].value = True
+            except:
+                pass
             await asyncio.sleep(5)
             temp = self.battery.raw_value
             # DBS.println(f"bat_ena True: {temp[0]}")
@@ -702,6 +706,39 @@ class Cato:
             DBS.println(str(ce))
         if hall_pass is not None:
             hall_pass.set()
+
+
+    async def pin_action(self, pin, action, direction = digitalio.Direction.OUTPUT, hall_pass: asyncio.Event = None):
+        digital_pins = ('D0', 'D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8', 'D9', 'D10')
+        # analog_pins = ('A0', 'A1', 'A2', 'A3', 'A4', 'A5')
+
+        # validate pin
+        if pin not in digital_pins:
+            raise ValueError(f"Invalid Pin. Valid options: {digital_pins}")
+        
+        # configure pin settings
+        if pin not in self.pins.keys():
+            self.pins.update( {pin : digitalio.DigitalInOut( eval(f"board.{pin}") ) } )
+            self.pins[pin].direction = digitalio.Direction.OUTPUT
+        
+        # validate action input
+        valid_actions = ("set_high", "set_low")
+        if action not in valid_actions:
+            raise ValueError(f"Invalid Action. Valid options: {valid_actions}")
+        
+        # execute action 
+        # Should this generate a task of its own for something like "blink"?
+        # Do I need to hold a handle to preseve its value?
+        if action == "set_high":
+            self.pins[pin].value = True
+        
+        if action == "set_low":
+            self.pins[pin].value = False
+
+        if hall_pass is not None:
+            hall_pass.set()
+
+        
 
     '''
     async def collect_gestures_app():

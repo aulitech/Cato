@@ -170,8 +170,9 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         elif(self.int1_ctrl == 0x02):
             return "gyro"
  
-    def sign_motn_ena(self):
-        self._sm_ths        = 0x06 # significant motion threshold [7:0] (default 0x06)
+    def sig_mot_ena(self):
+        # self._sm_ths        = 0x06 # significant motion threshold [7:0] (default 0x06)
+        print(self._sm_ths)
         self.int1_ctrl      = 0x40 # step_detector, int1_Sign_motn, int1FullFlag, int1FIFO_OVR, int1_Fth, int1_Boot, int1DrdyG, int1DrdyXL
         self._ctrl10_c      = 0x05 # WristTiltEn, 0, TimerEn, PedoEn, TiltEn, FuncEn, PedoRST_Step, Sign_Motn_En
 
@@ -408,6 +409,14 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     @property
     def accel_ready(self) -> bool:
         return (self._status_reg & 1 > 0)
+
+    @property
+    def int1_ctrl(self) -> int:
+        return (self._int1_ctrl)
+
+    @int1_ctrl.setter
+    def int1_ctrl(self, value: int) -> None:
+        self._int1_ctrl = value
 
     @property
     def int1_ctrl(self) -> int:

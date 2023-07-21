@@ -18,7 +18,7 @@
         "label" : "Mode",
         "description" : "a user-settable integer defining the operation mode of Cato",
         "access"  : "rw",
-        "value" : "gesture_mouse",
+        "value" : "clicker",
         "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker"]
     },
 
@@ -31,7 +31,7 @@
                 "label" : "Timeout",
                 "description" : "Number of consecutive low-movement seconds before Cato sleeps",
                 "access" : "rw",
-                "value" : 45,
+                "value" : 90,
                 "range" : {
                     "min" : 10,
                     "max" : 120
@@ -41,7 +41,7 @@
                 "label" : "Sleep Threshold",
                 "description" : "Movement level below which Cato starts counting towards sleep",
                 "access" : "rw",
-                "value" : 4.0,
+                "value" : 5.0,
                 "range" : {
                     "min" : 2.0,
                     "max" : 10.0
@@ -427,9 +427,9 @@
                 "note" : "available tap combos depend on number of bindings",
                 "value" : [
                     [   ["noop"]                            ],
-                    [   ["button_action",0,"tap",1]         ],
-                    [   ["button_action",0,"tap",2]         ],
-                    [   ["button_action",0,"toggle",1]      ]
+                    [   ["noop"]         ],
+                    [   ["noop"]         ],
+                    [   ["quick_sleep"]      ]
                 ]
             }
         }
