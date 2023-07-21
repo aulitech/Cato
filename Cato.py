@@ -542,11 +542,6 @@ class Cato:
             # trig scaling of mouse x and y values
             dx += scale[0] * cos(ang) + batcher[0]
             dy += scale[1] * sin(ang) + batcher[1]
-            c = int(cycle_count/2)
-            dx,dy = (2 - c%4)*(c%2), (2 - (c+1)%4)*((c+1)%2)
-            dx *= 10
-            dy *= 10
-            print(f"{cycle_count}:{(dx,dy)}")
 
             batcher = (dx-int(dx), dy-int(dy))
             dx, dy = int(dx), int(dy)
