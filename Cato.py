@@ -560,13 +560,12 @@ class Cato:
             # c = int(cycle_count/3)
             # dx = 10*(2-(c)%4)*(c%2)       # fast squares
             # dy = 10*(2-(c+1)%4)*((c+1)%2)
+            if(abs(dx) < 0.2)and(abs(dy) < 0.2):
+                Events.battery.set()
+                Events.battery.clear()
 
             batcher = (dx-int(dx), dy-int(dy))
             dx, dy = int(dx), int(dy)
-
-            if((dx,dy) == (0,0)):
-                Events.battery.set()
-                Events.battery.clear()
 
             try:
                 self.blue.mouse.move(dx, dy, 0)
