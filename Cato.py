@@ -296,7 +296,7 @@ class Cato:
         # wait to recieve significant motion and return if the timeout threshold is passed
         timeoutEv = asyncio.Event()
         asyncio.create_task(stopwatch(timeout, ev = timeoutEv))
-        await asyncio.create_task(self.wait_for_motion(sqrt(gestThresh), timeoutEv.is_set))
+        await asyncio.create_task(self.wait_for_motion(sqrt(gestThresh),terminator = timeoutEv.is_set))
         if(not Events.sig_motion.is_set()):
             Events.gesturing.clear()
             DBS.println("\tTimeout")
@@ -488,10 +488,9 @@ class Cato:
         cycle_count = 0
         dx = 0
         dy = 0
-        dscroll = 0
+        batcher = (0,0)
 
         # mem("post_cfg") # At this point, between pre and post, we lost only 100bytes
-
         while True:
             # print(".")
             if not Events.move_mouse.is_set():
@@ -542,14 +541,18 @@ class Cato:
 
                     idle_count = 0
                     cycle_count = 0
+                    batcher = (0,0)
 
             mag = mag * usr_scale
             # trig scaling of mouse x and y values
-            dx = int( scale * mag * cos(ang) )
-            dy = int( scale * mag * sin(ang) )
+            dx = scale * mag * cos(ang) + batcher[0]
+            dy = scale * mag * sin(ang) + batcher[1]
+
+            batcher = (dx-int(dx), dy-int(dy))
+            dx, dy = int(dx), int(dy)
 
             try:
-                self.blue.mouse.move(dx, dy, dscroll)
+                self.blue.mouse.move(dx, dy, 0)
             except ConnectionError as ce:
                 DBS.println("ConnectionError: connection lost in move_mouse()")
                 DBS.println(str(ce))
@@ -899,8 +902,11 @@ class Cato:
             print(gc.mem_free())
             print("Gesture Finnished Logging")
         except Exception as ex:
-            import os
-            os.remove("gesture.cato")
+            try:
+                import os
+                os.remove("gesture.cato")
+            except:
+                print("Already Removed gesture.cato")
             print("ERRORED OUT!!")
             DBS.println(ex)
         await asyncio.sleep(5)
@@ -935,9 +941,8 @@ class Cato:
     
     async def gesture_loop(self):
         DBS.println("+ gesture_loop")
-        config["gesture"]["timeout"] = 0
         while True:
-            action = await self.gesture_interpreter()
+            action = await self.gesture_interpreter(timeout = 0)
             #DBS.println(action)
             DBS.println()
             # await asyncio.sleep(1)

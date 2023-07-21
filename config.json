@@ -19,7 +19,7 @@
         "description" : "a user-settable integer defining the operation mode of Cato",
         "access"  : "rw",
         "value" : "gesture_mouse",
-        "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker"]
+        "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker", "practice"]
     },
 
     "sleep" : {
@@ -115,7 +115,7 @@
                 "label" : "Movement Scale Factor",
                 "description" : "Flat multiplier for all mouse movements",
                 "access" : "rw",
-                "value" : 1.0,
+                "value" : 0.10,
                 "range" : {
                     "min" : 0.1,
                     "max" : 4.0
