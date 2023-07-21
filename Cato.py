@@ -70,6 +70,13 @@ class Cato:
         '''
         DBS.println("+ Cato Init")
 
+        if(mc.nvm[2]): # Wired training condn
+            mc.nvm[2] = False
+            self.tasks = {
+                "collect_gesture"   : asyncio.create_task(Cato.collect_gestures_wired())    
+            }
+            return
+
         self.hall_pass = asyncio.Event() # separate event to be passed to functions when we must ensure they finish
 
         # battery managing container
@@ -84,14 +91,8 @@ class Cato:
             self.bindings = config["bindings"][mode]
         
         self.tasks = {}
-
-        if(mc.nvm[2]): # Wired training condn
-            mc.nvm[2] = False
-            self.tasks = {
-                "collect_gesture"   : asyncio.create_task(Cato.collect_gestures_wired())    
-            }
         
-        elif(mode == "gesture_mouse"):
+        if(mode == "gesture_mouse"):
             self.tasks = {
                 "move_mouse"        : asyncio.create_task(self.move_mouse()),
                 "mouse_event"       : asyncio.create_task(self.mouse_event()),
@@ -109,10 +110,14 @@ class Cato:
             self.tasks = {
                 "clicker"           : asyncio.create_task(self.clicker_task()),
             }
-        elif("dev" in mode):
+        elif(mode == "practice"):
             self.bindings = config["bindings"]["gesture_mouse"]
             self.tasks = {
-                "test_loop"         : asyncio.create_task(self.gesture_loop())
+                "gesture_loop"         : asyncio.create_task(self.gesture_loop())
+            }
+        elif("dev" in mode):
+            self.tasks = {
+                "test_loop"         : asyncio.create_task(self.test_loop())
             }
 
         if not mc.nvm[2] and "dev" not in mode:
@@ -923,9 +928,10 @@ class Cato:
     
     async def gesture_loop(self):
         DBS.println("+ gesture_loop")
+        config["gesture"]["timeout"] = 0
         while True:
             action = await self.gesture_interpreter()
-            DBS.println(action)
-            # DBS.println()
-            await asyncio.sleep(0.5)
+            #DBS.println(action)
+            DBS.println()
+            await asyncio.sleep(1)
     
