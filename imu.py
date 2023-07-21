@@ -22,7 +22,6 @@ from utils import stopwatch
 from ulab import numpy as np
 
 from utils import config
-#from StrUUIDService import DebugStream
 
 from math import pi, sin, cos, sqrt, asin
 
@@ -228,7 +227,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         
         from WakeDog import WakeDog # Can this be at top?
 
-        calibCountdown = self.autoCalibLoops
+        calibCountdown = 0
         trimAdjust = np.array((0,0,0))
         gyro_prev = np.array((0,0,0))
         
@@ -266,7 +265,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             if(self.not_calibrated):
                 gyro_delta_mag = np.linalg.norm(self.gyro_vals - gyro_prev)
 
-                if(calibCountdown == 0):
+                if(calibCountdown == self.autoCalibLoops):
                     for i in range(len(self.gyro_trim)):
                         self.gyro_trim[i] += trimAdjust[i]
                     self.gyro_vals -= trimAdjust
@@ -275,11 +274,11 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
                     trimAdjust = np.array((0,0,0))
 
                 if(gyro_delta_mag < self.autoCalibThresh):
-                    calibCountdown -= 1
+                    calibCountdown += 1
                     trimAdjust += self.gyro_vals / self.autoCalibLoops
                 else:
                     gyro_prev = self.gyro_vals
-                    calibCountdown = self.autoCalibLoops
+                    calibCountdown = 0
                     trimAdjust = np.array((0,0,0))
             
             # Check sleep conditions
