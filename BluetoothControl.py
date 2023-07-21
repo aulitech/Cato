@@ -71,7 +71,7 @@ class BluetoothControl():
         self.scan_response.appearance = Appearances.remote
         # # mem("BTC, scan_response created")
 
-        
+
         # HID handles
         self.k = Keyboard(self.hid.devices)
         self.kl = KeyboardLayoutUS(self.k)

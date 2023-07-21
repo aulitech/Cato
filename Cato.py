@@ -569,6 +569,9 @@ class Cato:
 
             try:
                 self.blue.mouse.move(dx, dy, 0)
+                if(cycle_count%10 == 0):
+                    #print(self.blue.mouse.report)
+                    pass
             except ConnectionError as ce:
                 DBS.println("ConnectionError: connection lost in move_mouse()")
                 DBS.println(str(ce))
