@@ -540,15 +540,14 @@ class Cato:
             scale = scrn_scale*mag
             scale = (usr_scale[0]*scale,usr_scale[0]*scale)
             # trig scaling of mouse x and y values
-            dx += scale[0] * cos(ang) + batcher[0]
-            dy += scale[1] * sin(ang) + batcher[1]
+            dx = scale[0] * cos(ang) + batcher[0]
+            dy = scale[1] * sin(ang) + batcher[1]
 
             batcher = (dx-int(dx), dy-int(dy))
             dx, dy = int(dx), int(dy)
 
             try:
                 self.blue.mouse.move(dx, dy, 0)
-                print(self.blue.mouse.report)
             except ConnectionError as ce:
                 DBS.println("ConnectionError: connection lost in move_mouse()")
                 DBS.println(str(ce))
