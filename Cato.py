@@ -550,10 +550,9 @@ class Cato:
             # trig scaling of mouse x and y values
             dx = scale[0] * cos(ang) + batcher[0]
             dy = scale[1] * sin(ang) + batcher[1]
-            c = int(cycle_count/3)
-            dx = 10*(2-(c)%4)*(c%2)       # fast squares
+            # c = int(cycle_count/3)
+            # dx = 10*(2-(c)%4)*(c%2)       # fast squares
             # dy = 10*(2-(c+1)%4)*((c+1)%2)
-            dy = 0
 
             batcher = (dx-int(dx), dy-int(dy))
             dx, dy = int(dx), int(dy)
