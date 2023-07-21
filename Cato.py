@@ -48,7 +48,10 @@ class Events:
     stream_imu              = asyncio.Event()   # stream data from the imu onto console -- useful for debugging
     mouse_event             = asyncio.Event()   # triggers detection of Cato gesture
     gesturing               = asyncio.Event()   # 
-    idle                    = asyncio.Event()   # triggered when no events change for some time
+    battery                 = asyncio.Event()
+
+    imu_sig_motion          = asyncio.Event()   # code needs refactor using these as primary elements
+    imu_idle                = asyncio.Event()
 
     gesture_collecting      = asyncio.Event()   # signal that collect_gestures() is currently running
     gesture_not_collecting  = asyncio.Event()
@@ -199,8 +202,10 @@ class Cato:
                 self.led.value = False
                 await asyncio.sleep(0.2)
                 self.led.value = True
-            await asyncio.sleep(5)
-            
+            await asyncio.sleep(10)
+            Events.battery.clear()
+            await Events.battery.wait()
+            print("BATTERY")
             #temp = self.battery.raw_value
             # DBS.println(f"bat_ena True: {temp[0]}")
             # await asyncio.sleep(0.1)
@@ -257,6 +262,7 @@ class Cato:
         await_actions = config["tv_control"]["await_actions"]
         while True:
             await Events.gesture_not_collecting.wait()
+            Events.battery.set()
             target = await self.gesture_interpreter(timeout = 0)
             DBS.println(target)
             action = asyncio.create_task(self.block_on_eval(target))
@@ -423,9 +429,11 @@ class Cato:
     async def clicker_task(self):
         Cato.imu.single_tap_cfg()
         while True:
+            Events.battery.set()
             Events.gesturing.set()
             await Cato.imu.wait()
             Events.sig_motion.set()
+            Events.battery.clear()
             WakeDog.feed()
             try:
                 target = self.bindings[Cato.imu.tap_type][self.state]
@@ -540,15 +548,22 @@ class Cato:
             scale = scrn_scale*mag
             scale = (usr_scale[0]*scale,usr_scale[0]*scale)
             # trig scaling of mouse x and y values
-            dx += scale[0] * cos(ang) + batcher[0]
-            dy += scale[1] * sin(ang) + batcher[1]
+            dx = scale[0] * cos(ang) + batcher[0]
+            dy = scale[1] * sin(ang) + batcher[1]
+            c = int(cycle_count/3)
+            dx = 10*(2-(c)%4)*(c%2)       # fast squares
+            # dy = 10*(2-(c+1)%4)*((c+1)%2)
+            dy = 0
 
             batcher = (dx-int(dx), dy-int(dy))
             dx, dy = int(dx), int(dy)
 
+            if((dx,dy) == (0,0)):
+                Events.battery.set()
+                Events.battery.clear()
+
             try:
                 self.blue.mouse.move(dx, dy, 0)
-                print(self.blue.mouse.report)
             except ConnectionError as ce:
                 DBS.println("ConnectionError: connection lost in move_mouse()")
                 DBS.println(str(ce))
