@@ -294,7 +294,7 @@ class Cato:
         # wait to recieve significant motion and return if the timeout threshold is passed
         timeoutEv = asyncio.Event()
         asyncio.create_task(stopwatch(timeout, ev = timeoutEv))
-        await asyncio.create_task(self.wait_for_motion(sqrt(gestThresh),timeoutEv.is_set))
+        await asyncio.create_task(self.wait_for_motion(sqrt(gestThresh),terminator = timeoutEv.is_set))
         if(not Events.sig_motion.is_set()):
             Events.gesturing.clear()
             return self.bindings[EV_NONE][self.state]
@@ -931,9 +931,8 @@ class Cato:
     
     async def gesture_loop(self):
         DBS.println("+ gesture_loop")
-        config["gesture"]["timeout"] = 0
         while True:
-            action = await self.gesture_interpreter()
+            action = await self.gesture_interpreter(timeout = 0)
             #DBS.println(action)
             DBS.println()
             await asyncio.sleep(1)
