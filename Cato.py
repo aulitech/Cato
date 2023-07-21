@@ -200,7 +200,8 @@ class Cato:
                 await asyncio.sleep(0.2)
                 self.led.value = True
             await asyncio.sleep(5)
-            temp = self.battery.raw_value
+            
+            #temp = self.battery.raw_value
             # DBS.println(f"bat_ena True: {temp[0]}")
             # await asyncio.sleep(0.1)
             # DBS.println(f"bat_ena False: {temp[1]}")
@@ -447,7 +448,7 @@ class Cato:
         hall_pass.set()
 
 
-    async def move_mouse(self, max_idle_cycles=80, mouse_type = "LINEAR", forever: bool = False):
+    async def move_mouse(self, max_idle_cycles=80, mouse_type = "ACCEL", forever: bool = False):
         '''
             move the mouse via bluetooth until sufficiently idle
         '''
@@ -462,9 +463,9 @@ class Cato:
         screen_mag = get_mag(tuple(config['screen_size'].values()))
         print(config['screen_size'].values())
         screen_scale = screen_mag / get_mag((1920,1080)) # default scale to 1920 * 1080 - use diagonal number of pixels as scalar
-        usr_scale = config['mouse']['scale'] #user multiplier
+        usr_scale = (config['mouse']['scale_x'],config['mouse']['scale_y']) #user multipliers
 
-        scale = 1.0
+        scrn_scale = 1.0
         
         # dynamic mouse configuration      
         slow_thresh = config['mouse']["dynamic_mouse"]['input']['slow']
@@ -513,8 +514,8 @@ class Cato:
 
             # mouse with dynamic acceleration for fine and coarse control
             if(mouse_type == "ACCEL"):
-                scale = translate(slow_thresh, fast_thresh, slow_scale, fast_scale, mag)
-                scale *= screen_scale
+                scrn_scale = translate(slow_thresh, fast_thresh, slow_scale, fast_scale, mag)
+                scrn_scale *= screen_scale
 
             # Begin idle checking -- only after minimum duration
             if(cycle_count >= min_run_cycles and not forever):
@@ -536,19 +537,28 @@ class Cato:
                     cycle_count = 0
                     batcher = (0,0)
 
-            mag = mag * usr_scale
+            scale = scrn_scale*mag
+            scale = (usr_scale[0]*scale,usr_scale[0]*scale)
             # trig scaling of mouse x and y values
-            dx = scale * mag * cos(ang) + batcher[0]
-            dy = scale * mag * sin(ang) + batcher[1]
+            dx += scale[0] * cos(ang) + batcher[0]
+            dy += scale[1] * sin(ang) + batcher[1]
+            c = int(cycle_count/2)
+            dx,dy = (2 - c%4)*(c%2), (2 - (c+1)%4)*((c+1)%2)
+            dx *= 10
+            dy *= 10
+            print(f"{cycle_count}:{(dx,dy)}")
 
             batcher = (dx-int(dx), dy-int(dy))
             dx, dy = int(dx), int(dy)
 
             try:
                 self.blue.mouse.move(dx, dy, 0)
+                print(self.blue.mouse.report)
             except ConnectionError as ce:
                 DBS.println("ConnectionError: connection lost in move_mouse()")
                 DBS.println(str(ce))
+            except Exception as ex:
+                print(f"OtherException:{ex}")
             
     async def _scroll(self, hall_pass: asyncio.Event = None):
         DBS.println("+ _scroll")

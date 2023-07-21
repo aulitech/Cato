@@ -18,7 +18,7 @@
         "label" : "Mode",
         "description" : "a user-settable integer defining the operation mode of Cato",
         "access"  : "rw",
-        "value" : "gesture_mouse",
+        "value" : "pointer",
         "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker", "practice"]
     },
 
@@ -105,17 +105,27 @@
                 "label" : "Idle timeout cycles",
                 "description" : "Number of consecutive cycles for mouse to observe idle behavior before exiting due to idle",
                 "access" : "rw",
-                "value" : 10,
+                "value" : 20,
                 "range" : {
                     "min" : 15,
                     "max" : 50
                 }
             },
-            "scale"         : {
-                "label" : "Movement Scale Factor",
+            "scale_x"         : {
+                "label" : "Horizontal Movement Scale Factor",
                 "description" : "Flat multiplier for all mouse movements",
                 "access" : "rw",
-                "value" : 0.10,
+                "value" : 0.50,
+                "range" : {
+                    "min" : 0.1,
+                    "max" : 4.0
+                }
+            },
+            "scale_y"         : {
+                "label" : "Vertical Movement Scale Factor",
+                "description" : "Flat multiplier for all mouse movements",
+                "access" : "rw",
+                "value" : 0.40,
                 "range" : {
                     "min" : 0.1,
                     "max" : 4.0
@@ -136,7 +146,7 @@
                                 "label" : "Slow",
                                 "description" : "Rotation speed floor below which scale remains constant",
                                 "access" : "rw",
-                                "value" : 40.0,
+                                "value" : 20.0,
                                 "range" : {
                                     "min" : 0.0,
                                     "max" : 400.0
@@ -146,7 +156,7 @@
                                 "label" : "Fast",
                                 "description" : "Rotation speed ceiling above which scale remains constant",
                                 "access" : "rw",
-                                "value" : 50.0,
+                                "value" : 40.0,
                                 "range" : {
                                     "min" : 0.0,
                                     "max" : 500.0
@@ -163,7 +173,7 @@
                                 "label" : "Slow",
                                 "description" : "Scale factor at (and below) slowest input speed",
                                 "access" : "rw",
-                                "value" : 0.20, 
+                                "value" : 0.50, 
                                 "range" : {
                                     "min" : 0.1,
                                     "max" : 2.0
@@ -173,7 +183,7 @@
                                 "label" : "Fast",
                                 "description" : "Scale factor at (and above) fastest input speed",
                                 "access" : "rw",
-                                "value" : 2.5,
+                                "value" : 1.5,
                                 "range" : {
                                     "min" : 1.0,
                                     "max" : 6.0
