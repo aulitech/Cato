@@ -18,11 +18,10 @@ import time
 import board
 import gc
 import supervisor as sp
-
+from utils import stopwatch
 from ulab import numpy as np
 
-#from StrUUIDService import config
-#from StrUUIDService import DebugStream
+from utils import config
 
 from math import pi, sin, cos, sqrt, asin
 
@@ -96,7 +95,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     CHIP_ID = 0x6A # LSM address on nRF52840
 
     # config info at:
-    # https://cdn.sparkfun.com/assets/learn_tutorials/4/1/6/AN4650_DM00157511.pdf
+    # https://www.st.com/resource/en/datasheet/lsm6ds3tr-c.pdf
     _status_reg = ROUnaryStruct(    _LSM6DS_STATUS_REG,     "<b")
 
     _int1_ctrl      = RWBits(7,     _LSM6DS_INT1_CTRL,      0   ) # "The pad's output will supply the OR combination of all enabled signals"
@@ -113,7 +112,6 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     _md1_cfg        = RWBits(7,     _LSM6DS_MD1_CFG,        0   )
 
     def __init__(self, address: int = LSM6DS_DEFAULT_ADDRESS) -> None:
-        from StrUUIDService import config
         
         # Enable Imu Power
         self._pwr = digitalio.DigitalInOut(board.IMU_PWR)
@@ -137,9 +135,9 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self.gyro_vals  = np.array([0.0, 0.0, 0.0]) # gyro fields
         self.gyro_trim  = config["calibration"]["drift"] # Gyroscope trim values set by calibrate
         self.not_calibrated = True
-        self.autoCalibLoops = config["calibration"]["auto_samples"]
+        self.autoCalibLen = config["calibration"]["auto_samples"]
         self.autoCalibThresh = config["calibration"]["auto_threshold"]
-        self.sleep_thresh = config["sleep_threshold"]
+        self.sleep_thresh = config["sleep"]["threshold"]
 
         # Rotational Adjustment Values (From Calibrate)
         # Default to Identity
@@ -154,7 +152,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         
         self.tasks = {}
 
-        if config["operation_mode"] == 3:
+        if config["operation_mode"] == "clicker": # TODO: if clicker in op_mode
             self.tasks.update({"read_click" : asyncio.create_task(self.read_clicks())})
         else:
             self.tasks.update({"read"      : asyncio.create_task( self.read() )})
@@ -163,6 +161,13 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
 
     def data_ready_on_int1_setup(self):
         self.int1_ctrl = 0x02
+    
+    @property
+    def setup_type(self):
+        if(self.int1_ctrl == 0x00):
+            return "tap"
+        elif(self.int1_ctrl == 0x02):
+            return "gyro"
  
     def sign_motn_ena(self):
         self._sm_ths        = 0x06 # significant motion threshold [7:0] (default 0x06)
@@ -180,7 +185,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         # self._ctrl10_c     = 0x05 # WristTiltEn, 0, TimerEn, PedoEn, TiltEn, FuncEn, PedoRST_Step, Sign_Motn_En
         # SELECT A TAP WITH SINGLE OR DOUBLE
 
-    def tap_wake_cfg(self):
+    def single_tap_cfg(self):
         self.tap_ena()
         self._md1_cfg   = 0x40
 
@@ -208,7 +213,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         with countio.Counter(board.IMU_INT1, edge = countio.Edge.RISE) as interrupt:
             self.spark() # grab a few samples - guarantees a rising edge
             while True:
-                await asyncio.sleep(0)      # release    
+                await asyncio.sleep(0)      # release
                 if interrupt.count > 0:     # if rising edge seen
                     interrupt.count = 0     # reset
                     self.imu_ready.set()    # indicate detection
@@ -222,7 +227,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         
         from WakeDog import WakeDog # Can this be at top?
 
-        calibCountdown = self.autoCalibLoops
+        calibCycles = 0
         trimAdjust = np.array((0,0,0))
         gyro_prev = np.array((0,0,0))
         
@@ -260,20 +265,21 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             if(self.not_calibrated):
                 gyro_delta_mag = np.linalg.norm(self.gyro_vals - gyro_prev)
 
-                if(calibCountdown == 0):
+                if(calibCycles == self.autoCalibLen):
+                    # print("...calibrated...")
                     for i in range(len(self.gyro_trim)):
                         self.gyro_trim[i] += trimAdjust[i]
                     self.gyro_vals -= trimAdjust
                     gyro_prev = self.gyro_vals
-                    calibCountdown = self.autoCalibLoops
+                    calibCycles = 0
                     trimAdjust = np.array((0,0,0))
 
                 if(gyro_delta_mag < self.autoCalibThresh):
-                    calibCountdown -= 1
-                    trimAdjust += self.gyro_vals / self.autoCalibLoops
+                    calibCycles += 1
+                    trimAdjust += self.gyro_vals / self.autoCalibLen
                 else:
                     gyro_prev = self.gyro_vals
-                    calibCountdown = self.autoCalibLoops
+                    calibCycles = 0
                     trimAdjust = np.array((0,0,0))
             
             # Check sleep conditions
@@ -284,21 +290,32 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             self.data_ready.set()
 
     async def read_clicks(self):
-        dbl_click_dur = 0.5 # TODO: Config entry - double_click_speed
+        click_spacing = config["clicker"]["max_click_spacing"]
+        timeout_ev = asyncio.Event()
+        timeout_ev.clear()
+        max_clicks = len(config["bindings"]["clicker"])-1
+        print("Max Clicks: ", max_clicks)
         while True:
+            # print("Read Click Awaiting")
             await self.imu_ready.wait()
-            self.imu_ready.clear()
+            # print("Read Click Get ")
+            #Reset tap_type and timer
+            self.tap_type = 0 # passed first imu_ready - already have one tap
+            timeout_ev.clear()
 
-            await asyncio.sleep(dbl_click_dur)
+            # create timer and restart it each time a tap occurs
+            sw = None
 
-            if(not self.imu_ready.is_set()):
-                self.tap_type = 1
-                # print("Setting single")
-            else:
-                self.imu_ready.clear()
-                self.tap_type = 2
-                # print("Setting double")
-            
+            while (not timeout_ev.is_set()) and (self.tap_type < max_clicks):
+                if self.imu_ready.is_set():
+                    # print("imu awaiting inside")
+                    self.tap_type += 1
+                    if sw is not None:
+                        sw.cancel()
+                    sw = asyncio.create_task( stopwatch(click_spacing, timeout_ev) )
+                    self.imu_ready.clear()
+                await asyncio.sleep(0)
+            print("TAP TYPE: ", self.tap_type)
             self.data_ready.set()
 
     async def wait(self):

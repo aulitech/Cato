@@ -10,9 +10,9 @@ import microcontroller as mc
 import digitalio
 import alarm
 
-from adafruit_hid.keycode import Keycode
-
 from math import sqrt, atan2, sin, cos
+from utils import translate, stopwatch, get_mag
+
 import array
 
 from battery import Battery
@@ -24,8 +24,11 @@ import gc
 
 from neutonml import Neuton
 
-from StrUUIDService import config
+from utils import config
 from StrUUIDService import DebugStream as DBS
+from BluetoothControl import BluetoothControl
+
+from adafruit_hid.keycode import Keycode
 
 from WakeDog import WakeDog
 
@@ -40,13 +43,15 @@ class Events:
     scroll_lr               = asyncio.Event()   # scroll left to right
     scroll_lr_done          = asyncio.Event()   # indicates that scroll_lr has completed
     sleep                   = asyncio.Event()   # indicates time to go to sleep
-    wait_for_motion         = asyncio.Event()   # wait_for_motion
-    wait_for_motion_done    = asyncio.Event()   # wait-for-motion exit indicator
     feed_neuton             = asyncio.Event()   # prevent multiple instances of neuton being fed
-    sig_motion              = asyncio.Event()   # indicates that there has been significant motion during wait_for_motion's window
+    sig_motion              = asyncio.Event()   # indicates that there has been significant motion during the movement
     stream_imu              = asyncio.Event()   # stream data from the imu onto console -- useful for debugging
     mouse_event             = asyncio.Event()   # triggers detection of Cato gesture
-    idle                    = asyncio.Event()   # triggered when no events change for some time
+    gesturing               = asyncio.Event()   # 
+    battery                 = asyncio.Event()
+
+    imu_sig_motion          = asyncio.Event()   # code needs refactor using these as primary elements
+    imu_idle                = asyncio.Event()
 
     gesture_collecting      = asyncio.Event()   # signal that collect_gestures() is currently running
     gesture_not_collecting  = asyncio.Event()
@@ -54,10 +59,7 @@ class Events:
     gesture_not_collecting.set()
 
 # Home for neuton inference
-neuton_outputs = array.array( "f", [0]*len(config["gesture_key"]) )
-
-def mem( loc = "" ):
-    print(f"Free Memory at {loc}: \n\t{gc.mem_free()}")
+neuton_outputs = array.array( "f", [0]*len(config["gesture"]["key"]) )
 
 class Cato:
     ''' Main Class of Cato Gesture Mouse '''
@@ -71,84 +73,65 @@ class Cato:
         '''
         DBS.println("+ Cato Init")
 
-        self.hall_pass = asyncio.Event() # separate event to be passed to functions when we must ensure they finish
-
-        # battery managing container
-        self.battery = Battery()
-
-        if bt:
-            import BluetoothControl
-        else:
-            import DummyBT as BluetoothControl
-        
-        self.blue = BluetoothControl.BluetoothControl()
-
-        self.state = 0
-
-        mode = config["operation_mode"]
-        if(mode < len(config["bindings"])):
-            self.bindings = config["bindings"][mode]
-
-        # Mode-dependent task spawning
-        """ MODE CODE MEANINGS
-                0 - 9: USER MODES
-                    0:  Default Computer
-                    1:  Default Television
-                    2:  Forever Pointer (only pointer)
-                    3:  Forever Clicker (only clicker - tap detect)
-                10-19: Dev Test Modes:
-                    10: Test Loop -- bluetooth print test
-                x>=20: unused
-        """
-        if(mc.nvm[2]):
+        if(mc.nvm[2]): # Wired training condn
             mc.nvm[2] = False
             self.tasks = {
                 "collect_gesture"   : asyncio.create_task(Cato.collect_gestures_wired())    
             }
-        elif(mode == 0):
+            return
+
+        self.hall_pass = asyncio.Event() # separate event to be passed to functions when we must ensure they finish
+
+        # battery managing container
+        self.battery = Battery()
+        
+        self.blue = BluetoothControl()
+
+        self.state = 0 # CHOPPING BLOCK??
+
+        mode = config["operation_mode"]
+        if mode in config["bindings"].keys():
+            self.bindings = config["bindings"][mode]
+        
+        self.tasks = {}
+        
+        if(mode == "gesture_mouse"):
             self.tasks = {
-                "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
                 "move_mouse"        : asyncio.create_task(self.move_mouse()),
                 "mouse_event"       : asyncio.create_task(self.mouse_event()),
-                "scroll"            : asyncio.create_task(self.scroll()),
-                "sleep"             : asyncio.create_task(self.go_to_sleep()),
-                #"collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
+                "scroll"            : asyncio.create_task(self.scroll())
             }
-        elif(mode == 1):
+        elif(mode == "tv_remote"):
             self.tasks = {
-                "wait_for_motion"   : asyncio.create_task(self.wait_for_motion()),
                 "tv_control"        : asyncio.create_task(self.tv_control()),
-                #"sleep"             : asyncio.create_task(self.go_to_sleep()),
-                #"collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app())
             }
-        
-        elif(mode == 2):
+        elif(mode == "pointer"):
             self.tasks = {
-                "point" : asyncio.create_task(self.move_mouse(forever = True)),
-                "sleep" : asyncio.create_task(self.go_to_sleep())
+                "point"             : asyncio.create_task(self.move_mouse(forever = True)),
             }
-        elif(mode == 3):
+        elif(mode == "clicker"):
             self.tasks = {
                 "clicker"           : asyncio.create_task(self.clicker_task()),
-                # "collect_gestures"  : asyncio.create_task(Cato.collect_gestures_app()),
-                "sleep"             : asyncio.create_task(self.go_to_sleep()),
             }
-        elif(mode >= 10):
+        elif(mode == "practice"):
+            self.bindings = config["bindings"]["gesture_mouse"]
+            self.tasks = {
+                "gesture_loop"         : asyncio.create_task(self.gesture_loop())
+            }
+        elif("dev" in mode):
             self.tasks = {
                 "test_loop"         : asyncio.create_task(self.test_loop())
-
             }
-            '''
-            if(mode == 10):
-                self.tasks["collect_gestures"] = asyncio.create_task(Cato.collect_gestures_app())
-            elif(mode == 11):
-                self.tasks["wait_for_motion"] = asyncio.create_task(Cato.wait_for_motion())
-            '''
+
+        if not mc.nvm[2] and "dev" not in mode:
+            self.tasks.update( {
+                "monitor_battery"   : asyncio.create_task(self.monitor_battery()),
+                "sleep"             : asyncio.create_task(self.go_to_sleep())}
+                )
         
-        self.tasks.update( {"monitor_battery"   : asyncio.create_task(self.monitor_battery())} )
-        self.tasks.update(Cato.imu.tasks)   # functions for t1he imu
-        self.tasks.update(self.blue.tasks)  # functions for bluetooth
-        self.tasks.update(WakeDog.tasks)    # functions for waking / sleeping monitoring
+        self.tasks.update( Cato.imu.tasks )   # functions for t1he imu
+        self.tasks.update( self.blue.tasks )  # functions for bluetooth
+        self.tasks.update( WakeDog.tasks )    # functions for waking / sleeping monitoring
 
         self.n = Neuton(outputs=neuton_outputs)
         self.gesture = 0 # None
@@ -158,9 +141,6 @@ class Cato:
         self.led.direction = digitalio.Direction.OUTPUT
 
         DBS.println("- Cato Init")
-    
-    async def reboot():
-        mc.reset()
 
     def query_imu_regs(self):
         msg = ""
@@ -195,9 +175,9 @@ class Cato:
             del(pin_alarm) # release imu_int1
             print("Del pin")
 
-            if(config['operation_mode'] == 3):
-                Cato.imu.single_tap_cfg()
-                print("In op mode 3 @ wakeup")
+            if(config['operation_mode'] == "clicker"):
+                Cato.imu.single_tap_cfg() # set up click task
+
             else:
                 Cato.imu.data_ready_on_int1_setup() #setup imu data ready
                 print("Mode other")
@@ -219,11 +199,14 @@ class Cato:
         while True:
             for i in range(3):
                 await asyncio.sleep(0.2)
-                self.led.value = True
-                await asyncio.sleep(0.2)
                 self.led.value = False
-            await asyncio.sleep(5)
-            temp = self.battery.raw_value
+                await asyncio.sleep(0.2)
+                self.led.value = True
+            await asyncio.sleep(10)
+            Events.battery.clear()
+            await Events.battery.wait()
+            # print("BATTERY")
+            #temp = self.battery.raw_value
             # DBS.println(f"bat_ena True: {temp[0]}")
             # await asyncio.sleep(0.1)
             # DBS.println(f"bat_ena False: {temp[1]}")
@@ -236,8 +219,8 @@ class Cato:
         hall_pass.set()
 
     async def center_mouse_cursor(self, hall_pass: asyncio.Event = None):
-        x = config["screen_size"][0]
-        y = config["screen_size"][1]
+        x = config["screen_size"]["width"]
+        y = config["screen_size"]["height"]
         try:
             self.blue.mouse.move(-2 * x, -2 * y)
             self.blue.mouse.move(int(0.5*x), int(0.5*y))
@@ -246,6 +229,9 @@ class Cato:
             DBS.println(str(ce))
         if hall_pass is not None:
             hall_pass.set()
+    
+    async def block_on_eval(self,target: str):
+        await self.block_on(eval("self."+target[0], {"self":self}), *target[1:])
     
     async def block_on(self, coro, *args):
         '''
@@ -263,128 +249,92 @@ class Cato:
             Events.mouse_event.clear()
             await Events.gesture_not_collecting.wait()
             target = await self.gesture_interpreter()
-            #print(f"\tGot \"{target_name}\" at mouse_event")
-            #DBS.println(f"Detect Event -- Dispatching: self.{target_name}")
-            await self.block_on(eval("self."+target[0], {"self":self}), *target[1:])
+            await self.block_on_eval(target)
             print(f"\t \"{target}\" finished at mouse_event")
             
             #DBS.println("Detect Event: Finished Dispatching")
             Events.control_loop.set()
     
-    #TODO: refactor to use button_action exclusively
     async def tv_control(self):
         Cato.imu.data_ready_on_int1_setup()
-        turbo_terminate = asyncio.Event()
-        task_dict = {
-            "noop"  :   None,
-            "up"    :   (self.turbo_input,
-                            (self.type_up_key, config["turbo_rate"], turbo_terminate)),
-            "down"  :   (self.turbo_input,
-                            (self.type_down_key, config["turbo_rate"], turbo_terminate)),
-            "left"  :   (self.turbo_input,
-                            (self.type_left_key, config["turbo_rate"], turbo_terminate)),
-            "right" :   (self.turbo_input,
-                            (self.type_right_key, config["turbo_rate"], turbo_terminate)),
-            "enter" :   (self.type_enter_key,()),
-            "esc"   :   (self.type_esc_key,()),
-            "meta"  :   (self.type_meta_key,())
-        }
-        task = None
-        prev_task = "noop"
         DBS.println("tv_control")
+        config["gesture"]["timeout"] = 0
+        await_actions = config["tv_control"]["await_actions"]
         while True:
             await Events.gesture_not_collecting.wait()
-            task_name = await self.tv_interpreter()
+            target = await self.gesture_interpreter(timeout = 0)
+            DBS.println(target)
+            action = asyncio.create_task(self.block_on_eval(target))
+            if(await_actions):
+                await action
 
-            # needs a check for sigMotion upon new gestInterpreter
-            # needs a check for sigMotion upon new gestInterpreter
-            if(Events.sig_motion.is_set())and(task != None):
-                turbo_terminate.set()
-                await task
-                turbo_terminate.clear()
-
-            if(task_name != "noop"):                
-                func_tuple = task_dict[task_name]
-                if((func_tuple[0].__name__ != self.turbo_input.__name__) or (task_name != prev_task)):
-                    task = asyncio.create_task(func_tuple[0](*func_tuple[1]))
-                    prev_task = task_name
-                else:
-                    prev_task = "noop"
-                await asyncio.sleep(0.3)
-            elif(Events.sig_motion.is_set()):
-                prev_task = "noop"
-
-    async def gesture_interpreter(self):
-        DBS.println("+gesture_interpreter mem: ",gc.mem_free())
-        infer = 0
-        confThresh = config["confidence_threshold"]
-
-        param = config["gesture"]
-        maxLen      = param["length"]
-        idleLen     = param["idle_cutoff"]
-        gestThresh  = param["movement_threshold"]
-        idleThresh  = param["idle_threshold"]
-        timeout     = param["timeout"]
-        param = None
-
-        length = 1
-        mag = 0
-
-        idle = 0
-        while(idle < idleLen):
-            await Cato.imu.wait()
-            mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
-            if(mag < gestThresh):
-                idle += 1
-            else:
-                DBS.println("Premature Motion")
-                return ["noop"]
+    async def gesture_interpreter(self, timeout = config["gesture"]["timeout"]):
+        gc.collect()
+        # DBS.println("+gesture_interpreter mem: ",gc.mem_free())
+        # load interpreter specific parameters
+        confThresh  = config["confidence_threshold"]
+        maxLen      = config["gesture"]["length"]
+        idleLen     = config["gesture"]["idle_cutoff"]
+        gestThresh  = config["gesture"]["start_threshold"]
+        idleThresh  = config["gesture"]["idle_threshold"]
         
-        shakeCursor = asyncio.create_task(self.shake_cursor()) #ADD PRINT TO SHAKE CURSOR
-        DBS.println("+ MouseEvent: Looking for Gesture")
-        Events.sig_motion.clear()
+        # counters for in-progress gestures
+        length = 1 # number of samples in gesture at present
+        mag = 0 # magnitude (squared for now) of gestures gyro movement
+        infer = 0 # ID of Neuton's inference
+        idle = 0 # Current number of consecutive idle samples
+
+        def gyro_mag():
+            return get_mag((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz))
+
+        await Cato.imu.wait()
+        mag = gyro_mag()
+        # if(mag**2 > gestThresh):
+        #     DBS.println("Premature Motion")
+        #     return ["noop"]
+        
+        Events.gesturing.set()
+        shakeCursor = asyncio.create_task(self.shake_cursor())
+        
+        DBS.println("Perform Gesture Now")
+        DBS.println("\tWatching for significant motion...")
 
         # wait to recieve significant motion and return if the timeout threshold is passed
         timeoutEv = asyncio.Event()
-        asyncio.create_task(Cato.stopwatch(timeout, ev = timeoutEv))
-        while(mag < gestThresh):
-            if(timeoutEv.is_set()):
-                DBS.println("No Gesture Caused Timout")
-                return self.bindings[EV_NONE][self.state]
-            await Cato.imu.wait()
-            mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
-            #DBS.println((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz,mag))
-
+        Events.battery.set()
+        asyncio.create_task(stopwatch(timeout, ev = timeoutEv))
+        await asyncio.create_task(self.wait_for_motion(sqrt(gestThresh),terminator = timeoutEv.is_set))
+        if(not Events.sig_motion.is_set()):
+            Events.gesturing.clear()
+            DBS.println("\tTimeout")
+            return self.bindings[EV_NONE][self.state] 
+        Events.battery.clear()
+        Events.sig_motion.clear()
+        
         # motion recieved
-        DBS.println("Motion Recieved: ",(Cato.imu.gx,Cato.imu.gy,Cato.imu.gz,mag))
+        DBS.println("\tMotion recieved")
         Events.sig_motion.set()
         self.n.set_inputs(
             array.array('f', [Cato.imu.ax, Cato.imu.ay, Cato.imu.az, 
                               Cato.imu.gx, Cato.imu.gy, Cato.imu.gz]))
 
         # feed neuton until idled for 'idleLen' loops
-        idle = 0
         while(length < maxLen)and(idle < idleLen):
             await Cato.imu.wait()
             data = array.array('f',[Cato.imu.ax, Cato.imu.ay, Cato.imu.az,
                                     Cato.imu.gx, Cato.imu.gy, Cato.imu.gz])
             if(not self.n.set_inputs(data)):
                 break
-            mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
+            mag = gyro_mag()
             #DBS.println((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz,mag))
             length += 1
 
-            if(mag < idleThresh):
+            if(mag**2 < idleThresh):
                 idle += 1
             else:
                 idle = 0
-        DBS.println("Gesture Length: ",length)
-        if(idle == idleLen):
-            DBS.println("Broke for idle timeout")
-        elif(length == maxLen):
-            DBS.println("Broke for full gesture")
-        else:
-            DBS.println("Broke for premature neuton fill")
+        # DBS.println("Gesture Length: ",length)
+        Events.sig_motion.clear()
 
         # fill remaining space w 0's
         while(idle == idleLen)and(length < maxLen):
@@ -392,35 +342,41 @@ class Cato:
             if(not self.n.set_inputs(array.array('f', [0]*6)))and(length < maxLen):
                 DBS.println("WARNING: PREMATURE NEUTON FILL")
                 break
-        DBS.println("Filled length: ", length)
+        #DBS.println("Filled length: ", length)
 
         infer = self.n.inference()+1
-        DBS.println(neuton_outputs)
+        # DBS.println(neuton_outputs)
         if(max(neuton_outputs) < confThresh):
             infer = 0
-
+        
+        gesture_result_str = f"Result: {config['gesture']['key'][infer]} \n"
+        for idx, gesture in enumerate(config['gesture']['key'][1:]):
+            gesture_result_str += f"\t{gesture:12}: {neuton_outputs[idx]:>5.1%}\n"
+        print(gesture_result_str)
+        # DBS.println("Interpreted "+config["gesture"]["key"][infer]+"("+str(max(neuton_outputs))+")")
+        Events.battery.set()
+        Events.battery.clear()
+        Events.gesturing.clear()
         await shakeCursor
-        DBS.println("-gesture_interpreter mem: ",gc.mem_free())
+        gc.collect()
+        # DBS.println("-gesture_interpreter mem: ",gc.mem_free())
         return self.bindings[infer][self.state]
     
-    async def feed_neuton(self, log):
-        await Events.feed_neuton.wait()
-        Events.feed_neuton.clear()
-        DBS.println("Feeding Neuton")
-        for data in log:
-            if(not self.n.set_inputs(data)):
-                break
-        DBS.println("Successful Feed")
-    
-    # TODO: unimplement this method after tv refactor
-    async def turbo_input(self, coro, rate, terminator: asyncio.Event):
-        delay = rate[0]
-        while(not(terminator.is_set())):
-            DBS.print(delay,":\n\t")
-            await coro()
-            await asyncio.sleep(delay)
-            if(delay > rate[1]):
-                delay *= rate[2]
+    async def wait_for_motion(self, thresh, terminator = None):
+        Events.sig_motion.clear()
+        mag = 0
+        while(mag < thresh):
+            if((terminator != None)and(terminator())):
+                return False
+            if(Cato.imu.setup_type == "tap"):
+                if(Cato.imu.data_ready.is_set()):
+                    mag = Cato.imu.tap_type
+                await asyncio.sleep(0.05)
+            elif(Cato.imu.setup_type == "gyro"):
+                await Cato.imu.wait()
+                mag = get_mag((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz))
+        Events.sig_motion.set()
+        return True
     
     # Cato Actions
     # CircuitPython Docs: https://docs.circuitpython.org/projects/hid/en/latest/api.html#adafruit-hid-mouse-mouse '''
@@ -430,11 +386,10 @@ class Cato:
         if hall_pass is not None:
             hall_pass.set()
 
-        
     # Cato Mouse Actions
     async def shake_cursor(self, hall_pass: asyncio.Event = None):
-        mv_size = 4
-        num_wiggles = 1
+        mv_size = config['mouse']['shake_size']
+        num_wiggles = config['mouse']['num_shake']
         moves = [
             # L R R L (horizontal wiggle)
             (-mv_size,  0,          0),
@@ -449,44 +404,45 @@ class Cato:
             (0,         mv_size,    0),
         ]
 
+        displacement = [0,0,0]
         try:
             for wiggle in range(num_wiggles):
                 for move in moves:
                     for _ in range(2):
                         await asyncio.sleep(0.02)
                         self.blue.mouse.move( *move )
+                        displacement[0] -= move[0]
+                        displacement[1] -= move[1]
+                        displacement[2] -= move[2]
+                    if(not Events.gesturing.is_set()):
+                        break
+                else: continue
+                break
+            if(displacement != [0,0,0]):
+                self.blue.mouse.move(*displacement)
+
         except ConnectionError as ce:
             DBS.println("ConnectionError: connection lost in shake_cursor()")
             DBS.println(str(ce))
         
         if hall_pass is not None:
             hall_pass.set()
-
-    def translate(x_min, x_max, y_min, y_max, input):
-        if input < x_min:
-            return y_min
-        if input > x_max:
-            return y_max
-        
-        x_span = x_max - x_min
-        y_span = y_max - y_min
-        
-        scaled = (y_span / x_span) * (input - x_min)
-        shifted = scaled + y_min
-        return shifted
+    
     async def clicker_task(self):
         Cato.imu.single_tap_cfg()
         while True:
+            Events.battery.set()
+            Events.gesturing.set()
             await Cato.imu.wait()
+            Events.sig_motion.set()
+            Events.battery.clear()
             WakeDog.feed()
             try:
-                # print("Some tap")
-                if Cato.imu.tap_type == 1:
-                    # print("Single")
-                    self.blue.mouse.click(self.blue.mouse.LEFT_BUTTON)
-                if Cato.imu.tap_type == 2:
-                    # print("Double")
-                    self.blue.mouse.click(self.blue.mouse.RIGHT_BUTTON)
+                target = self.bindings[Cato.imu.tap_type][self.state]
+                Events.sig_motion.clear()
+                Events.gesturing.clear()
+                print(target)
+                await self.block_on_eval(target)
             except ConnectionError as ce:
                 DBS.println("ConnectionError: connection lost in clicker_task()")
                 DBS.println(str(ce))
@@ -502,31 +458,32 @@ class Cato:
         hall_pass.set()
 
 
-    async def move_mouse(self, max_idle_cycles=80, mouse_type = "LINEAR", forever: bool = False):
+    async def move_mouse(self, max_idle_cycles=80, mouse_type = "ACCEL", forever: bool = False):
         '''
             move the mouse via bluetooth until sufficiently idle
         '''
         # mem("move_mouse -- pre settings load")
         
-        cfg = config['mouse']
+        param = 0
 
-        idle_thresh = cfg['idle_thresh'] # speed below which is considered idle  
-        min_run_cycles = cfg['min_run_cycles']
+        idle_thresh = config['mouse']['idle_threshold'] # speed below which is considered idle  
+        min_run_cycles = config['mouse']['min_run_cycles']
         
         #scale is "base" for acceleration - do adjustments here
-        screen_size = config['screen_size']
-        screen_mag = sqrt(screen_size[0] ** 2 + screen_size[1] ** 2)
-        screen_scale = screen_mag / sqrt(1920**2 + 1080**2) # default scale to 1920 * 1080 - use diagonal number of pixels as scalar
-        scale = 1.0
-        usr_scale = cfg['scale'] #user multiplier
+        screen_mag = get_mag(tuple(config['screen_size'].values()))
+        print(config['screen_size'].values())
+        screen_scale = screen_mag / get_mag((1920,1080)) # default scale to 1920 * 1080 - use diagonal number of pixels as scalar
+        usr_scale = (config['mouse']['scale_x'],config['mouse']['scale_y']) #user multipliers
 
-        # dps limits for slow vs mid vs fast movement        
-        slow_thresh = cfg['slow_thresh']
-        fast_thresh = cfg['fast_thresh']
+        scrn_scale = 1.0
+        
+        # dynamic mouse configuration      
+        slow_thresh = config['mouse']["dynamic_mouse"]['input']['slow']
+        fast_thresh = config['mouse']["dynamic_mouse"]['input']['fast']
 
         # scale amount for slow and fast movement, mid is linear translation between
-        slow_scale = cfg['slow_scale']
-        fast_scale = cfg['fast_scale']
+        slow_scale = config['mouse']["dynamic_mouse"]['output']['slow']
+        fast_scale = config['mouse']["dynamic_mouse"]['output']['fast']
 
         # number of cycles currently idled (reset to 0 on motion)
         idle_count = 0
@@ -535,10 +492,9 @@ class Cato:
         cycle_count = 0
         dx = 0
         dy = 0
-        dscroll = 0
+        batcher = (0,0)
 
         # mem("post_cfg") # At this point, between pre and post, we lost only 100bytes
-
         while True:
             # print(".")
             if not Events.move_mouse.is_set():
@@ -568,8 +524,8 @@ class Cato:
 
             # mouse with dynamic acceleration for fine and coarse control
             if(mouse_type == "ACCEL"):
-                scale = translate(slow_thresh, fast_thresh, slow_scale, fast_scale, mag)
-                scale *= screen_scale
+                scrn_scale = translate(slow_thresh, fast_thresh, slow_scale, fast_scale, mag)
+                scrn_scale *= screen_scale
 
             # Begin idle checking -- only after minimum duration
             if(cycle_count >= min_run_cycles and not forever):
@@ -589,17 +545,33 @@ class Cato:
 
                     idle_count = 0
                     cycle_count = 0
+                    batcher = (0,0)
 
-            mag = mag * usr_scale
+            scale = scrn_scale*mag
+            scale = (usr_scale[0]*scale,usr_scale[0]*scale)
             # trig scaling of mouse x and y values
-            dx = int( scale * mag * cos(ang) )
-            dy = int( scale * mag * sin(ang) )
+            dx = scale[0] * cos(ang) + batcher[0]
+            dy = scale[1] * sin(ang) + batcher[1]
+            # c = int(cycle_count/3)
+            # dx = 10*(2-(c)%4)*(c%2)       # fast squares
+            # dy = 10*(2-(c+1)%4)*((c+1)%2)
+            if(abs(dx) < 0.2)and(abs(dy) < 0.2):
+                Events.battery.set()
+                Events.battery.clear()
+
+            batcher = (dx-int(dx), dy-int(dy))
+            dx, dy = int(dx), int(dy)
 
             try:
-                self.blue.mouse.move(dx, dy, dscroll)
+                self.blue.mouse.move(dx, dy, 0)
+                if(cycle_count%10 == 0):
+                    #print(self.blue.mouse.report)
+                    pass
             except ConnectionError as ce:
                 DBS.println("ConnectionError: connection lost in move_mouse()")
                 DBS.println(str(ce))
+            except Exception as ex:
+                print(f"OtherException:{ex}")
             
     async def _scroll(self, hall_pass: asyncio.Event = None):
         DBS.println("+ _scroll")
@@ -623,14 +595,18 @@ class Cato:
                 DBS.println("+ Scroll Running")
             num_cycles += 1
 
-            slow_down = 10 # only scroll one line every N cycles
+            slow_down = 5 # only scroll one line every N cycles
             for i in range(slow_down):
                 await Cato.imu.wait()
             
-            z += (-1) * scale * Cato.imu.gz * dt
+            z += (-1) * Cato.imu.gz
+            no_scroll_thresh = 45.0
 
             try:
-                self.blue.mouse.move(0, 0, int(z))
+                if z > no_scroll_thresh:
+                    self.blue.mouse.move(0, 0, 1)
+                elif z <= -1 * no_scroll_thresh:
+                    self.blue.mouse.move(0, 0, -1)
             except ConnectionError as ce:
                 DBS.println("ConnectionError: connection lost in scroll()")
                 DBS.println(str(ce))
@@ -649,37 +625,43 @@ class Cato:
     async def _scroll_lr(self, hall_pass: asyncio.Event = None):
         # Left/Right Scroll Manager
         # Holds Shift, Sets Scroll, Releases Shift.
+        lshift_keycode = 225
         print(f"+ _scroll_lr")
-        self.blue.k.press(Keycode.LEFT_SHIFT)
+        self.blue.k.press(lshift_keycode)
         Events.scroll.set()
         await Events.scroll_done.wait()
         Events.scroll_done.clear()
-        self.blue.k.release(Keycode.LEFT_SHIFT)
+        self.blue.k.release(lshift_keycode)
         print(f"b: {gc.mem_free()}")
         if hall_pass is not None:
             DBS.println("\t- _scroll_lr")
             hall_pass.set()
     
+    async def event_release(self,actor,*buttons, triggers = None):
+        for t in triggers:
+            if(t != None):
+                await t.wait()
+        actor.release(*buttons)
+        print(f"EventRelease: {type(actor)} released {buttons}")
+    
     '''
-    INPUTS
-        action(str): string key corresponding to desired action to be performed
-        actor(int): index of hid object in actor_key to perform specified action on buttons
-        *buttons(hex): hex keycodes of buttons to be accted upon
-        hall_pass(Event): event indicating completion of method
-    OUTPUTS
-        None
-    DESCRIPTION
-        Uses available hid object in actor_key (indexed by actor input) to perforrm a common button
-        action (from selection of tap, double tap, press, release, and toggle) on specified keycodes'''
-    async def button_action(self, actor:int, action: str, *buttons: hex, hall_pass: asyncio.Event = None):
+        INPUTS
+            action(str): string key corresponding to desired action to be performed
+            actorInd(int): index of hid object in actor_key to perform specified action on buttons
+            *buttons(hex): hex keycodes of buttons to be acted upon
+            hall_pass(Event): event indicating completion of method
+        OUTPUTS
+            None
+        DESCRIPTION
+            Uses available hid object in actor_key (indexed by actorInd input) to perforrm a common button
+            action (from selection of tap, double tap, press, release, and toggle) on specified keycodes
+    '''
+    async def button_action(self, actorInd:int, action: str, *buttons: hex, hall_pass: asyncio.Event = None):
         actor_key = (self.blue.mouse, self.blue.k)
-        if(actor in range(len(actor_key))):
-            actor = actor_key[actor]
-        else:
-            DBS.println("No hid device with actor index "+str(actor))
+        if(actorInd not in range(len(actor_key))):
+            DBS.println("No hid device with actor index "+str(actorInd))
             hall_pass.set()
             return
-        actor_key = None
 
         def ispressed(actor,button):
             if(isinstance(actor,type(self.blue.mouse))):
@@ -696,6 +678,10 @@ class Cato:
                     return ip
             else:
                 return False
+        
+
+        actor = actor_key[actorInd]
+        actor_key = None
         
         if(action == "tap"):
             actor.press(*buttons)
@@ -720,9 +706,27 @@ class Cato:
                 else:
                     actor.press(b)
 
+        elif(action == "hold_till_idle"):
+            actor.press(*buttons)
+            asyncio.create_task(self.event_release(actor, *buttons, triggers = (Events.gesturing,)))
+        elif(action == "hold_till_sig_motion"):
+            actor.press(*buttons)
+            asyncio.create_task(self.event_release(actor, *buttons, triggers = (Events.gesturing,Events.sig_motion)))
         elif(action == "turbo"):
-            #TODO
-            DBS.println("turbo button-action not functional")
+            thresh = buttons[0]
+            buttons = buttons[1:]
+            asyncio.create_task(self.wait_for_motion(thresh))
+            
+            delay = config["turbo_rate"]["initial"]
+            minDelay = config["turbo_rate"]["minimum"]
+            decay = config["turbo_rate"]["decay_rate"]
+            while(not Events.sig_motion.is_set()):
+                actor.press(*buttons)
+                actor.release(*buttons)
+                await asyncio.sleep(delay)
+                if(delay > minDelay):
+                    delay *= decay
+            Events.sig_motion.clear()
         
         else:
             # curretnly undefined behavior for undefined actions
@@ -742,114 +746,7 @@ class Cato:
             DBS.println(str(ce))
         if hall_pass is not None:
             hall_pass.set()
-        
-    # cato keyboard actions
-    async def type_enter_key(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.blue.k.press(Keycode.ENTER)
-        self.blue.k.release(Keycode.ENTER)
-        if hall_pass is not None:
-            hall_pass.set()
-    
-    async def type_esc_key(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.blue.k.press(Keycode.ESCAPE)
-        self.blue.k.release(Keycode.ESCAPE)
-        if hall_pass is not None:
-            hall_pass.set()
 
-    async def type_meta_key(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.blue.k.press(Keycode.GUI)
-        self.blue.k.release(Keycode.GUI)
-        if hall_pass is not None:
-            hall_pass.set()
-    
-    async def type_up_key(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.blue.k.press(Keycode.UP_ARROW)
-        self.blue.k.release(Keycode.UP_ARROW)
-        if hall_pass is not None:
-            hall_pass.set()
-    
-    async def type_down_key(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.blue.k.press(Keycode.DOWN_ARROW)
-        self.blue.k.release(Keycode.DOWN_ARROW)
-        if hall_pass is not None:
-            hall_pass.set()
-    
-    async def type_left_key(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.blue.k.press(Keycode.LEFT_ARROW)
-        self.blue.k.release(Keycode.LEFT_ARROW)
-        if hall_pass is not None:
-            hall_pass.set()
-    
-    async def type_right_key(self, hall_pass: asyncio.Event = None):
-        ''' docstring stub '''
-        self.blue.k.press(Keycode.RIGHT_ARROW)
-        self.blue.k.release(Keycode.RIGHT_ARROW)
-        if hall_pass is not None:
-            hall_pass.set()
-
-    # ToDo, the rest of the keyboard buttons
-
-    @property
-    def o_str(self):
-        return "{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f},{:.2f}".format(self.last_read, Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz)
-
-    async def _wait_for_motion(self, hall_pass: asyncio.Event = None):
-        Events.wait_for_motion.set()
-        await Events.wait_for_motion_done.wait()
-        Events.wait_for_motion_done.clear()
-        hall_pass.set()
-
-    async def wait_for_motion(self, thresh = 150, *, num = -1):
-        #NOTE: THIS COULD BE MADE MUCH CHEAPER WITH THE INT1_SIGN_MOT INTERRUPT!
-        """
-            thresh      = threshold of motion to break loop             \n
-            num         = number of cycles max before return False      \n
-                -1          = indefinite wait for motion                \n
-                Positive Int= breaks after num loops
-        """
-        cycles = 0 # count number of waited cycles
-        val = 0.0
-        while True:
-            # print("A: ", gc.mem_free())
-            
-            await Events.wait_for_motion.wait()
-            Events.sig_motion.clear()
-            # DBS.println("+ Wait_for_motion triggered")
-            # DBS.println("B: ", gc.mem_free())
-            await Cato.imu.wait()
-            # DBS.println("C: ", gc.mem_free())
-            cycles += 1
-
-            val = Cato.imu.gx ** 2 + Cato.imu.gy ** 2 + Cato.imu.gz ** 2
-
-            # BREAK CONDN 1: SIGNIFICANT MOTION
-            if val > thresh:
-                Events.wait_for_motion.clear()
-                Events.sig_motion.set()
-            # if cycles > 60*104:
-            #     Events.sleep.set()
-            #     await asyncio.sleep(0)
-                Events.sleep.clear()
-            #Break CONDN 2: TIMEOUT
-            if num != -1:
-                if cycles > num:
-                    Events.wait_for_motion.clear()
-                    Events.sig_motion.clear()
-            # print("D: ", gc.mem_free())
-            # exiting cleanup
-            if not Events.wait_for_motion.is_set():
-                exit_reason = "MOTION" if Events.sig_motion.is_set() else "TIMEOUT"
-                # DBS.println( f"WAIT FOR MOTION: EXIT : { exit_reason }" )
-                Events.wait_for_motion_done.set()
-                cycles = 0
-            # DBS.println("E: ", gc.mem_free())
-            # DBS.println("")
     '''
     async def collect_gestures_app():
         from StrUUIDService import SUS
@@ -898,7 +795,7 @@ class Cato:
                 for g in maxMag:
                     DBS.println(type(g))
                 maxMag = (maxMag[3]-drift[3])**2 + (maxMag[4]-drift[4])**2 + (maxMag[5]-drift[5])**2
-                sw = asyncio.create_task(Cato.stopwatch(timeLimit))  # Timer starts here
+                sw = asyncio.create_task(stopwatch(timeLimit))  # Timer starts here
                 DBS.println("Perform Gesture: ", EV.gesture_key[gestID],"(",str(gestID),")")
                 SUS.collGestUUID = "Perform Gesture: " + EV.gesture_key[gestID]+"("+str(gestID)+")"
                 
@@ -933,6 +830,7 @@ class Cato:
     #'''
 
     async def collect_gestures_wired():
+        await asyncio.sleep(5)
         try:
             #from StrUUIDService import SUS
             #SUS.collGestUUID = "go"
@@ -941,68 +839,72 @@ class Cato:
             Events.gesture_not_collecting.clear()
             DBS.println("Collecting Gesture (wired)")
 
-            gestLen     = config["gesture"]["length"]
-            idleLen     = config["gesture"]["idle_cutoff"]
-            gestThresh  = config["gesture"]["movement_threshold"]
-            idleThresh  = config["gesture"]["movement_threshold"]
-            timeout     = config["gesture"]["gc_timeout"]
-            
-            gesture = [(0,0,0,0,0,0,0)]
-            mag = 0
-
-            
-            # let premature motion pass
-            idle = 0
-            while(idle < idleLen):
-                await Cato.imu.wait()
-                mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
-                if(mag < gestThresh):
-                    idle += 1
-                else:
-                    idle = 0
-            
             try:
                 import os
                 os.remove("gesture.cato")
                 os.remove("log.txt")
             except:
                 DBS.println("Failed to delete gesture.cato")
-            '''''
-            with open("flag.txt",'w') as flag:
-                #from StrUUIDService import SUS
-                SUS.collGestUUID = "FLAGGED"
-                pass
-            #'''
 
-            timeout = asyncio.create_task(Cato.stopwatch(timeout))
+            gestLen     = config["gesture"]["length"]
+            idleLen     = config["gesture"]["idle_cutoff"]
+            gestThresh  = config["gesture"]["start_threshold"]
+            idleThresh  = config["gesture"]["idle_threshold"]
+            # timeout     = config["gesture"]["gc_timeout"]
+            gc.collect()
+            print(gc.mem_free())
+            
+            gesture = [(0,0,0,0,0,0,0)]
+            mag = 0
 
-            while(mag < gestThresh):
-                if(timeout.done()):
-                    raise Exception("CGTimeout: movement threshold was not exceeded within given time window")
+            def gyro_mag():
+                return get_mag((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz))
+            
+            print("Thrash Window")
+            # let premature motion pass
+            idle = 0
+            while(idle < idleLen):
+                await Cato.imu.wait()
+                mag = gyro_mag()
+                if(mag**2 < gestThresh):
+                    idle += 1
+                else:
+                    idle = 0
+
+            # timeout = asyncio.create_task(stopwatch(timeout))
+            print("Ready for Gesture")
+            gc.collect()
+            print(gc.mem_free())
+            while(mag**2 < gestThresh):
+                # if(timeout.done()):
+                #     raise Exception("CGTimeout: movement threshold was not exceeded within given time window")
                 await Cato.imu.wait()
                 gesture[0] = (Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz)
-                mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
-
+                mag = gyro_mag()
+            print("Recording")
+            print(gc.mem_free())
             # actual gesture is performed and recorded here
             idle = 0
             while(len(gesture) < gestLen)and(idle < idleLen):
                 await Cato.imu.wait()
                 gesture.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz))
-                mag = (Cato.imu.gx)**2 + (Cato.imu.gy)**2 + (Cato.imu.gz)**2
+                mag = gyro_mag()
 
-                if(mag < idleThresh):
+                if(mag**2 < idleThresh):
                     idle += 1
                 else:
                     idle = 0
 
             DBS.println("Gesture Recording Completed")
+            gc.collect()
+            print(gc.mem_free())
             with open("log.txt",'w') as log:
-                print(mem())
-                for d in gesture:
-                    log.write(",".join(str(v) for v in d))
+                l = len(gesture)
+                while(gesture):
+                    log.write(",".join(str(v) for v in gesture.pop(0)))
                     log.write("\n")
                     await asyncio.sleep(0)
-                for z in range(len(gesture),gestLen):
+                for z in range(l,gestLen):
                     log.write("0,0,0,0,0,0\n")
             
             Events.gesture_collecting.clear()
@@ -1013,28 +915,51 @@ class Cato:
             while(SUS.collGestUUID == "stop"):
                 await asyncio.sleep(0.1)
             '''
+            print(gc.mem_free())
+            print("Gesture Finnished Logging")
         except Exception as ex:
-            import os
-            os.remove("gesture.cato")
+            try:
+                import os
+                os.remove("gesture.cato")
+            except:
+                print("Already Removed gesture.cato")
+            print("ERRORED OUT!!")
             DBS.println(ex)
+        await asyncio.sleep(5)
         mc.reset()
-    
-    async def stopwatch(n : float,ev : asyncio.Event = None):
-        if(n > 0):
-            await asyncio.sleep(n)
-            if(ev is not None):
-                ev.set()
 
     async def test_loop(self):
         DBS.println("+ test_loop")
-        #from StrUUIDService import SUS
-        #SUS.collGestUUID = "test_loop"
-        #await self.blue.is_connected.wait()
-        i = 0
-        t = asyncio.create_task(Cato.stopwatch(10))
-
+        trigger = asyncio.Event()
+        trigger.set()
+        asyncio.create_task(self.trigger_watcher(trigger))
+        asyncio.create_task(self.trigger_clearer(trigger))
+        await asyncio.sleep(2)
         while(True):
+            print()
             DBS.println("looping")
-            #DBS.print(self.imu.gyro_vals)
-            i += 1
-            await asyncio.sleep(20)
+            trigger.set()
+            print("Trigger Set")
+            await asyncio.sleep(2)
+    async def trigger_clearer(self, trigger : asyncio.Event):
+        print("+ trigger_clearer")
+        while(True):
+            await trigger.wait()
+            trigger.clear()
+            print("Trigger Cleared")
+    async def trigger_watcher(self, trigger : asyncio.Event):
+        print("+ trigger_watcher")
+        while(True):
+            await trigger.wait()
+            print("Trigger Found")
+            await asyncio.sleep(0.1)
+    
+    
+    async def gesture_loop(self):
+        DBS.println("+ gesture_loop")
+        while True:
+            action = await self.gesture_interpreter(timeout = 0)
+            #DBS.println(action)
+            DBS.println()
+            # await asyncio.sleep(1)
+    

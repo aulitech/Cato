@@ -1,20 +1,20 @@
 
-import adafruit_ble
+from adafruit_ble import BLERadio
 
-from adafruit_ble.advertising import Advertisement#, AdvertisingFlag, AdvertisingFlags
+from adafruit_ble.advertising import Advertisement #, AdvertisingFlag, AdvertisingFlags
 
 from adafruit_ble.advertising.standard import ProvideServicesAdvertisement
 from adafruit_ble.services.standard.hid import HIDService
 from adafruit_ble.services.standard.device_info import DeviceInfoService
+from adafruit_ble.services.standard import BatteryService
 
 from adafruit_hid.keyboard import Keyboard
 from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
-from adafruit_hid.keycode import Keycode as Keycode
+from adafruit_hid.keycode import Keycode
 from adafruit_hid.mouse import Mouse
 
 from StrUUIDService import SUS
-#from StrUUIDService import config
-#from StrUUIDService import DebugStream as DBS
+from utils import config
 
 import asyncio
 
@@ -31,24 +31,13 @@ class Appearances:
 
 class BluetoothControl():
 
-    from StrUUIDService import config
     if(config["name"] == ""):
-        config["name"] = "Cato_"
-        from builtins import hex
-        from microcontroller import cpu
-        uid = cpu.uid
-        for i in range(-3,0,1):
-            config["name"] += str(hex(uid[i])[-2:])
-        import json
-        try:
-            with open("config.json", 'w') as f:
-                json.dump(config, f)    #for some reason "indent" kwarg is not recognized
-                ##json formatter method would be nice here to make config.json human readable
-        except OSError as oser:
-            print("ERROR SAVING NAME: "+str(oser))
+        config["name"] = f"Cato_{config['HW_UID'][-6:]}"
+
+    # config.dump()
     
     # BLERadio can toggle advertising state
-    ble = adafruit_ble.BLERadio()
+    ble = BLERadio()
     ble.name = config["name"]
 
     def __init__(self):
@@ -59,9 +48,9 @@ class BluetoothControl():
             # github will manage
             # on commit, how is a piece of your code updated
             # can set up new repo to play with - google "how to do revision control in github"
-            software_revision = adafruit_ble.__version__, # This is the Cato version
+            software_revision = "v0.0",
             model_number = None,  # our model number can be "Cato 1"
-            serial_number = None, # look on nrf52840 for hardware serial - can ask on Seeed forum - anything unique per board
+            serial_number = config["HW_UID"], # look on nrf52840 for hardware serial - can ask on Seeed forum - anything unique per board
             firmware_revision = "v0.0",
             hardware_revision = "v0.0",
             service = None
@@ -82,23 +71,24 @@ class BluetoothControl():
         self.scan_response.appearance = Appearances.remote
         # # mem("BTC, scan_response created")
 
-        
+
         # HID handles
         self.k = Keyboard(self.hid.devices)
         self.kl = KeyboardLayoutUS(self.k)
         self.mouse = Mouse(self.hid.devices)
         
         # Battery service. Can inform central of battery level with this.level
-        self.battery_service = adafruit_ble.services.standard.BatteryService()
+        self.battery_service = BatteryService()
 
         self.ena_adv = asyncio.Event()          # enable advertising
         self.is_connected = asyncio.Event()     # indicates connection
         self.is_disconnected = asyncio.Event()  # indicates disconnection
 
         self.is_disconnected.set() #board starts without connection
+        
         import microcontroller as mc
         self.tasks = {}
-        if((BluetoothControl.config["operation_mode"]>=20)or not(mc.nvm[2])):
+        if( not(mc.nvm[2]) ): # Should always be true, unless specifically wired training routine
             self.tasks = {  # tasks
                 "characteristic_loop"   : asyncio.create_task(SUS.config_loop()),
                 "manage_connection"     : asyncio.create_task(self.manage_connection()),
@@ -106,7 +96,7 @@ class BluetoothControl():
                 "reconnect"             : asyncio.create_task(self.reconnect())
             }
         
- 
+
     async def manage_connection(self):
         #print("+ manage_connection")
         while True:
