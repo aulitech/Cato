@@ -4,14 +4,14 @@
         "description" : "a user-settable string for assigning the name of the Cato device",
         "note" : "Name defaults to 'Cato_<HW_UID>' at boot, but is not set if name is defined here",
         "access" : "rw",
-        "value" : ""
+        "value" : "FinnFC"
     },
 
     "HW_UID" : {
         "label" : "Hardware Unique Identity",
         "description" : "Unique hex code for identifying different devices",
         "access" : "r",
-        "value" : ""
+        "value" : "devIDdevIDdevID"
     },
 
     "operation_mode" : {
@@ -474,6 +474,14 @@
                 }
             }
         }
+    },
+
+    "forward_face" : {
+        "label" : "Forward Face",
+        "description" : "Axis of forward (screen-facing) side of Cato in accelerometer axes",
+        "access" : "rw",
+        "value" : "-x",
+        "options" : ["+x", "-x", "+y", "-y", "+z", "-z"]
     },
 
     "key_order" : {

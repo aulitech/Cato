@@ -60,17 +60,17 @@ from ulab import numpy as np
         ]
 '''
 
-# Generate Quaternion for rotation by Theta Through angle N. Rotated = q_t original q
-q_gen = lambda n, theta: np.array([cos(theta/2.0), sin(theta/2.0) * n[0], sin(theta/2.0) * n[1], sin(theta/2.0) * n[2]])
+# # Generate Quaternion for rotation by Theta Through angle N. Rotated = q_t original q
+# q_gen = lambda n, theta: np.array([cos(theta/2.0), sin(theta/2.0) * n[0], sin(theta/2.0) * n[1], sin(theta/2.0) * n[2]])
 
-# Quaternion rotation matrix, method two from https://danceswithcode.net/engineeringnotes/quaternions/quaternions.html (eqn 7b)
-rot_mat = lambda q: np.array(
-    [
-        [ 1 - 2 * (q[2]**2 + q[3]**2),      2 * (q[1]*q[2] - q[0]*q[3]),        2 * (q[1]*q[3] + q[0]*q[2]) ],
-        [ 2 * (q[1]*q[2] + q[0]*q[3]),      1 - 2 * (q[1]**2 + q[3]**2),        2 * (q[2]*q[3] - q[0]*q[1]) ],
-        [ 2 * (q[1]*q[3] - q[0]*q[2]),      2 * (q[2]*q[3] + q[0]*q[1]),        1 - 2 * (q[1]**2 + q[2]**2) ]
-    ]
-)
+# # Quaternion rotation matrix, method two from https://danceswithcode.net/engineeringnotes/quaternions/quaternions.html (eqn 7b)
+# rot_mat = lambda q: np.array(
+#     [
+#         [ 1 - 2 * (q[2]**2 + q[3]**2),      2 * (q[1]*q[2] - q[0]*q[3]),        2 * (q[1]*q[3] + q[0]*q[2]) ],
+#         [ 2 * (q[1]*q[2] + q[0]*q[3]),      1 - 2 * (q[1]**2 + q[3]**2),        2 * (q[2]*q[3] - q[0]*q[1]) ],
+#         [ 2 * (q[1]*q[3] - q[0]*q[2]),      2 * (q[2]*q[3] + q[0]*q[1]),        1 - 2 * (q[1]**2 + q[2]**2) ]
+#     ]
+# )
 
 _LSM6DS_INT1_CTRL   = const(0x0D)
 
@@ -345,7 +345,6 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         print("Calibrating HOLD STILL")
         
         gyro_avg = np.array([0.0, 0.0, 0.0])
-
         accel_avg = np.array([0.0, 0.0, 0.0])
 
         for i in range(num_calib_cycles):
@@ -361,24 +360,66 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         # Find Average Direction of Gravity Over Calibration 
         accel_avg /= num_calib_cycles
         grav_dir = accel_avg / np.linalg.norm(accel_avg)
+        print(grav_dir)
+        # describe the most aligned "down" direction
+        grav = np.array([0.0, 0.0, 0.0])
+        grav_axis = np.argmax( abs(grav_dir) )
+        grav[ grav_axis ] = 1 if (grav_dir[grav_axis] > 0) else -1
 
-        # describe desired endpoint of rotation
-        down = np.array([0.0, -1.0, 0.0])
-
-        # Rotation axis is in line with Crossproduct
-        n = np.cross(grav_dir, down)
-        mag_n = np.linalg.norm(n)
+        forward = np.array([0.0, 0.0, 0.0]) 
+        if 'x' in config['forward_face']:
+            forward[0] = 1.0
+        elif 'y' in config(['foward_face']):
+            forward[1] = 1.0
+        elif 'z' in config(['forward_face']):
+            forward[2] = 1.0
+        else:
+            raise ValueError("invalid forward face axis specified in config.json")
+        if '-' in config['forward_face']:
+            forward *= -1
         
-        n = n / mag_n # Normalize to Unit Vector
+        print("grav", grav)
+        print("forward", forward)
+        # Compare forward and down to generate x, y, z
+        x_col = -1 * forward
+        y_col = -1 * grav
 
-        # Angle is related by a cross b = |a||b|sin(angle)
-        # We extract angle as angle = arcsin(a cross b)
-        th = asin(mag_n)
-
-        self.rot_mat = rot_mat( q_gen(n, th) )
+        if np.dot(x_col, y_col) != 0:
+            raise ValueError("Orientation of Gravity and 'forward face' not perpendicular")
         
+        z_col = np.cross(x_col, y_col)
+        full_calib_msg = f"Full Calibrate Result:\n"
+        # full_calib_msg += f"\t{'Down:':<12}{down.tolist()}\n"
+        full_calib_msg += "\tGravity:      "
+        for val in grav_dir.tolist():
+            full_calib_msg += f"{val:10.2f}"
+        full_calib_msg += '\n'
+
+        transform = np.array([
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0]
+        ])
+        for row in range(3):
+            transform[row][0] = x_col[row]
+            transform[row][1] = y_col[row]
+            transform[row][2] = z_col[row]
+
+        transform = np.linalg.inv(transform)
+
+        self.rot_mat = transform
+
         self.not_calibrated = False
-        print("Done Calibrating")
+        
+
+
+        full_calib_msg += "\tMatrix:     \n"
+        for row in self.rot_mat.tolist():
+            full_calib_msg += '\t\t'
+            for idx, entry in enumerate(row):
+                full_calib_msg += f"{entry:<+8.2f}" + ( '\n' if (idx==2) else '' )
+        
+        print(full_calib_msg)
 
     async def stream(self):
         #print("+ stream")
