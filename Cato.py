@@ -262,7 +262,6 @@ class Cato:
         await_actions = config["tv_control"]["await_actions"]
         while True:
             await Events.gesture_not_collecting.wait()
-            Events.battery.set()
             target = await self.gesture_interpreter(timeout = 0)
             DBS.println(target)
             action = asyncio.create_task(self.block_on_eval(target))
@@ -302,12 +301,14 @@ class Cato:
 
         # wait to recieve significant motion and return if the timeout threshold is passed
         timeoutEv = asyncio.Event()
+        Events.battery.set()
         asyncio.create_task(stopwatch(timeout, ev = timeoutEv))
         await asyncio.create_task(self.wait_for_motion(sqrt(gestThresh),terminator = timeoutEv.is_set))
         if(not Events.sig_motion.is_set()):
             Events.gesturing.clear()
             DBS.println("\tTimeout")
             return self.bindings[EV_NONE][self.state] 
+        Events.battery.clear()
         Events.sig_motion.clear()
         
         # motion recieved
@@ -334,13 +335,6 @@ class Cato:
                 idle = 0
         # DBS.println("Gesture Length: ",length)
         Events.sig_motion.clear()
-        '''''
-        if(idle == idleLen):
-            DBS.println("Broke for idle timeout")
-        elif(length == maxLen):
-            DBS.println("Broke for full gesture")
-        else:
-            DBS.println("Broke for premature neuton fill")#'''
 
         # fill remaining space w 0's
         while(idle == idleLen)and(length < maxLen):
@@ -360,7 +354,8 @@ class Cato:
             gesture_result_str += f"\t{gesture:12}: {neuton_outputs[idx]:>5.1%}\n"
         print(gesture_result_str)
         # DBS.println("Interpreted "+config["gesture"]["key"][infer]+"("+str(max(neuton_outputs))+")")
-
+        Events.battery.set()
+        Events.battery.clear()
         Events.gesturing.clear()
         await shakeCursor
         gc.collect()
