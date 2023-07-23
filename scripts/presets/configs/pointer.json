@@ -4,7 +4,7 @@
         "description" : "a user-settable string for assigning the name of the Cato device",
         "note" : "Name defaults to 'Cato_<HW_UID>' at boot, but is not set if name is defined here",
         "access" : "rw",
-        "value" : ""
+        "value" : "Cato_Pointer"
     },
 
     "HW_UID" : {
