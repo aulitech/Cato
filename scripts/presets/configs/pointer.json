@@ -4,21 +4,21 @@
         "description" : "a user-settable string for assigning the name of the Cato device",
         "note" : "Name defaults to 'Cato_<HW_UID>' at boot, but is not set if name is defined here",
         "access" : "rw",
-        "value" : "FinnFC"
+        "value" : "Cato_Pointer"
     },
 
     "HW_UID" : {
         "label" : "Hardware Unique Identity",
         "description" : "Unique hex code for identifying different devices",
         "access" : "r",
-        "value" : "devIDdevIDdevID"
+        "value" : ""
     },
 
     "operation_mode" : {
         "label" : "Mode",
         "description" : "a user-settable integer defining the operation mode of Cato",
         "access"  : "rw",
-        "value" : "clicker",
+        "value" : "pointer",
         "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker", "practice"]
     },
 
@@ -31,7 +31,7 @@
                 "label" : "Timeout",
                 "description" : "Number of consecutive low-movement seconds before Cato sleeps",
                 "access" : "rw",
-                "value" : 12,
+                "value" : 120,
                 "range" : {
                     "min" : 10,
                     "max" : 120
@@ -41,7 +41,7 @@
                 "label" : "Sleep Threshold",
                 "description" : "Movement level below which Cato starts counting towards sleep",
                 "access" : "rw",
-                "value" : 5.0,
+                "value" : 4.0,
                 "range" : {
                     "min" : 2.0,
                     "max" : 10.0
@@ -437,9 +437,9 @@
                 "note" : "available tap combos depend on number of bindings",
                 "value" : [
                     [   ["noop"]                            ],
-                    [   ["noop"]         ],
-                    [   ["noop"]         ],
-                    [   ["quick_sleep"]      ]
+                    [   ["button_action",0,"tap",1]         ],
+                    [   ["button_action",0,"tap",2]         ],
+                    [   ["button_action",0,"toggle",1]      ]
                 ]
             }
         }
@@ -474,14 +474,6 @@
                 }
             }
         }
-    },
-
-    "forward_face" : {
-        "label" : "Forward Face",
-        "description" : "Axis of forward (screen-facing) side of Cato in accelerometer axes",
-        "access" : "rw",
-        "value" : "-x",
-        "options" : ["+x", "-x", "+y", "-y", "+z", "-z"]
     },
 
     "key_order" : {

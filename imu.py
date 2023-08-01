@@ -135,7 +135,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self.gyro_vals  = np.array([0.0, 0.0, 0.0]) # gyro fields
         self.gyro_trim  = config["calibration"]["drift"] # Gyroscope trim values set by calibrate
         self.not_calibrated = True
-        self.autoCalibLoops = config["calibration"]["auto_samples"]
+        self.autoCalibLen = config["calibration"]["auto_samples"]
         self.autoCalibThresh = config["calibration"]["auto_threshold"]
         self.sleep_thresh = config["sleep"]["threshold"]
 
@@ -228,7 +228,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         
         from WakeDog import WakeDog # Can this be at top?
 
-        calibCountdown = 0
+        calibCycles = 0
         trimAdjust = np.array((0,0,0))
         gyro_prev = np.array((0,0,0))
         
@@ -266,20 +266,21 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             if(self.not_calibrated):
                 gyro_delta_mag = np.linalg.norm(self.gyro_vals - gyro_prev)
 
-                if(calibCountdown == self.autoCalibLoops):
+                if(calibCycles == self.autoCalibLen):
+                    # print("...calibrated...")
                     for i in range(len(self.gyro_trim)):
                         self.gyro_trim[i] += trimAdjust[i]
                     self.gyro_vals -= trimAdjust
                     gyro_prev = self.gyro_vals
-                    calibCountdown = self.autoCalibLoops
+                    calibCycles = 0
                     trimAdjust = np.array((0,0,0))
 
                 if(gyro_delta_mag < self.autoCalibThresh):
-                    calibCountdown += 1
-                    trimAdjust += self.gyro_vals / self.autoCalibLoops
+                    calibCycles += 1
+                    trimAdjust += self.gyro_vals / self.autoCalibLen
                 else:
                     gyro_prev = self.gyro_vals
-                    calibCountdown = 0
+                    calibCycles = 0
                     trimAdjust = np.array((0,0,0))
             
             # Check sleep conditions

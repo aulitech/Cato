@@ -13,6 +13,7 @@ from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
 from adafruit_hid.keycode import Keycode
 from adafruit_hid.mouse import Mouse
 
+
 from StrUUIDService import SUS
 from utils import config
 
@@ -71,7 +72,7 @@ class BluetoothControl():
         self.scan_response.appearance = Appearances.remote
         # # mem("BTC, scan_response created")
 
-        
+
         # HID handles
         self.k = Keyboard(self.hid.devices)
         self.kl = KeyboardLayoutUS(self.k)
