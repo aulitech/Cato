@@ -15,11 +15,9 @@ Then unplug the board, and reconnect the board.
 '''
 import os
 import storage
-import json
 import microcontroller as mc
 
-# False -> Writable for CircuitPython
-# True  -> Writable for Computer
+import usb_hid
 
 class CHMOD:
     COMP    = True  #board computer writable

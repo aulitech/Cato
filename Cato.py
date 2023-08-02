@@ -103,7 +103,7 @@ class Cato:
             }
         elif(mode == "tv_remote"):
             self.tasks = {
-                "tv_control"        : asyncio.create_task(self.tv_control()),
+                "tv_remote"        : asyncio.create_task(self.tv_control()),
             }
         elif(mode == "pointer"):
             self.tasks = {
@@ -259,7 +259,7 @@ class Cato:
         Cato.imu.data_ready_on_int1_setup()
         DBS.println("tv_control")
         config["gesture"]["timeout"] = 0
-        await_actions = config["tv_control"]["await_actions"]
+        await_actions = config["tv_remote"]["await_actions"]
         while True:
             await Events.gesture_not_collecting.wait()
             target = await self.gesture_interpreter(timeout = 0)
@@ -463,8 +463,6 @@ class Cato:
             move the mouse via bluetooth until sufficiently idle
         '''
         # mem("move_mouse -- pre settings load")
-        
-        param = 0
 
         idle_thresh = config['mouse']['idle_threshold'] # speed below which is considered idle  
         min_run_cycles = config['mouse']['min_run_cycles']

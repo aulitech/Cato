@@ -4,7 +4,7 @@
         "description" : "a user-settable string for assigning the name of the Cato device",
         "note" : "Name defaults to 'Cato_<HW_UID>' at boot, but is not set if name is defined here",
         "access" : "rw",
-        "value" : ""
+        "value" : "Cato_Clicker"
     },
 
     "HW_UID" : {
@@ -18,7 +18,7 @@
         "label" : "Mode",
         "description" : "a user-settable integer defining the operation mode of Cato",
         "access"  : "rw",
-        "value" : "pointer",
+        "value" : "clicker",
         "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker", "practice"]
     },
 
@@ -31,7 +31,7 @@
                 "label" : "Timeout",
                 "description" : "Number of consecutive low-movement seconds before Cato sleeps",
                 "access" : "rw",
-                "value" : 60,
+                "value" : 120,
                 "range" : {
                     "min" : 10,
                     "max" : 120
@@ -345,13 +345,13 @@
                 "label" : "Low",
                 "description" : "Value of analog pin indicating discharged battery. Typ. ~23000",
                 "access" : "r",
-                "value" : 24000
+                "value" : 21500
             },
             "high" : {
                 "label" : "High",
                 "description" : "Value of analog pin indicating charged battery. Typ. ~30000",
                 "access" : "r",
-                "value" : 28500
+                "value" : 27500
             }
         }
     },
