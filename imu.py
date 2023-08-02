@@ -267,7 +267,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
                 gyro_delta_mag = np.linalg.norm(self.gyro_vals - gyro_prev)
 
                 if(calibCycles == self.autoCalibLen):
-                    # print("...calibrated...")
+                    print("...calibrated...")
                     for i in range(len(self.gyro_trim)):
                         self.gyro_trim[i] += trimAdjust[i]
                     self.gyro_vals -= trimAdjust
@@ -362,35 +362,58 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         accel_avg /= num_calib_cycles
         grav_dir = accel_avg / np.linalg.norm(accel_avg)
         print(grav_dir)
+
         # describe the most aligned "down" direction
         grav = np.array([0.0, 0.0, 0.0])
         grav_axis = np.argmax( abs(grav_dir) )
         grav[ grav_axis ] = 1 if (grav_dir[grav_axis] > 0) else -1
 
-        forward = np.array([0.0, 0.0, 0.0]) 
-        if 'x' in config['forward_face']:
-            forward[0] = 1.0
-        elif 'y' in config(['foward_face']):
-            forward[1] = 1.0
-        elif 'z' in config(['forward_face']):
-            forward[2] = 1.0
-        else:
-            raise ValueError("invalid forward face axis specified in config.json")
-        if '-' in config['forward_face']:
+        #validate orientation strings
+        if config['orientation']['right_face'] not in ["+x", "-x", "+y", "-y", "+z", "-z"]:
+            raise ValueError("Right Face Orientation String Invalid")
+        
+        if config['orientation']['forward_face'] not in ["+x", "-x", "+y", "-y", "+z", "-z"]:
+            raise ValueError("Forward Face Orientation String Invalid")
+        
+        forward = np.array([
+            1.0 if 'x' in config['orientation']['forward_face'] else 0.0,
+            1.0 if 'y' in config['orientation']['forward_face'] else 0.0,
+            1.0 if 'z' in config['orientation']['forward_face'] else 0.0
+        ])
+
+        right = np.array([
+            1.0 if 'x' in config['orientation']['right_face'] else 0.0,
+            1.0 if 'y' in config['orientation']['right_face'] else 0.0,
+            1.0 if 'z' in config['orientation']['right_face'] else 0.0
+        ])
+
+        if '-' in config['orientation']['forward_face']:
             forward *= -1
         
-        print("grav", grav)
-        print("forward", forward)
-        # Compare forward and down to generate x, y, z
-        x_col = -1 * forward
-        y_col = -1 * grav
+        if '-' in config['orientation']['right_face']:
+            right *= -1
 
-        if np.dot(x_col, y_col) != 0:
-            raise ValueError("Orientation of Gravity and 'forward face' not perpendicular")
-        
-        z_col = np.cross(x_col, y_col)
+        if np.dot(forward, right) != 0:
+            raise ValueError("Orientation of 'right face' and 'forward face' is not perpendicular")
+
+        # print("grav", grav)
+        # print("forward", forward)
+        # # Compare forward and down to generate x, y, z
+
+        # ORIGINAL ORIENTATION:
+        # FORWARD = -X, RIGHT = -Z.
+
+        # BOARD FRAME:
+        # "Out of USB-C" = "+X"
+        # "Up out of top" = "+Z"
+        # "Looking into usb-c w/ board flat on table: Viewer's right"
+
+        x_col = -forward
+        z_col = -right
+        y_col = np.cross(z_col, x_col)
+
         full_calib_msg = f"Full Calibrate Result:\n"
-        # full_calib_msg += f"\t{'Down:':<12}{down.tolist()}\n"
+
         full_calib_msg += "\tGravity:      "
         for val in grav_dir.tolist():
             full_calib_msg += f"{val:10.2f}"
@@ -401,19 +424,18 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             [0.0, 0.0, 0.0],
             [0.0, 0.0, 0.0]
         ])
+
         for row in range(3):
             transform[row][0] = x_col[row]
             transform[row][1] = y_col[row]
             transform[row][2] = z_col[row]
 
-        transform = np.linalg.inv(transform)
+        # transform = np.linalg.inv(transform)
 
         self.rot_mat = transform
 
-        self.not_calibrated = False
+        # self.not_calibrated = False
         
-
-
         full_calib_msg += "\tMatrix:     \n"
         for row in self.rot_mat.tolist():
             full_calib_msg += '\t\t'
