@@ -22,6 +22,16 @@
                 "reveal": "always",
                 "panel": "new"
             }
+        },
+        {
+            "label": "update_drag_drop",
+            "type": "shell",
+            "command":"scripts/update_drag_drop.sh",
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
         }
     ]
   }
