@@ -18,12 +18,12 @@ class Battery:
     def raw_value(self):
 
         self.read_bat_ena.value = False # Active Low
-        time.sleep(0.1)
+        time.sleep(0.05)
 
         temp = self.b_pin.value
 
         self.read_bat_ena.value = True
-        time.sleep(0.1)
+        time.sleep(0.05)
 
         # DBS.println(f"Battery analog level: {temp}")
         return temp 
