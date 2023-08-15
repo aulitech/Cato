@@ -11,14 +11,14 @@
         "label" : "Hardware Unique Identity",
         "description" : "Unique hex code for identifying different devices",
         "access" : "r",
-        "value" : ""
+        "value" : "abcdef"
     },
 
     "operation_mode" : {
         "label" : "Mode",
         "description" : "a user-settable integer defining the operation mode of Cato",
         "access"  : "rw",
-        "value" : "clicker",
+        "value" : "pointer",
         "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker", "practice"]
     },
 
@@ -319,12 +319,12 @@
             },
             "auto_threshold" : {
                 "label" : "Auto-Calibration Threshold",
-                "description" : "An movement period with variation below this threshold triggers automatic calibration to remove drift",
+                "description" : "movement required (as a scale of mouse>idle_threshold) to fail automatic calibration for gyro drift",
                 "access" : "rw",
-                "value" : 3.0,
+                "value" : 0.6,
                 "range" : {
-                    "min" : 1.0,
-                    "max" : 6.0
+                    "min" : 0.2,
+                    "max" : 1.0
                 }
             },
             "auto_samples" : {
