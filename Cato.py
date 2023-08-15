@@ -167,10 +167,14 @@ class Cato:
             # ensure that LED is OFF
             while( self.led.value == False ):
                 await asyncio.sleep(0.001)
-
+            
+            import time
+            sleep_time = time.time()
             print("LIGHT SLEEP")
             alarm.light_sleep_until_alarms(pin_alarm)
             print("WOKE UP")
+            if(time.time() - sleep_time > 600):
+                mc.reset()
 
             del(pin_alarm) # release imu_int1
             print("Del pin")
