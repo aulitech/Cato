@@ -31,7 +31,7 @@
                 "label" : "Timeout",
                 "description" : "Number of consecutive low-movement seconds before Cato sleeps",
                 "access" : "rw",
-                "value" : 60,
+                "value" : 120,
                 "range" : {
                     "min" : 10,
                     "max" : 120

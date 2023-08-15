@@ -11,7 +11,7 @@
         "label" : "Hardware Unique Identity",
         "description" : "Unique hex code for identifying different devices",
         "access" : "r",
-        "value" : ""
+        "value" : "abcdef"
     },
 
     "operation_mode" : {
@@ -31,7 +31,7 @@
                 "label" : "Timeout",
                 "description" : "Number of consecutive low-movement seconds before Cato sleeps",
                 "access" : "rw",
-                "value" : 60,
+                "value" : 120,
                 "range" : {
                     "min" : 10,
                     "max" : 120
@@ -347,12 +347,12 @@
             },
             "auto_threshold" : {
                 "label" : "Auto-Calibration Threshold",
-                "description" : "An movement period with variation below this threshold triggers automatic calibration to remove drift",
+                "description" : "movement required (as a scale of mouse>idle_threshold) to fail automatic calibration for gyro drift",
                 "access" : "rw",
-                "value" : 3.0,
+                "value" : 0.6,
                 "range" : {
-                    "min" : 1.0,
-                    "max" : 6.0
+                    "min" : 0.2,
+                    "max" : 1.0
                 }
             },
             "auto_samples" : {
