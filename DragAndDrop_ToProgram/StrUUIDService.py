@@ -4,10 +4,7 @@ import microcontroller as mc
 import json
 import asyncio
 
-
-config = dict
-with open("config.json",'r') as f:
-    config = json.load(f)
+from utils import config
 
 class StrUUIDService(Service):
     from adafruit_ble.uuid import VendorUUID
@@ -26,7 +23,7 @@ class StrUUIDService(Service):
     )
     
     devUUID = None
-    if(config["operation_mode"] >= 10):
+    if("dev" in config["operation_mode"]):
         devUUID = SC(
             uuid = VendorUUID("528ff74b-fdb8-444c-9c64-3dd5da4135ae"),
             properties = SC.READ | SC.NOTIFY | SC.WRITE
@@ -67,7 +64,7 @@ class StrUUIDService(Service):
     
 
     async def send_config(self):
-        l = str(config)
+        l = str(config.d)
         while(len(l) > 512):
             SUS.configUUID = l[:512]
             l = l[512:]
@@ -124,25 +121,29 @@ class StrUUIDService(Service):
         return str
     
     async def save_config(self):
+        self.configUUID = "SAVE NON-OPERATIONAL"
+        return
         self.configUUID = "SAVING"
+        def repacker():
+            return
         try:
-            with open("config.json", 'w') as f:
-                json.dump(config, f)    #for some reason "indent" kwarg is not recognized
-                ##json formatter method would be nice here to make config.json human readable
+            with open("config.json",'w'):
+                pass
+            temp_dict = {}
+            # config.dump()
             self.configUUID = "SAVE COMPLETE"
         except OSError as oser:
             self.configUUID = "SAVE ERROR: "+str(oser)
-    
 
     async def calibrate_imu(self):
-        from Cato import Cato
+        from Cato import Cato # TODO: Add calibrate to Events, calibrate at top of control loop iff CalibrateEvent is set
         await Cato.imu.calibrate(100)
         self.configUUID = "CALIBRATION COMPLETE"
+
     async def full_calibrate_imu(self):
         from Cato import Cato
         await Cato.imu.full_calibrate(100)
         self.configUUID = "CALIBRATION COMPLETE"
-
 
     async def reboot(self):
         await self.save_config()
