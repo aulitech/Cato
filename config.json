@@ -305,6 +305,34 @@
             }
         }
     },
+    "orientation" : {
+        "label" : "Orientation",
+        "description" : "parameters describing usage orientation for Cato",
+        "access" : "rw", 
+        "value" : {
+            "screen_x" : {
+                "label" : "Screen X",
+                "description" : "Axis defining horizontal screen movement",
+                "access" : "rw",
+                "value" : "-y",
+                "options" : ["+x", "-x", "+y", "-y", "+z", "-z"]
+            },
+            "screen_y" : {
+                "label" : "Screen y",
+                "description" : "Axis defining horizontal screen movement",
+                "access" : "rw",
+                "value" : "-z",
+                "options" : ["+x", "-x", "+y", "-y", "+z", "-z"]
+            },
+            "roll" : {
+                "label" : "Tilt Left/Right",
+                "description" : "Axis defining horizontal screen movement",
+                "access" : "rw",
+                "value" : "+z",
+                "options" : ["+x", "-x", "+y", "-y", "+z", "-z"]
+            }
+        }
+    },
 
     "calibration" : {
         "label" : "Calibration (including automatic) Parameters",
