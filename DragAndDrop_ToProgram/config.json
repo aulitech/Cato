@@ -11,7 +11,7 @@
         "label" : "Hardware Unique Identity",
         "description" : "Unique hex code for identifying different devices",
         "access" : "r",
-        "value" : ""
+        "value" : "abcdef"
     },
 
     "operation_mode" : {
@@ -305,6 +305,34 @@
             }
         }
     },
+    "orientation" : {
+        "label" : "Orientation",
+        "description" : "parameters describing usage orientation for Cato",
+        "access" : "rw", 
+        "value" : {
+            "screen_x" : {
+                "label" : "Screen X",
+                "description" : "Axis defining horizontal screen movement",
+                "access" : "rw",
+                "value" : "-y",
+                "options" : ["+x", "-x", "+y", "-y", "+z", "-z"]
+            },
+            "screen_y" : {
+                "label" : "Screen y",
+                "description" : "Axis defining horizontal screen movement",
+                "access" : "rw",
+                "value" : "-z",
+                "options" : ["+x", "-x", "+y", "-y", "+z", "-z"]
+            },
+            "roll" : {
+                "label" : "Tilt Left/Right",
+                "description" : "Axis defining horizontal screen movement",
+                "access" : "rw",
+                "value" : "+z",
+                "options" : ["+x", "-x", "+y", "-y", "+z", "-z"]
+            }
+        }
+    },
 
     "calibration" : {
         "label" : "Calibration (including automatic) Parameters",
@@ -319,12 +347,12 @@
             },
             "auto_threshold" : {
                 "label" : "Auto-Calibration Threshold",
-                "description" : "An movement period with variation below this threshold triggers automatic calibration to remove drift",
+                "description" : "movement required (as a scale of mouse>idle_threshold) to fail automatic calibration for gyro drift",
                 "access" : "rw",
-                "value" : 3.0,
+                "value" : 0.6,
                 "range" : {
-                    "min" : 1.0,
-                    "max" : 6.0
+                    "min" : 0.2,
+                    "max" : 1.0
                 }
             },
             "auto_samples" : {
