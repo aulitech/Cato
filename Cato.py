@@ -136,9 +136,10 @@ class Cato:
         self.n = Neuton(outputs=neuton_outputs)
         self.gesture = 0 # None
 
-        self.led_pin = board.LED_GREEN
-        self.led = digitalio.DigitalInOut(self.led_pin)
-        self.led.direction = digitalio.Direction.OUTPUT
+        self.pins = {
+            "led_green" : digitalio.DigitalInOut( board.LED_GREEN )
+        }
+        self.pins['led_green'] = digitalio.Direction.OUTPUT
 
         DBS.println("- Cato Init")
 
@@ -160,12 +161,12 @@ class Cato:
             await asyncio.sleep(0.1)
             self.tasks['interrupt'] = None
 
-            self.imu.single_tap_cfg() # set wakeup condn to single tap detection
+            self.imu.sig_mot_ena() # set wakeup condn to single tap detection
 
             pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
             
             # ensure that LED is OFF
-            while( self.led.value == False ):
+            while( self.pins["led_green"] == False ):
                 await asyncio.sleep(0.001)
             
             import time
@@ -201,16 +202,16 @@ class Cato:
 
     async def monitor_battery(self):
         while True:
-            for i in range(3):
-                await asyncio.sleep(0.2)
-                self.led.value = False
-                await asyncio.sleep(0.2)
-                self.led.value = True
-            await asyncio.sleep(10)
-            Events.battery.clear()
-            await Events.battery.wait()
-            # print("BATTERY")
-            #temp = self.battery.raw_value
+            try:
+                for i in range(3):
+                    await asyncio.sleep(0.2)
+                    self.pins['led_green'].value = False
+                    await asyncio.sleep(0.2)
+                    self.pins['led_green'].value = True
+            except:
+                pass
+            await asyncio.sleep(5)
+            temp = self.battery.raw_value
             # DBS.println(f"bat_ena True: {temp[0]}")
             # await asyncio.sleep(0.1)
             # DBS.println(f"bat_ena False: {temp[1]}")
@@ -496,18 +497,6 @@ class Cato:
         dy = 0
         batcher = (0,0)
 
-        screen_x = config['orientation']['screen_x']
-        screen_y = config['orientation']['screen_y']
-
-        x_inv = 1 if '+' == screen_x[0] else -1
-        y_inv = 1 if '+' == screen_y[0] else -1
-
-        x_cmd = 'lambda: ' + f"({x_inv}) * self.imu.g{ screen_x[1] }"
-        y_cmd = 'lambda: ' + f"({y_inv}) * self.imu.g{ screen_y[1] }"
-
-        x_as_lambda = eval(x_cmd, {"self":self})
-        y_as_lambda = eval(y_cmd, {"self":self})
-
         while True:
             # print(".")
             if not Events.move_mouse.is_set():
@@ -524,9 +513,9 @@ class Cato:
             cycle_count += 1    # count cycles
 
             # isolate x and y axes so they can be changed later with different orientations
-            x_mvmt = x_as_lambda()
-            y_mvmt = y_as_lambda()
-
+            x_mvmt = self.imu.gy
+            y_mvmt = self.imu.gz
+            
             # calculate magnitude and angle for linear scaling
             mag = sqrt(x_mvmt**2 + y_mvmt**2)
             ang = atan2(y_mvmt, x_mvmt)
@@ -570,6 +559,7 @@ class Cato:
             # dy = 10*(2-(c+1)%4)*((c+1)%2)
             if(abs(dx) < 0.2)and(abs(dy) < 0.2):
                 Events.battery.set()
+            else:
                 Events.battery.clear()
 
             batcher = (dx-int(dx), dy-int(dy))
@@ -760,6 +750,39 @@ class Cato:
         if hall_pass is not None:
             hall_pass.set()
 
+
+    async def pin_action(self, pin, action, direction = digitalio.Direction.OUTPUT, hall_pass: asyncio.Event = None):
+        digital_pins = ('D0', 'D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8', 'D9', 'D10')
+        # analog_pins = ('A0', 'A1', 'A2', 'A3', 'A4', 'A5')
+
+        # validate pin
+        if pin not in digital_pins:
+            raise ValueError(f"Invalid Pin. Valid options: {digital_pins}")
+        
+        # configure pin settings
+        if pin not in self.pins.keys():
+            self.pins.update( {pin : digitalio.DigitalInOut( eval(f"board.{pin}") ) } )
+            self.pins[pin].direction = digitalio.Direction.OUTPUT
+        
+        # validate action input
+        valid_actions = ("set_high", "set_low")
+        if action not in valid_actions:
+            raise ValueError(f"Invalid Action. Valid options: {valid_actions}")
+        
+        # execute action 
+        # Should this generate a task of its own for something like "blink"?
+        # Do I need to hold a handle to preseve its value?
+        if action == "set_high":
+            self.pins[pin].value = True
+        
+        if action == "set_low":
+            self.pins[pin].value = False
+
+        if hall_pass is not None:
+            hall_pass.set()
+
+        
+
     '''
     async def collect_gestures_app():
         from StrUUIDService import SUS
@@ -943,17 +966,15 @@ class Cato:
 
     async def test_loop(self):
         DBS.println("+ test_loop")
-        trigger = asyncio.Event()
-        trigger.set()
-        asyncio.create_task(self.trigger_watcher(trigger))
-        asyncio.create_task(self.trigger_clearer(trigger))
+        # trigger = asyncio.Event()
+        # trigger.set()
+        # asyncio.create_task(self.trigger_watcher(trigger))
+        # asyncio.create_task(self.trigger_clearer(trigger))
         await asyncio.sleep(2)
         while(True):
             print()
-            DBS.println("looping")
-            trigger.set()
-            print("Trigger Set")
-            await asyncio.sleep(2)
+            DBS.println('\t', 10*int(Cato.imu.gx/10), '\t', 10*int(Cato.imu.gy/10), '\t', 10*int(Cato.imu.gz/10))
+            await asyncio.sleep(0.2)
     async def trigger_clearer(self, trigger : asyncio.Event):
         print("+ trigger_clearer")
         while(True):
