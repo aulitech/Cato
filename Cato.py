@@ -962,17 +962,15 @@ class Cato:
 
     async def test_loop(self):
         DBS.println("+ test_loop")
-        trigger = asyncio.Event()
-        trigger.set()
-        asyncio.create_task(self.trigger_watcher(trigger))
-        asyncio.create_task(self.trigger_clearer(trigger))
+        # trigger = asyncio.Event()
+        # trigger.set()
+        # asyncio.create_task(self.trigger_watcher(trigger))
+        # asyncio.create_task(self.trigger_clearer(trigger))
         await asyncio.sleep(2)
         while(True):
             print()
-            DBS.println("looping")
-            trigger.set()
-            print("Trigger Set")
-            await asyncio.sleep(2)
+            DBS.println('\t', 10*int(Cato.imu.gx/10), '\t', 10*int(Cato.imu.gy/10), '\t', 10*int(Cato.imu.gz/10))
+            await asyncio.sleep(0.2)
     async def trigger_clearer(self, trigger : asyncio.Event):
         print("+ trigger_clearer")
         while(True):

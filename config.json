@@ -4,7 +4,7 @@
         "description" : "a user-settable string for assigning the name of the Cato device",
         "note" : "Name defaults to 'Cato_<HW_UID>' at boot, but is not set if name is defined here",
         "access" : "rw",
-        "value" : "FinnDev"
+        "value" : "orient"
     },
 
     "HW_UID" : {
@@ -18,7 +18,7 @@
         "label" : "Mode",
         "description" : "a user-settable integer defining the operation mode of Cato",
         "access"  : "rw",
-        "value" : "pointer",
+        "value" : "dev",
         "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker", "practice"]
     },
 
@@ -31,7 +31,7 @@
                 "label" : "Timeout",
                 "description" : "Number of consecutive low-movement seconds before Cato sleeps",
                 "access" : "rw",
-                "value" : 60,
+                "value" : 600,
                 "range" : {
                     "min" : 10,
                     "max" : 120
@@ -305,28 +305,30 @@
             }
         }
     },
+
     "orientation" : {
         "label" : "Orientation",
         "description" : "parameters describing usage orientation for Cato",
         "access" : "rw", 
         "value" : {
-            "screen_x" : {
-                "label" : "Screen X",
-                "description" : "Axis defining horizontal screen movement",
+            
+            "front" : {
+                "label" : "front",
+                "description" : "",
                 "access" : "rw",
-                "value" : "-y",
+                "value" : "+x",
                 "options" : ["+x", "-x", "+y", "-y", "+z", "-z"]
             },
-            "screen_y" : {
-                "label" : "Screen y",
-                "description" : "Axis defining horizontal screen movement",
+            "bottom" : {
+                "label" : "bottom",
+                "description" : "",
                 "access" : "rw",
-                "value" : "-x",
+                "value" : "+y",
                 "options" : ["+x", "-x", "+y", "-y", "+z", "-z"]
             },
-            "roll" : {
-                "label" : "Tilt Left/Right",
-                "description" : "Axis defining horizontal screen movement",
+            "left" : {
+                "label" : "left",
+                "description" : "",
                 "access" : "rw",
                 "value" : "+z",
                 "options" : ["+x", "-x", "+y", "-y", "+z", "-z"]

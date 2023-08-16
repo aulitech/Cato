@@ -337,9 +337,9 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         #validate orientation strings
         ori_regex = re.compile('[+-][xyzXYZ]')
         
-        x_screen_str = config['orientation']['screen_x']
-        y_screen_str = config['orientation']['screen_y']
-        roll_str = config['orientation']['roll']
+        x_screen_str = config['orientation']['bottom']
+        y_screen_str = config['orientation']['left']
+        roll_str = config['orientation']['front']
 
         for ax in [x_screen_str, y_screen_str, roll_str]:
             if ori_regex.match(ax) is None:
@@ -349,57 +349,57 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         re.sub('[yY]', 'y', y_screen_str)
         re.sub('[zZ]', 'z', roll_str)
         
-        print(  "X_Screen: " + x_screen_str + "\n" +
-                "Y_Screen: " + y_screen_str + '\n' + 
-                "Roll:     " + roll_str 
+        print(  "Top: " + x_screen_str + "\n" +
+                "Left: " + y_screen_str + '\n' + 
+                "Back:     " + roll_str 
         )
 
-        screen_x = np.array([
+        top = np.array([
             1.0 if 'x' in x_screen_str else 0.0,
             1.0 if 'y' in x_screen_str else 0.0,
             1.0 if 'z' in x_screen_str else 0.0
         ])
 
-        screen_y = np.array([
+        left = np.array([
             1.0 if 'x' in y_screen_str else 0.0,
             1.0 if 'y' in y_screen_str else 0.0,
             1.0 if 'z' in y_screen_str else 0.0
         ])
 
-        roll = np.array([
+        front = np.array([
             1.0 if 'x' in roll_str else 0.0,
             1.0 if 'y' in roll_str else 0.0,
             1.0 if 'z' in roll_str else 0.0
         ])
 
         if '-' in roll_str:
-            roll *= -1
+            front *= -1
 
         if '-' in x_screen_str:
-            screen_x *= -1
+            top *= -1
 
         if '-' in y_screen_str:
-            screen_y *= -1
+            left *= -1
 
-        if np.dot(screen_x, screen_y)   != 0.0:
+        if np.dot(top, left)   != 0.0:
             raise ValueError("Orientation of 'x' and 'y' are not perpendicular")
-        if np.dot(screen_y, roll)       != 0.0:
+        if np.dot(left, front)       != 0.0:
             raise ValueError("Orientation of Roll and Y are not perpendicular")
-        if np.dot(screen_x, roll)       != 0.0:
+        if np.dot(top, front)       != 0.0:
             raise ValueError("X and Roll not Perpendicular")
 
         # ORIGINAL ORIENTATION:
         # SCREEN_X  : +Y
-        # SCREEN_Y  : -Z
+        # SCREEN_Y  : +Z
         # ROLL      : +X
 
         # BOARD FRAME:
         # "Into USB-C" = "+X"
         # "Up out of top" = "+Z"
 
-        x_col = roll
-        y_col = screen_x
-        z_col = -screen_y
+        x_col = front
+        y_col = top
+        z_col = left
 
         full_calib_msg = f"Reorient Result:\n"
 
@@ -414,6 +414,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             transform[row][1] = y_col[row]
             transform[row][2] = z_col[row]
 
+        transform = np.linalg.inv(transform)
         self.rot_mat = transform
         
         full_calib_msg += "\tMatrix:     \n"
