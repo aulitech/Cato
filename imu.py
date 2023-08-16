@@ -34,43 +34,7 @@ except ImportError:
 # numpy for vector manipulation
 from ulab import numpy as np
 
-'''
-    The Procedure I will use for rotation is as follows:
-
-    1. Determine Which way is "Down" from Gravity
-    2. Compare to 
-
-    For rotation R about unit vector n through an angle of theta:
-        The angle to be rotated through is theta: determined by the equation n1 x n2 = |n1| |n2| sin(theta)
-        (n1 is the unit vector "down" for Cato, n2 is "down" as determined by gravity)
-        arcsin(n1 x n2 / |n1||n2|) = theta
-
-    Finally, the rotation is carried out about n = n1 x n2 / |n1 x n2|
-
-    With R and Theta predefined, we need a rotation, which is given by the quaternion rotation equation:
-        p'      = q p q^(-1); p' is rotated vector, q is quaternion as defined by, q^(-1) is it's conjugate
-        q       = cos(theta/2) + n*sin(theta/2) OR q = [ q0, q1, q2, q3 ] = [cos(theta/2), ijk(sin(theta/2))]
-        q^(-1)  = cos(theta/2) - n*sin(theta/2)
-
-    Subsequently, the quaternion can be converted to a rotation matrix as
-        [
-            1 - 2q2^2 - 2q3^2   ;       2q1q2 - 2q0q3       ;   2q1q3 - 2q0q2
-            2q1q2 + 2q0q3       ;       1 - 2q1^2 - 2q3^2   ;   2q2q3 - 2q0q1
-            2q1q3 - 2q0q2       ;       2q2q3 + 2q0q1       ;   1 - 2q1^2 - 2q2^2
-        ]
-'''
-
-# # Generate Quaternion for rotation by Theta Through angle N. Rotated = q_t original q
-# q_gen = lambda n, theta: np.array([cos(theta/2.0), sin(theta/2.0) * n[0], sin(theta/2.0) * n[1], sin(theta/2.0) * n[2]])
-
-# # Quaternion rotation matrix, method two from https://danceswithcode.net/engineeringnotes/quaternions/quaternions.html (eqn 7b)
-# rot_mat = lambda q: np.array(
-#     [
-#         [ 1 - 2 * (q[2]**2 + q[3]**2),      2 * (q[1]*q[2] - q[0]*q[3]),        2 * (q[1]*q[3] + q[0]*q[2]) ],
-#         [ 2 * (q[1]*q[2] + q[0]*q[3]),      1 - 2 * (q[1]**2 + q[3]**2),        2 * (q[2]*q[3] - q[0]*q[1]) ],
-#         [ 2 * (q[1]*q[3] - q[0]*q[2]),      2 * (q[2]*q[3] + q[0]*q[1]),        1 - 2 * (q[1]**2 + q[2]**2) ]
-#     ]
-# )
+import re
 
 _LSM6DS_INT1_CTRL   = const(0x0D)
 
@@ -126,8 +90,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         # Establish flags
         self.imu_enable = asyncio.Event()   # enable:       Whether imu should allow reads
         self.imu_ready  = asyncio.Event()   # imu_rdy:      Set when imu has fresh data
-        self.data_ready = asyncio.Event()   # data_rdt:     Set when imu data has been read and assigned to values
-        self.tap_detect = asyncio.Event()
+        self.data_ready = asyncio.Event()   # data_rdy:     Set when imu data has been read and assigned to values
         self.tap_type = None # 1 for single, 2 for double
 
         # Build fields
@@ -156,7 +119,8 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             self.tasks.update({"read_click" : asyncio.create_task(self.read_clicks())})
         else:
             self.tasks.update({"read"      : asyncio.create_task( self.read() )})
-
+        if config['operation_mode'] == "stream_imu":
+            self.tasks.update({'stream' : asyncio.create_task( self.stream() )})
         self.tasks.update({"interrupt" : asyncio.create_task( self.interrupt() ) })
 
     def data_ready_on_int1_setup(self):
@@ -341,83 +305,103 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self.not_calibrated = False
         print("Done Calibrating")
     
-    async def full_calibrate(self, num_calib_cycles):
-        from WakeDog import WakeDog
-        print("Calibrating HOLD STILL")
+    # async def full_calibrate(self, num_calib_cycles):
+    #     from WakeDog import WakeDog
+    #     print("Calibrating HOLD STILL")
         
-        gyro_avg = np.array([0.0, 0.0, 0.0])
-        accel_avg = np.array([0.0, 0.0, 0.0])
+    #     gyro_avg = np.array([0.0, 0.0, 0.0])
+    #     accel_avg = np.array([0.0, 0.0, 0.0])
 
-        for i in range(num_calib_cycles):
-            await self.wait()
-            gyro_avg    += self.gyro_vals
-            accel_avg   += self.acc
+    #     for i in range(num_calib_cycles):
+    #         await self.wait()
+    #         gyro_avg    += self.gyro_vals
+    #         accel_avg   += self.acc
             
-            WakeDog.feed()
+    #         WakeDog.feed()
 
-        for i in range(len(self.gyro_trim)):
-            self.gyro_trim[i] += gyro_avg[i] / num_calib_cycles
+    #     for i in range(len(self.gyro_trim)):
+    #         self.gyro_trim[i] += gyro_avg[i] / num_calib_cycles
 
-        # Find Average Direction of Gravity Over Calibration 
-        accel_avg /= num_calib_cycles
-        grav_dir = accel_avg / np.linalg.norm(accel_avg)
-        print(grav_dir)
+    #     # Find Average Direction of Gravity Over Calibration 
+    #     accel_avg /= num_calib_cycles
+    #     grav_dir = accel_avg / np.linalg.norm(accel_avg)
+    #     print(grav_dir)
 
-        # describe the most aligned "down" direction
-        grav = np.array([0.0, 0.0, 0.0])
-        grav_axis = np.argmax( abs(grav_dir) )
-        grav[ grav_axis ] = 1 if (grav_dir[grav_axis] > 0) else -1
+    #     # describe the most aligned "down" direction
+    #     grav = np.array([0.0, 0.0, 0.0])
+    #     grav_axis = np.argmax( abs(grav_dir) )
+    #     grav[ grav_axis ] = 1 if (grav_dir[grav_axis] > 0) else -1
 
+
+    def reorient(self):
         #validate orientation strings
-        if config['orientation']['right_face'] not in ["+x", "-x", "+y", "-y", "+z", "-z"]:
-            raise ValueError("Right Face Orientation String Invalid")
+        ori_regex = re.compile('[+-][xyzXYZ]')
         
-        if config['orientation']['forward_face'] not in ["+x", "-x", "+y", "-y", "+z", "-z"]:
-            raise ValueError("Forward Face Orientation String Invalid")
+        x_screen_str = config['orientation']['screen_x']
+        y_screen_str = config['orientation']['screen_y']
+        roll_str = config['orientation']['roll']
+
+        for ax in [x_screen_str, y_screen_str, roll_str]:
+            if ori_regex.match(ax) is None:
+                raise ValueError("Invalid Orientation String")
         
-        forward = np.array([
-            1.0 if 'x' in config['orientation']['forward_face'] else 0.0,
-            1.0 if 'y' in config['orientation']['forward_face'] else 0.0,
-            1.0 if 'z' in config['orientation']['forward_face'] else 0.0
+        re.sub('[xX]', 'x', x_screen_str)
+        re.sub('[yY]', 'y', y_screen_str)
+        re.sub('[zZ]', 'z', roll_str)
+        
+        print(  "X_Screen: " + x_screen_str + "\n" +
+                "Y_Screen: " + y_screen_str + '\n' + 
+                "Roll:     " + roll_str 
+        )
+
+        screen_x = np.array([
+            1.0 if 'x' in x_screen_str else 0.0,
+            1.0 if 'y' in x_screen_str else 0.0,
+            1.0 if 'z' in x_screen_str else 0.0
         ])
 
-        right = np.array([
-            1.0 if 'x' in config['orientation']['right_face'] else 0.0,
-            1.0 if 'y' in config['orientation']['right_face'] else 0.0,
-            1.0 if 'z' in config['orientation']['right_face'] else 0.0
+        screen_y = np.array([
+            1.0 if 'x' in y_screen_str else 0.0,
+            1.0 if 'y' in y_screen_str else 0.0,
+            1.0 if 'z' in y_screen_str else 0.0
         ])
 
-        if '-' in config['orientation']['forward_face']:
-            forward *= -1
-        
-        if '-' in config['orientation']['right_face']:
-            right *= -1
+        roll = np.array([
+            1.0 if 'x' in roll_str else 0.0,
+            1.0 if 'y' in roll_str else 0.0,
+            1.0 if 'z' in roll_str else 0.0
+        ])
 
-        if np.dot(forward, right) != 0:
-            raise ValueError("Orientation of 'right face' and 'forward face' is not perpendicular")
+        if '-' in roll_str:
+            roll *= -1
 
-        # print("grav", grav)
-        # print("forward", forward)
-        # # Compare forward and down to generate x, y, z
+        if '-' in x_screen_str:
+            screen_x *= -1
+
+        if '-' in y_screen_str:
+            screen_y *= -1
+
+        if np.dot(screen_x, screen_y)   != 0.0:
+            raise ValueError("Orientation of 'x' and 'y' are not perpendicular")
+        if np.dot(screen_y, roll)       != 0.0:
+            raise ValueError("Orientation of Roll and Y are not perpendicular")
+        if np.dot(screen_x, roll)       != 0.0:
+            raise ValueError("X and Roll not Perpendicular")
 
         # ORIGINAL ORIENTATION:
-        # FORWARD = -X, RIGHT = -Z.
+        # SCREEN_X  : +Y
+        # SCREEN_Y  : -Z
+        # ROLL      : +X
 
         # BOARD FRAME:
-        # "Out of USB-C" = "+X"
+        # "Into USB-C" = "+X"
         # "Up out of top" = "+Z"
-        # "Looking into usb-c w/ board flat on table: Viewer's right"
 
-        x_col = -forward
-        z_col = -right
-        y_col = np.cross(z_col, x_col)
+        x_col = roll
+        y_col = screen_x
+        z_col = -screen_y
 
-        full_calib_msg = f"Full Calibrate Result:\n"
-
-        full_calib_msg += "\tGravity:      "
-        for val in grav_dir.tolist():
-            full_calib_msg += f"{val:10.2f}"
-        full_calib_msg += '\n'
+        full_calib_msg = f"Reorient Result:\n"
 
         transform = np.array([
             [0.0, 0.0, 0.0],
@@ -430,26 +414,23 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             transform[row][1] = y_col[row]
             transform[row][2] = z_col[row]
 
-        # transform = np.linalg.inv(transform)
-
         self.rot_mat = transform
-
-        # self.not_calibrated = False
         
         full_calib_msg += "\tMatrix:     \n"
         for row in self.rot_mat.tolist():
             full_calib_msg += '\t\t'
             for idx, entry in enumerate(row):
-                full_calib_msg += f"{entry:<+8.2f}" + ( '\n' if (idx==2) else '' )
-        
+                full_calib_msg += f"{entry:<+6.1f}" + ( '\n' if (idx==2) else '' )
+        full_calib_msg += f"\t Det: {np.linalg.det(transform)}"
         print(full_calib_msg)
-
+        
     async def stream(self):
         #print("+ stream")
         while True:
             #print(": stream -> awaiting self.wait")
             await self.wait()
-            print(f"Gyro: {self.gx :.2f}, {self.gy :.2f}, {self.gz :.2f} \tAccel: {self.ax :.2f}, {self.ay :.2f}, {self.az :.2f}")
+            print(f"Gyro: {self.gx :10.2f}, {self.gy :10.2f}, {self.gz :10.2f}" + 
+                  f"\tAccel: {self.ax :10.2f}, {self.ay :10.2f}, {self.az :10.2f}")
 
     def spark(self):
         '''

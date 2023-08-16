@@ -70,8 +70,8 @@ async def main():
 
     tasks.update(c.tasks)
     await asyncio.sleep(0.3)
+    Cato.imu.reorient()
     Cato.imu.imu_enable.set()
-    await Cato.imu.full_calibrate(100)
     Events.control_loop.set()
     try:
         await asyncio.gather(*tasks.values())

@@ -321,7 +321,7 @@
                 "label" : "Screen y",
                 "description" : "Axis defining horizontal screen movement",
                 "access" : "rw",
-                "value" : "-z",
+                "value" : "-x",
                 "options" : ["+x", "-x", "+y", "-y", "+z", "-z"]
             },
             "roll" : {
@@ -363,30 +363,6 @@
             }
         }
     },
-
-    "orientation" : {
-        "label" : "Orientation",
-        "note" : "",
-        "description" : "Orientation of usage for Cato",
-        "access" : "rw",
-        "value" : {
-            "forward_face" : {
-                "label" : "Forward Face",
-                "description" : "Axis of forward (screen-facing) side of Cato in accelerometer axes",
-                "access" : "rw",
-                "value" : "+z",
-                "options" : ["+x", "-x", "+y", "-y", "+z", "-z"]
-            },
-            "right_face" : {
-                "label" : "Right Face",
-                "description" : "Axis of 'rightward' face",
-                "access" : "rw",
-                "value" : "+x",
-                "options" : ["+x", "-x", "+y", "-y", "+z", "-z"]
-            }
-        }
-    },
-
     "battery" : {
         "label" : "Battery",
         "description" : "DEV TOOL: analog pin values of high and low battery charge [low, high]",
