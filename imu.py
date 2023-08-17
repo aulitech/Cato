@@ -39,8 +39,8 @@ import re
 _LSM6DS_INT1_CTRL   = const(0x0D)
 
 _LSM6DS_CTRL1_XL    = const(0x10)
-# _LSM6DS_CTRL4_C     = const(0x02) # failed attempt to use low pass filter
-# _LSM6DS_CTRL6_C     = const(0x03)
+_LSM6DS_CTRL4_C     = const(0x13) # failed attempt to use low pass filter
+_LSM6DS_CTRL6_C     = const(0x15)
 _LSM6DS_CTRL10_C    = const(0x19)
 _LSM6DS_MASTER_CFG  = const(0x1A)
 
@@ -62,22 +62,20 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
 
     # config info at:
     # https://www.st.com/resource/en/datasheet/lsm6ds3tr-c.pdf
-    _status_reg = ROUnaryStruct(    _LSM6DS_STATUS_REG,     "<b")
+    _status_reg = ROUnaryStruct(    _LSM6DS_STATUS_REG,     "<b") # [0, 0, 0, 0, 0, TempDA, GyrDA, XLDA]
 
-    _int1_ctrl      = RWBits(7,     _LSM6DS_INT1_CTRL,      0   ) # "The pad's output will supply the OR combination of all enabled signals"
-    _ctrl1_xl       = RWBits(7,     _LSM6DS_CTRL1_XL,       0   )
-    # _ctrl4_c        = RWBits(7,     _LSM6DS_CTRL4_C,        0   )
-    # _ctrl6_c        = RWBits(7,     _LSM6DS_CTRL6_C,        0   )
-    _ctrl10_c       = RWBits(7,     _LSM6DS_CTRL10_C,       0   )
-    _master_cfg     = RWBits(7,     _LSM6DS_MASTER_CFG,     0   )
-    
-    _tap_cfg        = RWBits(7,     _LSM6DS_TAP_CFG,        0   )
+    _int1_ctrl      = RWBits(7,     _LSM6DS_INT1_CTRL,      0   ) # [step, sig_mot, fifo_full, fifo_ovr, fifo_ths, boot, drdy_g, drdy_xl]
+    _ctrl1_xl       = RWBits(7,     _LSM6DS_CTRL1_XL,       0   ) # [odr_xl(3:0), fs_xl(1:0), lpf_bw_sel, bw0_xl]
+    _ctrl4_c        = RWBits(7,     _LSM6DS_CTRL4_C,        0   ) # [den_xl_en, sleep, den_drdy_int1, int2_on_int1, drdy_mask, i2c_disable, lpf1_sel_g]
+    _ctrl10_c       = RWBits(7,     _LSM6DS_CTRL10_C,       0   ) # [wrist_tilt_en, timer_en, pedo_en, tilt_en, func_en, pedo_rst_step, sign_motion_en]
+    _master_cfg     = RWBits(7,     _LSM6DS_MASTER_CFG,     0   ) # [drdy_on_int1, data_valid_sel_fifo, 0, start_config, pull_up_en, pass_through_mode, iron_en, master_on]
+    _tap_cfg        = RWBits(7,     _LSM6DS_TAP_CFG,        0   ) # [int_ena, inact_en1, inact_en(1:0), slope_fds, tapx, tapy, tapz, lir]
     _tap_ths_6d     = RWBits(7,     _LSM6DS_TAP_THS_6D,     0   ) # [4D orientation (no z axis), sixd_ths(1:0), tap_ths(4:0)]
-    _int_dur2       = RWBits(7,     _LSM6DS_INT_DUR2,       0   )
-    _wake_up_ths    = RWBits(7,     _LSM6DS_WAKE_UP_THS,    0   )
-    _wake_up_dur    = RWBits(7,     _LSM6DS_WAKE_UP_DUR,    0   )
+    _int_dur2       = RWBits(7,     _LSM6DS_INT_DUR2,       0   ) # [dur(3:0), quiet(1:0), shock(1:0)]
+    _wake_up_ths    = RWBits(7,     _LSM6DS_WAKE_UP_THS,    0   ) # [single_double_tap, 0, wake_ths(5:0)]
+    _wake_up_dur    = RWBits(7,     _LSM6DS_WAKE_UP_DUR,    0   ) # [ff_dur5, wake_dur[1:0], timer_hr, sleep_dur[3:0]]
+    _md1_cfg        = RWBits(7,     _LSM6DS_MD1_CFG,        0   ) # [int1_inact_state, int1_single_tap, int1_wu, int1_ff, int1_double_tap, int1_6d, int1_tilt, int1_timer]
     _sm_ths         = RWBits(7,     _LSM6DS_SM_THS,         0   ) # Significant Motn threshold [7:0] (Default 0x06)
-    _md1_cfg        = RWBits(7,     _LSM6DS_MD1_CFG,        0   )
 
     def __init__(self, address: int = LSM6DS_DEFAULT_ADDRESS) -> None:
         
@@ -100,6 +98,8 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         # Build fields
         self.acc        = np.array([0.0, 0.0, 0.0]) # accelerometer fields
         self.gyro_vals  = np.array([0.0, 0.0, 0.0]) # gyro fields
+
+        # Calibration params
         self.gyro_trim  = config["calibration"]["drift"] # Gyroscope trim values set by calibrate
         self.not_calibrated = True
         self.autoCalibLen = config["calibration"]["auto_samples"]
@@ -127,6 +127,21 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             self.tasks.update({'stream' : asyncio.create_task( self.stream() )})
         self.tasks.update({"interrupt" : asyncio.create_task( self.interrupt() ) })
 
+    
+    @property
+    def status(self) -> int:
+        """get status"""
+        return self._status_reg
+
+    @property
+    def gyro_ready(self) -> bool:
+        return (self._status_reg & 2 > 0)
+
+    @property
+    def accel_ready(self) -> bool:
+        return (self._status_reg & 1 > 0)
+
+
     def data_ready_on_int1_setup(self):
         self.int1_ctrl = 0x02
     
@@ -150,22 +165,10 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self._tap_cfg       = 0x8E # int_ena, inact_ena1, inact ena0, slope_fds, tap_x, tap_y, tap_z, latched interrupt
         self._tap_ths_6d    = 0x8B # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
         self._int_dur2      = 0x13 # Dur[3:0], Quiet[1:0], Shock[1:0]
-        # self._wake_up_ths   = 0x80 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
-        # self._ctrl10_c     = 0x05 # WristTiltEn, 0, TimerEn, PedoEn, TiltEn, FuncEn, PedoRST_Step, Sign_Motn_En
-        # SELECT A TAP WITH SINGLE OR DOUBLE
 
     def single_tap_cfg(self):
         self.tap_ena()
         self._md1_cfg   = 0x40
-
-    # NOTE: TO ENABLE DBL TAP, MUST CONFIGURE WAKE_THS
-    # def double_tap_cfg(self):
-    #     self.tap_ena()
-    #     self._md1_cfg     = 0x08 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
-    
-    # def sgl_dbl_tap_cfg(self):
-    #     self.tap_ena()
-    #     self._md1_cfg = 0x48
 
     @property
     def pwr(self):
@@ -446,51 +449,13 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         for i in range(3):
             temp_g, temp_a = self.gyro, self.acceleration
 
-    @property
-    def status(self) -> int:
-        """get status"""
-        return self._status_reg
-
-    @property
-    def gyro_ready(self) -> bool:
-        return (self._status_reg & 2 > 0)
-
-    @property
-    def accel_ready(self) -> bool:
-        return (self._status_reg & 1 > 0)
-
-    @property
-    def int1_ctrl(self) -> int:
-        return (self._int1_ctrl)
-
-    @int1_ctrl.setter
-    def int1_ctrl(self, value: int) -> None:
-        self._int1_ctrl = value
-
-    @property
-    def int1_ctrl(self) -> int:
-        return (self._int1_ctrl)
-
-    @int1_ctrl.setter
-    def int1_ctrl(self, value: int) -> None:
-        self._int1_ctrl = value
-    
-    @property
-    def master_cfg(self) -> int:
-        return (self._master_cfg)
-    
-    @master_cfg.setter
-    def master_cfg(self, value: int) -> None:
-        self._master_cfg = value
-
+    """ Imu properties """
     @property
     def gx(self):
         return self.gyro_vals[0]
-    
     @property
     def gy(self):
-        return self.gyro_vals[1]
-                              
+        return self.gyro_vals[1]                         
     @property
     def gz(self):
         return self.gyro_vals[2]
@@ -498,12 +463,120 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     @property
     def ax(self):
         return self.acc[0]
-    
     @property
     def ay(self):
-        return self.acc[1]
-                              
+        return self.acc[1]                         
     @property
     def az(self):
         return self.acc[2]
+    
+    """ Register Properties """
+    # _int1_ctrl  
+    @property
+    def int1_ctrl(self) -> int:
+        return (self._int1_ctrl)
+
+    @int1_ctrl.setter
+    def int1_ctrl(self, value: int) -> None:
+        self._int1_ctrl = value
+
+    # _ctrl1_xl
+    @property
+    def int1_ctrl(self) -> int:
+        return (self._int1_ctrl)
+
+    @int1_ctrl.setter
+    def int1_ctrl(self, value: int) -> None:
+        self._int1_ctrl = value
+    
+    # _ctrl4_c  
+    @property
+    def ctrl4_c(self) -> int:
+        return (self._ctrl4_c)
+
+    @ctrl4_c.setter
+    def ctrl4_c(self, value: int) -> None:
+        self._ctrl4_c = value
+
+    # _ctrl10_c
+    @property
+    def ctrl10_c(self) -> int:
+        return (self._ctrl10_c)
+
+    @ctrl10_c.setter
+    def ctrl10_c(self, value: int) -> None:
+        self._ctrl10_c = value
+    
+    # _master_cfg
+    @property
+    def master_cfg(self) -> int:
+        return (self._master_cfg)
+
+    @master_cfg.setter
+    def master_cfg(self, value: int) -> None:
+        self._master_cfg = value
+
+    # _tap_cfg    
+    @property
+    def tap_cfg(self) -> int:
+        return (self._tap_cfg)
+
+    @tap_cfg.setter
+    def _tap_cfg(self, value: int) -> None:
+        self._tap_cfg = value
+    
+    # _tap_ths_6d 
+    @property
+    def tap_ths_6d(self) -> int:
+        return (self._tap_ths_6d)
+
+    @tap_ths_6d.setter
+    def int1_ctrl(self, value: int) -> None:
+        self._tap_ths_6d = value
+    
+    # _int_dur2   
+    @property
+    def int_dur2(self) -> int:
+        return (self._int_dur2)
+
+    @int_dur2.setter
+    def _int_dur2(self, value: int) -> None:
+        self.int_dur2 = value
+    
+    # _wake_up_ths
+    @property
+    def wake_up_ths(self) -> int:
+        return (self._wake_up_ths)
+
+    @wake_up_ths.setter
+    def wake_up_ths(self, value: int) -> None:
+        self._wake_up_ths = value
+
+    # _wake_up_dur
+    @property
+    def wake_up_dur(self) -> int:
+        return (self._wake_up_dur)
+
+    @wake_up_dur.setter
+    def wake_up_dur(self, value: int) -> None:
+        self._wake_up_dur = value
+
+    # _md1_cfg  
+    @property
+    def md1_cfg(self) -> int:
+        return (self._md1_cfg)
+
+    @md1_cfg.setter
+    def _md1_cfg(self, value: int) -> None:
+        self._md1_cfg = value  
+
+    # _sm_ths     
+    @property
+    def sm_ths(self) -> int:
+        return (self._sm_ths)
+
+    @sm_ths.setter
+    def _sm_ths(self, value: int) -> None:
+        self._sm_ths = value    
+
     

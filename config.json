@@ -231,7 +231,7 @@
 
     "clicker" : {
         "label" : "Clicker",
-        "description" : "Operation Loop: Tap/Double Tap",
+        "description" : "Settings for clicker sensitivity and spacing",
         "access" : "rw",
         "value" : {
             "max_click_spacing" : {
@@ -244,6 +244,34 @@
                     "min" : 0.1,
                     "max" : 1.0
                 }
+            },
+            "tap_ths" : {
+                "label" : "Tap Threshold",
+                "description" : "Level of impact needed to trigger a click",
+                "note" : "5 bits, takes on values 0-31. Lower -> MORE SENSITIVE",
+                "access" : "rw",
+                "value" : 11,
+                "options" : [   0,  1,  2,  3,  4,  5,  6,  7,
+                                8,  9,  10, 11, 12, 13, 14, 15,
+                                16, 17, 18, 19, 20, 21, 22, 23,
+                                24, 25, 26, 27, 28, 29, 30, 31 
+                            ]
+            },
+            "quiet" : {
+                "label" : "Quiet",
+                "description" : "Amount of quiet required after a click",
+                "note" : "2-bit, 0-3",
+                "access" : "rw",
+                "value" : 1,
+                "options" : [0, 1, 2, 3]
+            },
+            "shock" : {
+                "label" : "Shock",
+                "description" : "Max duration of over threshold event",
+                "note" : "2-bit, 0-3",
+                "access" : "rw",
+                "value" : 3,
+                "options" : [0, 1, 2, 3]
             }
         }
     },
