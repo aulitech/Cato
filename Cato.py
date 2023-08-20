@@ -193,7 +193,6 @@ class Cato:
             self.tasks['interrupt'] = asyncio.create_task(self.imu.interrupt())
             self.imu.data_ready.clear()
             self.imu.imu_ready.set()
-            self.imu.tap_detect.clear()
             
             await asyncio.sleep(0.1)
 

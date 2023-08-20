@@ -114,6 +114,11 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             [0.0, 0.0, 1.0]
         ])
 
+        # load tap config settings
+        self.tap_ths_6d &= config['clicker']['tap_ths']
+        self.int_dur2   &= config['clicker']['quiet'] << 2
+        self.int_dur2   &= config['clicker']['shock'] 
+
         # Configure IMU for accel and gyro stream
         self.data_ready_on_int1_setup()
         
@@ -522,7 +527,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         return (self._tap_cfg)
 
     @tap_cfg.setter
-    def _tap_cfg(self, value: int) -> None:
+    def tap_cfg(self, value: int) -> None:
         self._tap_cfg = value
     
     # _tap_ths_6d 
@@ -531,7 +536,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         return (self._tap_ths_6d)
 
     @tap_ths_6d.setter
-    def int1_ctrl(self, value: int) -> None:
+    def tap_ths_6d(self, value: int) -> None:
         self._tap_ths_6d = value
     
     # _int_dur2   
@@ -540,8 +545,8 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         return (self._int_dur2)
 
     @int_dur2.setter
-    def _int_dur2(self, value: int) -> None:
-        self.int_dur2 = value
+    def int_dur2(self, value: int) -> None:
+        self._int_dur2 = value
     
     # _wake_up_ths
     @property
@@ -567,7 +572,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         return (self._md1_cfg)
 
     @md1_cfg.setter
-    def _md1_cfg(self, value: int) -> None:
+    def md1_cfg(self, value: int) -> None:
         self._md1_cfg = value  
 
     # _sm_ths     
@@ -576,7 +581,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         return (self._sm_ths)
 
     @sm_ths.setter
-    def _sm_ths(self, value: int) -> None:
+    def sm_ths(self, value: int) -> None:
         self._sm_ths = value    
 
     
