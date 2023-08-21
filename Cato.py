@@ -319,7 +319,7 @@ class Cato:
         DBS.println("\tMotion recieved")
         Events.sig_motion.set()
         self.n.set_inputs(
-            array.array('f', [Cato.imu.ax, Cato.imu.ay, Cato.imu.az, 
+            array.array('f', [Cato.imu.ax, Cato.imu.ay, Cato.imu.az,
                               Cato.imu.gx, Cato.imu.gy, Cato.imu.gz]))
 
         # feed neuton until idled for 'idleLen' loops
@@ -350,8 +350,6 @@ class Cato:
 
         infer = self.n.inference()+1
         # DBS.println(neuton_outputs)
-        if(max(neuton_outputs) < confThresh):
-            infer = 0
         
         gesture_result_str = f"Result: {config['gesture']['key'][infer]} \n"
         for idx, gesture in enumerate(config['gesture']['key'][1:]):
@@ -363,6 +361,8 @@ class Cato:
         Events.gesturing.clear()
         await shakeCursor
         gc.collect()
+        if(max(neuton_outputs) < confThresh):
+            return ["noop"]     # always perform no operation on failed gesture read
         # DBS.println("-gesture_interpreter mem: ",gc.mem_free())
         return self.bindings[infer][self.state]
     
@@ -459,6 +459,24 @@ class Cato:
 
     async def quick_sleep(self, hall_pass: asyncio.Event = None):
         Events.sleep.set()
+        hall_pass.set()
+
+    async def set_state(self, increment, value, hall_pass: asyncio.Event = None):
+        self.all_release()
+        if(increment):
+            self.state += value
+        else:
+            self.state = value
+        numStates = len(self.bindings[0])
+        self.state = self.state % numStates
+        hall_pass.set()
+    
+    async def set_dwell(self, bind, hall_pass: asyncio.Event = None):
+        if(self.bindings[0][self.state] == bind):
+            self.bindings[0][self.state] = ["noop"]
+        else:
+            self.bindings[0][self.state] = bind
+        
         hall_pass.set()
 
 
@@ -743,6 +761,7 @@ class Cato:
         ''' docstring stub '''
         try:
             self.blue.mouse.release_all()
+            self.blue.k.release_all()
         except ConnectionError as ce:
             DBS.println("ConnectionError: connection lost in all_release()")
             DBS.println(str(ce))

@@ -11,14 +11,14 @@
         "label" : "Hardware Unique Identity",
         "description" : "Unique hex code for identifying different devices",
         "access" : "r",
-        "value" : ""
+        "value" : "hw_uid"
     },
 
     "operation_mode" : {
         "label" : "Mode",
         "description" : "a user-settable integer defining the operation mode of Cato",
         "access"  : "rw",
-        "value" : "pointer",
+        "value" : "gesture_mouse",
         "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker", "practice"]
     },
 
@@ -456,13 +456,13 @@
                 "description" : "Operation loop: Mouse movement -> Idle -> Gesture -> Action",
                 "access" : "rw",
                 "value" : [
-                    [   ["noop"]                            ],
-                    [   ["button_action",0,"double_tap",1]  ],
-                    [   ["button_action",0,"tap",1]         ],
-                    [   ["button_action",0,"tap",2]         ],
-                    [   ["button_action",0,"toggle",1]      ],
-                    [   ["_scroll"]                         ],
-                    [   ["quick_sleep"]                     ],
+                    [   ["noop"],                           ["noop"]                            ],
+                    [   ["button_action",0,"double_tap",1], ["button_action",0,"double_tap",1]  ],
+                    [   ["button_action",0,"tap",1],        ["button_action",0,"tap",1]         ],
+                    [   ["button_action",0,"tap",2],        ["button_action",0,"tap",2]         ],
+                    [   ["button_action",0,"toggle",1],     ["button_action",0,"toggle",1]      ],
+                    [   ["set_state",1,1],                  ["set_dwell", ["button_action",0,"tap",1]]],
+                    [   ["quick_sleep"],                    ["quick_sleep"]                     ],
                     [   ["button_action",0,"double_tap",1]  ],
                     [   ["noop"]                            ],
                     [   ["quick_sleep"]                     ],
