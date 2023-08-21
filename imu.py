@@ -39,8 +39,8 @@ import re
 _LSM6DS_INT1_CTRL   = const(0x0D)
 
 _LSM6DS_CTRL1_XL    = const(0x10)
-# _LSM6DS_CTRL4_C     = const(0x02) # failed attempt to use low pass filter
-# _LSM6DS_CTRL6_C     = const(0x03)
+_LSM6DS_CTRL4_C     = const(0x13)
+_LSM6DS_CTRL6_C     = const(0x15)
 _LSM6DS_CTRL10_C    = const(0x19)
 _LSM6DS_MASTER_CFG  = const(0x1A)
 
@@ -66,8 +66,8 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
 
     _int1_ctrl      = RWBits(7,     _LSM6DS_INT1_CTRL,      0   ) # "The pad's output will supply the OR combination of all enabled signals"
     _ctrl1_xl       = RWBits(7,     _LSM6DS_CTRL1_XL,       0   )
-    # _ctrl4_c        = RWBits(7,     _LSM6DS_CTRL4_C,        0   )
-    # _ctrl6_c        = RWBits(7,     _LSM6DS_CTRL6_C,        0   )
+    _ctrl4_c        = RWBits(7,     _LSM6DS_CTRL4_C,        0   )
+    _ctrl6_c        = RWBits(7,     _LSM6DS_CTRL6_C,        0   )
     _ctrl10_c       = RWBits(7,     _LSM6DS_CTRL10_C,       0   )
     _master_cfg     = RWBits(7,     _LSM6DS_MASTER_CFG,     0   )
     
@@ -90,6 +90,8 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         # Open i2c communication
         self.i2c = busio.I2C(board.IMU_SCL, board.IMU_SDA)
         super().__init__(self.i2c, address)
+        self.ctrl4_c = 0x02
+        self.ctrl6_c = 0x03
 
         # Establish flags
         self.imu_enable = asyncio.Event()   # enable:       Whether imu should allow reads

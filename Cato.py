@@ -973,7 +973,7 @@ class Cato:
         await asyncio.sleep(2)
         while(True):
             print()
-            DBS.println('\t', 10*int(Cato.imu.gx/10), '\t', 10*int(Cato.imu.gy/10), '\t', 10*int(Cato.imu.gz/10))
+            DBS.println('\t', int(Cato.imu.gx*10), '\t', int(Cato.imu.gy*10), '\t', int(Cato.imu.gz*10))
             await asyncio.sleep(0.2)
     async def trigger_clearer(self, trigger : asyncio.Event):
         print("+ trigger_clearer")
