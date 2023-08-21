@@ -339,19 +339,18 @@
         "description" : "parameters describing usage orientation for Cato",
         "access" : "rw", 
         "value" : {
-            
             "front" : {
                 "label" : "front",
                 "description" : "",
                 "access" : "rw",
-                "value" : "+x",
+                "value" : "-x",
                 "options" : ["+x", "-x", "+y", "-y", "+z", "-z"]
             },
             "bottom" : {
                 "label" : "bottom",
                 "description" : "",
                 "access" : "rw",
-                "value" : "+y",
+                "value" : "-y",
                 "options" : ["+x", "-x", "+y", "-y", "+z", "-z"]
             },
             "left" : {
@@ -393,6 +392,7 @@
             }
         }
     },
+    
     "battery" : {
         "label" : "Battery",
         "description" : "DEV TOOL: analog pin values of high and low battery charge [low, high]",

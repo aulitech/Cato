@@ -167,10 +167,14 @@ class Cato:
             # ensure that LED is OFF
             while( self.led.value == False ):
                 await asyncio.sleep(0.001)
-
+            
+            import time
+            sleep_time = time.time()
             print("LIGHT SLEEP")
             alarm.light_sleep_until_alarms(pin_alarm)
             print("WOKE UP")
+            if(time.time() - sleep_time > 600):
+                mc.reset()
 
             del(pin_alarm) # release imu_int1
             print("Del pin")
@@ -471,7 +475,7 @@ class Cato:
         screen_mag = get_mag(tuple(config['screen_size'].values()))
         print(config['screen_size'].values())
         screen_scale = screen_mag / get_mag((1920,1080)) # default scale to 1920 * 1080 - use diagonal number of pixels as scalar
-        usr_scale = (config['mouse']['scale_x'],config['mouse']['scale_y']) #user multipliers
+        usr_scale = (config['mouse']['scale_x'], config['mouse']['scale_y']) #user multipliers
 
         scrn_scale = 1.0
         
@@ -492,7 +496,18 @@ class Cato:
         dy = 0
         batcher = (0,0)
 
-        # mem("post_cfg") # At this point, between pre and post, we lost only 100bytes
+        screen_x = config['orientation']['screen_x']
+        screen_y = config['orientation']['screen_y']
+
+        x_inv = 1 if '+' == screen_x[0] else -1
+        y_inv = 1 if '+' == screen_y[0] else -1
+
+        x_cmd = 'lambda: ' + f"({x_inv}) * self.imu.g{ screen_x[1] }"
+        y_cmd = 'lambda: ' + f"({y_inv}) * self.imu.g{ screen_y[1] }"
+
+        x_as_lambda = eval(x_cmd, {"self":self})
+        y_as_lambda = eval(y_cmd, {"self":self})
+
         while True:
             # print(".")
             if not Events.move_mouse.is_set():
@@ -509,8 +524,8 @@ class Cato:
             cycle_count += 1    # count cycles
 
             # isolate x and y axes so they can be changed later with different orientations
-            x_mvmt = self.imu.gy
-            y_mvmt = self.imu.gz
+            x_mvmt = x_as_lambda()
+            y_mvmt = y_as_lambda()
 
             # calculate magnitude and angle for linear scaling
             mag = sqrt(x_mvmt**2 + y_mvmt**2)
