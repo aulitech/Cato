@@ -984,34 +984,47 @@ class Cato:
 
     async def test_loop(self):
         DBS.println("+ test_loop")
-        # trigger = asyncio.Event()
-        # trigger.set()
-        # asyncio.create_task(self.trigger_watcher(trigger))
-        # asyncio.create_task(self.trigger_clearer(trigger))
         await asyncio.sleep(2)
         while(True):
             print()
             DBS.println('\t', int(Cato.imu.gx*10), '\t', int(Cato.imu.gy*10), '\t', int(Cato.imu.gz*10))
             await asyncio.sleep(0.2)
-    async def trigger_clearer(self, trigger : asyncio.Event):
-        print("+ trigger_clearer")
-        while(True):
-            await trigger.wait()
-            trigger.clear()
-            print("Trigger Cleared")
-    async def trigger_watcher(self, trigger : asyncio.Event):
-        print("+ trigger_watcher")
-        while(True):
-            await trigger.wait()
-            print("Trigger Found")
-            await asyncio.sleep(0.1)
     
     
     async def gesture_loop(self):
         DBS.println("+ gesture_loop")
+        gestKey = config["gesture"]["key"]
         while True:
-            action = await self.gesture_interpreter(timeout = 0)
-            #DBS.println(action)
+            await self.gesture_interpreter(timeout = 0)
+            gestName = "None"
+            if(max(neuton_outputs) >= config["confidence_threshold"]):
+                gestName = gestKey[self.n.inference()+1]
+            DBS.println("typing:\t"+gestName)
+            await self.blue_type(gestName+'\n')
             DBS.println()
             # await asyncio.sleep(1)
+    
+    async def blue_type(self, str):
+        ##maybe a more robust version of this exists somewhere; worth looking into?
+        for c in str:
+            if(ord(c) >= 97):
+                c = ord(c) - 93
+            elif(ord(c) >= 65):
+                self.blue.k.press(225)  #LShift
+                await asyncio.sleep(0.01)
+                c = ord(c) - 61
+            elif(c == ' '):
+                c = 44
+            elif(c == '\t'):
+                c = 43
+            elif(c == '\n'):
+                c = 40  #Enter
+            elif(c == '0'):
+                c = 39
+            else:
+                c = int(c) + 29
+            self.blue.k.press(c)
+            await asyncio.sleep(0.05)
+            self.blue.k.release_all()
+        await asyncio.sleep(0.05)
     
