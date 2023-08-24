@@ -198,6 +198,16 @@ class Cato:
 
 
             #await asyncio.sleep(1) # TAKE IMU READINGS BEFORE TRYING TO GO BACK TO SLEEP?
+    
+    async def pointer_sleep(self, hall_pass: asyncio.Event = None):
+        DBS.println("+ pointer_sleep")
+        target = []
+        while(target != ["pointer_sleep"]):
+            target = await self.gesture_interpreter(timeout = 0)
+            DBS.println(target)
+        
+        hall_pass.set()
+        return
 
     async def monitor_battery(self):
         while True:
@@ -252,7 +262,7 @@ class Cato:
             await Events.mouse_event.wait()
             Events.mouse_event.clear()
             await Events.gesture_not_collecting.wait()
-            target = await self.gesture_interpreter()
+            target = await self.gesture_interpreter(indicator = self.shake_cursor)
             await self.block_on_eval(target)
             print(f"\t \"{target}\" finished at mouse_event")
             
@@ -272,7 +282,7 @@ class Cato:
             if(await_actions):
                 await action
 
-    async def gesture_interpreter(self, timeout = config["gesture"]["timeout"]):
+    async def gesture_interpreter(self, indicator = None, timeout = config["gesture"]["timeout"]):
         gc.collect()
         # DBS.println("+gesture_interpreter mem: ",gc.mem_free())
         # load interpreter specific parameters
@@ -293,12 +303,10 @@ class Cato:
 
         await Cato.imu.wait()
         mag = gyro_mag()
-        # if(mag**2 > gestThresh):
-        #     DBS.println("Premature Motion")
-        #     return ["noop"]
         
         Events.gesturing.set()
-        shakeCursor = asyncio.create_task(self.shake_cursor())
+        if(indicator != None):
+            indicator = asyncio.create_task(indicator())
         
         DBS.println("Perform Gesture Now")
         DBS.println("\tWatching for significant motion...")
@@ -311,6 +319,9 @@ class Cato:
         if(not Events.sig_motion.is_set()):
             Events.gesturing.clear()
             DBS.println("\tTimeout")
+            Events.battery.set()
+            Events.battery.clear()
+            Events.gesturing.clear()
             return self.bindings[EV_NONE][self.state] 
         Events.battery.clear()
         Events.sig_motion.clear()
@@ -359,7 +370,8 @@ class Cato:
         Events.battery.set()
         Events.battery.clear()
         Events.gesturing.clear()
-        await shakeCursor
+        if(indicator != None):
+            await indicator
         gc.collect()
         if(max(neuton_outputs) < confThresh):
             return ["noop"]     # always perform no operation on failed gesture read
