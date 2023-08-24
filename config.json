@@ -18,7 +18,7 @@
         "label" : "Mode",
         "description" : "a user-settable integer defining the operation mode of Cato",
         "access"  : "rw",
-        "value" : "gesture_mouse",
+        "value" : "practice",
         "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker", "practice"]
     },
 

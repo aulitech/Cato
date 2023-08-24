@@ -202,7 +202,7 @@ class Cato:
     async def pointer_sleep(self, hall_pass: asyncio.Event = None):
         DBS.println("+ pointer_sleep")
         target = []
-        while(target != ["pointer_sleep"]):
+        while(target != ["pointer_sleep"])and(not Events.sleep.is_set()):
             target = await self.gesture_interpreter(timeout = 0)
             DBS.println(target)
         
@@ -252,7 +252,7 @@ class Cato:
             await target function having uncertain runtime which also needs to use async imu functionality  \n
             coro: Coroutine or other awaitable
         '''
-        await coro( *args, hall_pass=self.hall_pass)
+        task = asyncio.create_task(coro( *args, hall_pass=self.hall_pass))
         await self.hall_pass.wait()
         self.hall_pass.clear()
     
@@ -467,11 +467,13 @@ class Cato:
         await asyncio.sleep(0.5)
         await asyncio.create_task(Cato.imu.calibrate(100))
         await asyncio.create_task(self.shake_cursor())
-        hall_pass.set()
+        if hall_pass is not None:
+            hall_pass.set()
 
     async def quick_sleep(self, hall_pass: asyncio.Event = None):
         Events.sleep.set()
-        hall_pass.set()
+        if hall_pass is not None:
+            hall_pass.set()
 
     async def set_state(self, increment, value, hall_pass: asyncio.Event = None):
         self.all_release()
@@ -481,7 +483,8 @@ class Cato:
             self.state = value
         numStates = len(self.bindings[0])
         self.state = self.state % numStates
-        hall_pass.set()
+        if hall_pass is not None:
+            hall_pass.set()
     
     async def set_dwell(self, bind, hall_pass: asyncio.Event = None):
         if(self.bindings[0][self.state] == bind):
@@ -489,7 +492,16 @@ class Cato:
         else:
             self.bindings[0][self.state] = bind
         
-        hall_pass.set()
+        if hall_pass is not None:
+            hall_pass.set()
+
+    async def dwell_click(self, hall_pass: asyncio.Event = None):
+        # this method is gonna be gross
+
+
+        if hall_pass is not None:
+            hall_pass.set()
+        return
 
 
     async def move_mouse(self, max_idle_cycles=80, mouse_type = "ACCEL", forever: bool = False):
@@ -1007,11 +1019,18 @@ class Cato:
         DBS.println("+ gesture_loop")
         gestKey = config["gesture"]["key"]
         while True:
-            await self.gesture_interpreter(timeout = 0)
+            await self.gesture_interpreter(indicator = self.shake_cursor, timeout = 0)
+            
             gestName = "None"
             if(max(neuton_outputs) >= config["confidence_threshold"]):
                 gestName = gestKey[self.n.inference()+1]
-            DBS.println("typing:\t"+gestName)
+
+            gestName += "\n"
+            for idx, gesture in enumerate(config['gesture']['key'][1:]):
+                if(neuton_outputs[idx] >= 0.05):
+                    gestName += f"\t{gesture:12}{int(neuton_outputs[idx]*100):>5n}\n"
+            
+            DBS.println("typing:\n"+gestName)
             await self.blue_type(gestName+'\n')
             DBS.println()
             # await asyncio.sleep(1)
@@ -1036,7 +1055,7 @@ class Cato:
             else:
                 c = int(c) + 29
             self.blue.k.press(c)
-            await asyncio.sleep(0.05)
+            #await asyncio.sleep(0.005)
             self.blue.k.release_all()
-        await asyncio.sleep(0.05)
+        #await asyncio.sleep(0.05)
     
