@@ -236,7 +236,7 @@
         "value" : {
             "max_click_spacing" : {
                 "label" : "Max Click Spacing",
-                "description" : "delay after decting a tap to wait for the next",
+                "description" : "delay after detecting a tap to wait for the next",
                 "note" : "TODO: add setting preferences for tap intensity, shock, quiet",
                 "access" : "rw",
                 "value" : 0.45,
