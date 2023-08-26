@@ -461,7 +461,7 @@
                     [   ["button_action",0,"tap",1]         ],
                     [   ["button_action",0,"tap",2]         ],
                     [   ["button_action",0,"toggle",1]      ],
-                    [   ["dwell_click"]                   ],
+                    [   ["dwell_click", 0, 80]              ],
                     [   ["quick_sleep"]                     ],
                     [   ["button_action",0,"double_tap",1]  ],
                     [   ["noop"]                            ],

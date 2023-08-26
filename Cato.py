@@ -495,17 +495,23 @@ class Cato:
         if hall_pass is not None:
             hall_pass.set()
 
-    async def dwell_click(self, hall_pass: asyncio.Event = None):
+    async def dwell_click(self, buttons, tiltThresh, hall_pass: asyncio.Event = None):
         # this method is gonna be gross
         async def tilt_check():
             await Cato.imu.wait()
-            while(not (abs(Cato.imu.gx) > max(sqrt(Cato.imu.gy**2+Cato.imu.gz**2), 50))):
+            while(not (abs(Cato.imu.gx) > max(sqrt(Cato.imu.gy**2+Cato.imu.gz**2), tiltThresh))):
                 await Cato.imu.wait()
             DBS.println("Tilted!!")
             return
 
         tcTask = asyncio.create_task(tilt_check())
+        Events.move_mouse.set()
+        await Events.mouse_done.wait()
+        Events.mouse_done.clear()
         while(not tcTask.done()):
+            if(buttons):
+                DBS.println("Clicked: ",buttons)
+                self.blue.mouse.click(buttons)
             Events.move_mouse.set()
             await Events.mouse_done.wait()
             Events.mouse_done.clear()
