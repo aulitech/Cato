@@ -70,6 +70,7 @@ async def main():
 
     tasks.update(c.tasks)
     await asyncio.sleep(0.3)
+    Cato.imu.reorient()
     Cato.imu.imu_enable.set()
     Events.control_loop.set()
     try:
