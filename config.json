@@ -18,7 +18,7 @@
         "label" : "Mode",
         "description" : "a user-settable integer defining the operation mode of Cato",
         "access"  : "rw",
-        "value" : "pointer",
+        "value" : "practice",
         "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker", "practice"]
     },
 
@@ -292,7 +292,9 @@
                     "Nod Right",
                     "Nod Left",
                     "Tilt Right",
-                    "Tilt Left"
+                    "Tilt Left",
+                    "Shake Yes",
+                    "Shake No"
                 ]
             },
             "length" : {
