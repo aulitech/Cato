@@ -49,7 +49,7 @@ async def main():
             mc.nvm[0] = False
             mc.reset()
     
-    
+    '''
     ##once remount process is confirmed to work consistently, only try/except is necessary
     if(mc.nvm[1]):
         try:
@@ -60,6 +60,7 @@ async def main():
             DBS.println("COM port detected")
     else:
         DBS.println("No remount necessary")
+    '''
 
     c = Cato( bt = True, do_calib = True)
     Cato.imu.imu_enable.set()

@@ -119,7 +119,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
 
         # load tap config settings
         self.tap_ths_6d = 0x1F & config['clicker']['tap_ths']
-        self.int_dur2   = ( (0x1F) & (self.config['clicker']['quiet'] << 2) ) | self.config['clicker']['shock']
+        self.int_dur2   = ( (0x1F) & (config['clicker']['quiet'] << 2) ) | config['clicker']['shock']
 
         # Configure IMU for accel and gyro stream
         self.data_ready_on_int1_setup()
@@ -170,8 +170,8 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self.int1_ctrl      = 0x00 # step_detector, int1_Sign_motn, int1FullFlag, int1FIFO_OVR, int1_Fth, int1_Boot, int1DrdyG, int1DrdyXL
         self._ctrl1_xl      = 0x60 # accelerometer ODR (output data rate) control
         self._tap_cfg       = 0x8E # int_ena, inact_ena1, inact ena0, slope_fds, tap_x, tap_y, tap_z, latched interrupt
-        self._tap_ths_6d    = 0x1F & self.config['clicker']['tap_ths'] # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
-        self._int_dur2      = ( (0x1F) & (self.config['clicker']['quiet'] << 2) ) | self.config['clicker']['shock'] # Dur[3:0], Quiet[1:0], Shock[1:0]
+        self._tap_ths_6d    = 0x1F & config['clicker']['tap_ths'] # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
+        self._int_dur2      = ( (0x1F) & (config['clicker']['quiet'] << 2) ) | config['clicker']['shock'] # Dur[3:0], Quiet[1:0], Shock[1:0]
 
     def single_tap_cfg(self):
         self.tap_ena()
