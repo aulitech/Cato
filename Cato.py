@@ -497,7 +497,18 @@ class Cato:
 
     async def dwell_click(self, hall_pass: asyncio.Event = None):
         # this method is gonna be gross
+        async def tilt_check():
+            await Cato.imu.wait()
+            while(not (abs(Cato.imu.gx) > max(sqrt(Cato.imu.gy**2+Cato.imu.gz**2), 50))):
+                await Cato.imu.wait()
+            DBS.println("Tilted!!")
+            return
 
+        tcTask = asyncio.create_task(tilt_check())
+        while(not tcTask.done()):
+            Events.move_mouse.set()
+            await Events.mouse_done.wait()
+            Events.mouse_done.clear()
 
         if hall_pass is not None:
             hall_pass.set()
@@ -1050,6 +1061,8 @@ class Cato:
                 c = 43
             elif(c == '\n'):
                 c = 40  #Enter
+            elif(c == '.'):
+                c = 55
             elif(c == '0'):
                 c = 39
             else:
