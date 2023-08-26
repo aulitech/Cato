@@ -487,6 +487,7 @@ class Cato:
             hall_pass.set()
     
     async def set_dwell(self, bind, hall_pass: asyncio.Event = None):
+        # this action is mostly not useful
         if(self.bindings[0][self.state] == bind):
             self.bindings[0][self.state] = ["noop"]
         else:
