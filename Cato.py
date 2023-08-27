@@ -508,6 +508,7 @@ class Cato:
 
         async def dwell_clicker(buttons: int):
             await Events.mouse_dwell.wait()
+            Events.mouse_dwell.clear()
             while(True):
                 DBS.println("Clicked: ",buttons)
                 self.blue.mouse.click(buttons)
