@@ -1,8 +1,8 @@
 from adafruit_ble.services import Service
 
-import microcontroller as mc
-import json
-import asyncio
+# import microcontroller as mc
+# import json
+# import asyncio
 
 from utils import config
 
@@ -33,6 +33,7 @@ class StrUUIDService(Service):
         super().__init__(service = None)
         self.connectable = True
     
+    '''
     async def config_loop(self):
         DebugStream.println("+ characteristic_loop")
 
@@ -219,7 +220,7 @@ class StrUUIDService(Service):
         self.configUUID = str(max(minMags))
         self.configUUID = str(min(maxMags))
         self.configUUID = "IDLE DELTAS COMPUTED"
-
+    '''
 
 
 class DebugStream:

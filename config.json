@@ -4,14 +4,14 @@
         "description" : "a user-settable string for assigning the name of the Cato device",
         "note" : "Name defaults to 'Cato_<HW_UID>' at boot, but is not set if name is defined here",
         "access" : "rw",
-        "value" : "f_clicker"
+        "value" : ""
     },
 
     "HW_UID" : {
         "label" : "Hardware Unique Identity",
         "description" : "Unique hex code for identifying different devices",
         "access" : "r",
-        "value" : "hw_uid"
+        "value" : ""
     },
 
     "operation_mode" : {
@@ -458,12 +458,6 @@
                 "_scroll",
                 "_scroll_lr",
                 "button_action",
-                "type_enter_key",
-                "type_esc_key",
-                "type_meta_key",
-                "type_up_key",
-                "type_left_key",
-                "type_right_key",
                 "quick_calibrate",
                 "quick_sleep"
             ]
