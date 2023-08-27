@@ -122,8 +122,8 @@
                 }
             },
             "dwell_repeat" : {
-                "label" : "Dwell Trigger Cycles",
-                "description" : "Number of consecutive cycles for mouse to observe idle behavior performing dwell action in dwell_click",
+                "label" : "Dwell Repeat Clicks",
+                "description" : "If extended idle should trigger multiple clicks",
                 "access" : "rw",
                 "value" : true,
                 "options" : [true, false]
