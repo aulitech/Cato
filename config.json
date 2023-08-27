@@ -4,21 +4,21 @@
         "description" : "a user-settable string for assigning the name of the Cato device",
         "note" : "Name defaults to 'Cato_<HW_UID>' at boot, but is not set if name is defined here",
         "access" : "rw",
-        "value" : ""
+        "value" : "f_clicker"
     },
 
     "HW_UID" : {
         "label" : "Hardware Unique Identity",
         "description" : "Unique hex code for identifying different devices",
         "access" : "r",
-        "value" : ""
+        "value" : "hw_uid"
     },
 
     "operation_mode" : {
         "label" : "Mode",
         "description" : "a user-settable integer defining the operation mode of Cato",
         "access"  : "rw",
-        "value" : "pointer",
+        "value" : "clicker",
         "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker", "practice"]
     },
 
@@ -250,7 +250,7 @@
                 "description" : "Level of impact needed to trigger a click",
                 "note" : "5 bits, takes on values 0-31. Lower -> MORE SENSITIVE",
                 "access" : "rw",
-                "value" : 0,
+                "value" : 11,
                 "options" : [   0,  1,  2,  3,  4,  5,  6,  7,
                                 8,  9,  10, 11, 12, 13, 14, 15,
                                 16, 17, 18, 19, 20, 21, 22, 23,
@@ -262,7 +262,7 @@
                 "description" : "Amount of quiet required after a click",
                 "note" : "2-bit, 0-3",
                 "access" : "rw",
-                "value" : 0,
+                "value" : 2,
                 "options" : [0, 1, 2, 3]
             },
             "shock" : {
@@ -270,7 +270,7 @@
                 "description" : "Max duration of over threshold event",
                 "note" : "2-bit, 0-3",
                 "access" : "rw",
-                "value" : 0,
+                "value" : 2,
                 "options" : [0, 1, 2, 3]
             }
         }
@@ -496,9 +496,9 @@
                 "note" : "available tap combos depend on number of bindings",
                 "value" : [
                     [   ["noop"]                            ],
-                    [   ["noop"]         ],
-                    [   ["noop"]         ],
-                    [   ["quick_sleep"]      ]
+                    [   ["button_action",0,"tap",1]         ],
+                    [   ["button_action",0,"double_tap", 1] ],
+                    [   ["button_action",0,"tap",2]         ]
                 ]
             }
         }
