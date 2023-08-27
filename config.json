@@ -11,14 +11,14 @@
         "label" : "Hardware Unique Identity",
         "description" : "Unique hex code for identifying different devices",
         "access" : "r",
-        "value" : "hw_uid"
+        "value" : ""
     },
 
     "operation_mode" : {
         "label" : "Mode",
         "description" : "a user-settable integer defining the operation mode of Cato",
         "access"  : "rw",
-        "value" : "gesture_mouse",
+        "value" : "pointer",
         "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker", "practice"]
     },
 
@@ -292,7 +292,9 @@
                     "Nod Right",
                     "Nod Left",
                     "Tilt Right",
-                    "Tilt Left"
+                    "Tilt Left",
+                    "Shake Yes",
+                    "Shake No"
                 ]
             },
             "length" : {
@@ -462,7 +464,7 @@
                     [   ["button_action",0,"tap",2]         ],
                     [   ["button_action",0,"toggle",1]      ],
                     [   ["dwell_click", 0, 80]              ],
-                    [   ["quick_sleep"]                     ],
+                    [   ["pointer_sleep"]                   ],
                     [   ["button_action",0,"double_tap",1]  ],
                     [   ["noop"]                            ],
                     [   ["quick_sleep"]                     ],
