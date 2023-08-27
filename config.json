@@ -18,7 +18,7 @@
         "label" : "Mode",
         "description" : "a user-settable integer defining the operation mode of Cato",
         "access"  : "rw",
-        "value" : "pointer",
+        "value" : "gesture_mouse",
         "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker", "practice"]
     },
 
@@ -105,11 +105,28 @@
                 "label" : "Idle timeout cycles",
                 "description" : "Number of consecutive cycles for mouse to observe idle behavior before exiting due to idle",
                 "access" : "rw",
-                "value" : 20,
+                "value" : 80,
                 "range" : {
-                    "min" : 15,
-                    "max" : 50
+                    "min" : 30,
+                    "max" : 150
                 }
+            },
+            "dwell_duration" : {
+                "label" : "Dwell Trigger Cycles",
+                "description" : "Number of consecutive cycles for mouse to observe idle behavior performing dwell action in dwell_click",
+                "access" : "rw",
+                "value" : 50,
+                "range" : {
+                    "min" : 20,
+                    "max" : 100
+                }
+            },
+            "dwell_repeat" : {
+                "label" : "Dwell Trigger Cycles",
+                "description" : "Number of consecutive cycles for mouse to observe idle behavior performing dwell action in dwell_click",
+                "access" : "rw",
+                "value" : true,
+                "options" : [true, false]
             },
             "scale_x"         : {
                 "label" : "Horizontal Movement Scale Factor",
@@ -463,7 +480,7 @@
                     [   ["button_action",0,"tap",1]         ],
                     [   ["button_action",0,"tap",2]         ],
                     [   ["button_action",0,"toggle",1]      ],
-                    [   ["dwell_click", 0, 80]              ],
+                    [   ["dwell_click", 1, 80]              ],
                     [   ["pointer_sleep"]                   ],
                     [   ["button_action",0,"double_tap",1]  ],
                     [   ["noop"]                            ],
