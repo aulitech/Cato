@@ -1,8 +1,7 @@
 from adafruit_ble.services import Service
 
-# import microcontroller as mc
-# import json
-# import asyncio
+import microcontroller as mc
+import asyncio
 
 from utils import config
 
@@ -33,26 +32,25 @@ class StrUUIDService(Service):
         super().__init__(service = None)
         self.connectable = True
     
-    '''
     async def config_loop(self):
         DebugStream.println("+ characteristic_loop")
-
+    
         SIGNAL_STRING = {
             "SEND"          : self.send_config,
             "UPDATE"        : self.update_config,
             "OVERWRITE"     : self.overwrite_config,
             "SAVE"          : self.save_config,
-
+    
             "CALIBRATE"     : self.calibrate_imu,
             "FULL_CALIBRATE": self.full_calibrate_imu,
             
             "REBOOT"        : self.reboot,
             "REBOOTRO"      : self.reboot_forceRO,
             "BOOTLOADER"    : self.reboot_bootloader,
-
+    
             "DELTAS"        : self.imu_idle_deltas,     # dev handle for checking calibration stats
         }
-
+    
         self.configUUID = "AWAITING INTERACTION"
         while(True):
             ##test w different time lengths or async event triggers
@@ -62,7 +60,7 @@ class StrUUIDService(Service):
             except:
                 continue
             await coro()
-    
+
 
     async def send_config(self):
         l = str(config.d)
@@ -98,7 +96,7 @@ class StrUUIDService(Service):
     async def overwrite_config(self):
         self.configUUID = "READY"
         confBuff = await self._gather_configUUID()
-
+    
         try:
             confBuff = json.loads(confBuff)
         except:
@@ -120,7 +118,7 @@ class StrUUIDService(Service):
                 self.configUUID = "NEXT"
             await asyncio.sleep(0.1)    ##sleep(0) upon nonhuman uuid interfacing
         return str
-    
+
     async def save_config(self):
         self.configUUID = "SAVE NON-OPERATIONAL"
         return
@@ -150,13 +148,13 @@ class StrUUIDService(Service):
         await self.save_config()
         self.configUUID = "REBOOTING"
         mc.reset()
-    
+
     async def reboot_forceRO(self):
         await self.save_config()
         self.configUUID = "REBOOTING READ ONLY"
         mc.nvm[0] = False
         mc.reset()
-    
+
     async def reboot_bootloader(self):
         await self.save_config()
         self.configUUID = "RESETTING IN BOOTLOADER"
@@ -176,7 +174,7 @@ class StrUUIDService(Service):
         from math import sqrt
         from Cato import Cato
         imu = Cato.imu
-
+    
         samples = 50
         iters = 20
         maxDelta = 2
@@ -186,7 +184,7 @@ class StrUUIDService(Service):
         for i in range(maxDelta*10 +1):
             ranges.append(i/10)
         buckets = [0]*(maxDelta*10 +1)
-
+    
         for i in range(iters):
             await imu.wait()
             initial = [imu.gx,imu.gy,imu.gz]
@@ -216,11 +214,10 @@ class StrUUIDService(Service):
         print(",\t".join(str(v) for v in ranges))
         print(",\t".join(str(v) for v in buckets))
         print(maxMags)
-
+    
         self.configUUID = str(max(minMags))
         self.configUUID = str(min(maxMags))
         self.configUUID = "IDLE DELTAS COMPUTED"
-    '''
 
 
 class DebugStream:
