@@ -24,7 +24,6 @@ if(config["HW_UID"]["value"] == ""):
             config["HW_UID"]["value"] = str(hexlify(mc.cpu.uid))[2:-1]
             json.dump(config, cfg)
         print("SUCCESSFUL HW_UID WRITE")
-        print("STANDARD REBOOT")
         mc.reset()
     except OSError as ose:
         print("REBOOTING FOR HW_UID")
