@@ -34,47 +34,13 @@ except ImportError:
 # numpy for vector manipulation
 from ulab import numpy as np
 
-'''
-    The Procedure I will use for rotation is as follows:
-
-    1. Determine Which way is "Down" from Gravity
-    2. Compare to 
-
-    For rotation R about unit vector n through an angle of theta:
-        The angle to be rotated through is theta: determined by the equation n1 x n2 = |n1| |n2| sin(theta)
-        (n1 is the unit vector "down" for Cato, n2 is "down" as determined by gravity)
-        arcsin(n1 x n2 / |n1||n2|) = theta
-
-    Finally, the rotation is carried out about n = n1 x n2 / |n1 x n2|
-
-    With R and Theta predefined, we need a rotation, which is given by the quaternion rotation equation:
-        p'      = q p q^(-1); p' is rotated vector, q is quaternion as defined by, q^(-1) is it's conjugate
-        q       = cos(theta/2) + n*sin(theta/2) OR q = [ q0, q1, q2, q3 ] = [cos(theta/2), ijk(sin(theta/2))]
-        q^(-1)  = cos(theta/2) - n*sin(theta/2)
-
-    Subsequently, the quaternion can be converted to a rotation matrix as
-        [
-            1 - 2q2^2 - 2q3^2   ;       2q1q2 - 2q0q3       ;   2q1q3 - 2q0q2
-            2q1q2 + 2q0q3       ;       1 - 2q1^2 - 2q3^2   ;   2q2q3 - 2q0q1
-            2q1q3 - 2q0q2       ;       2q2q3 + 2q0q1       ;   1 - 2q1^2 - 2q2^2
-        ]
-'''
-
-# Generate Quaternion for rotation by Theta Through angle N. Rotated = q_t original q
-q_gen = lambda n, theta: np.array([cos(theta/2.0), sin(theta/2.0) * n[0], sin(theta/2.0) * n[1], sin(theta/2.0) * n[2]])
-
-# Quaternion rotation matrix, method two from https://danceswithcode.net/engineeringnotes/quaternions/quaternions.html (eqn 7b)
-rot_mat = lambda q: np.array(
-    [
-        [ 1 - 2 * (q[2]**2 + q[3]**2),      2 * (q[1]*q[2] - q[0]*q[3]),        2 * (q[1]*q[3] + q[0]*q[2]) ],
-        [ 2 * (q[1]*q[2] + q[0]*q[3]),      1 - 2 * (q[1]**2 + q[3]**2),        2 * (q[2]*q[3] - q[0]*q[1]) ],
-        [ 2 * (q[1]*q[3] - q[0]*q[2]),      2 * (q[2]*q[3] + q[0]*q[1]),        1 - 2 * (q[1]**2 + q[2]**2) ]
-    ]
-)
+import re
 
 _LSM6DS_INT1_CTRL   = const(0x0D)
 
 _LSM6DS_CTRL1_XL    = const(0x10)
+_LSM6DS_CTRL4_C     = const(0x13)
+_LSM6DS_CTRL6_C     = const(0x15)
 _LSM6DS_CTRL10_C    = const(0x19)
 _LSM6DS_MASTER_CFG  = const(0x1A)
 
@@ -96,20 +62,21 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
 
     # config info at:
     # https://www.st.com/resource/en/datasheet/lsm6ds3tr-c.pdf
-    _status_reg = ROUnaryStruct(    _LSM6DS_STATUS_REG,     "<b")
+    _status_reg = ROUnaryStruct(    _LSM6DS_STATUS_REG,     "<b") # [0, 0, 0, 0, 0, TempDA, GyrDA, XLDA]
 
-    _int1_ctrl      = RWBits(7,     _LSM6DS_INT1_CTRL,      0   ) # "The pad's output will supply the OR combination of all enabled signals"
-    _ctrl1_xl       = RWBits(7,     _LSM6DS_CTRL1_XL,       0   )
-    _ctrl10_c       = RWBits(7,     _LSM6DS_CTRL10_C,       0   )
-    _master_cfg     = RWBits(7,     _LSM6DS_MASTER_CFG,     0   )
-    
-    _tap_cfg        = RWBits(7,     _LSM6DS_TAP_CFG,        0   )
+    _int1_ctrl      = RWBits(7,     _LSM6DS_INT1_CTRL,      0   ) # [step, sig_mot, fifo_full, fifo_ovr, fifo_ths, boot, drdy_g, drdy_xl]
+    _ctrl1_xl       = RWBits(7,     _LSM6DS_CTRL1_XL,       0   ) # [odr_xl(3:0), fs_xl(1:0), lpf_bw_sel, bw0_xl]
+    _ctrl4_c        = RWBits(7,     _LSM6DS_CTRL4_C,        0   ) # [den_xl_en, sleep, den_drdy_int1, int2_on_int1, drdy_mask, i2c_disable, lpf1_sel_g]
+    _ctrl6_c        = RWBits(7,     _LSM6DS_CTRL6_C,        0   ) # [Trig_en, lvl_en, lvl2_en, xl_hm_mode, usr_off_w, 0, ftype[1:0]]
+    _ctrl10_c       = RWBits(7,     _LSM6DS_CTRL10_C,       0   ) # [wrist_tilt_en, timer_en, pedo_en, tilt_en, func_en, pedo_rst_step, sign_motion_en]
+    _master_cfg     = RWBits(7,     _LSM6DS_MASTER_CFG,     0   ) # [drdy_on_int1, data_valid_sel_fifo, 0, start_config, pull_up_en, pass_through_mode, iron_en, master_on]
+    _tap_cfg        = RWBits(7,     _LSM6DS_TAP_CFG,        0   ) # [int_ena, inact_en1, inact_en(1:0), slope_fds, tapx, tapy, tapz, lir]
     _tap_ths_6d     = RWBits(7,     _LSM6DS_TAP_THS_6D,     0   ) # [4D orientation (no z axis), sixd_ths(1:0), tap_ths(4:0)]
-    _int_dur2       = RWBits(7,     _LSM6DS_INT_DUR2,       0   )
-    _wake_up_ths    = RWBits(7,     _LSM6DS_WAKE_UP_THS,    0   )
-    _wake_up_dur    = RWBits(7,     _LSM6DS_WAKE_UP_DUR,    0   )
+    _int_dur2       = RWBits(7,     _LSM6DS_INT_DUR2,       0   ) # [dur(3:0), quiet(1:0), shock(1:0)]
+    _wake_up_ths    = RWBits(7,     _LSM6DS_WAKE_UP_THS,    0   ) # [single_double_tap, 0, wake_ths(5:0)]
+    _wake_up_dur    = RWBits(7,     _LSM6DS_WAKE_UP_DUR,    0   ) # [ff_dur5, wake_dur[1:0], timer_hr, sleep_dur[3:0]]
+    _md1_cfg        = RWBits(7,     _LSM6DS_MD1_CFG,        0   ) # [int1_inact_state, int1_single_tap, int1_wu, int1_ff, int1_double_tap, int1_6d, int1_tilt, int1_timer]
     _sm_ths         = RWBits(7,     _LSM6DS_SM_THS,         0   ) # Significant Motn threshold [7:0] (Default 0x06)
-    _md1_cfg        = RWBits(7,     _LSM6DS_MD1_CFG,        0   )
 
     def __init__(self, address: int = LSM6DS_DEFAULT_ADDRESS) -> None:
         
@@ -122,21 +89,24 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         # Open i2c communication
         self.i2c = busio.I2C(board.IMU_SCL, board.IMU_SDA)
         super().__init__(self.i2c, address)
+        # self.ctrl4_c = 0x02
+        # self.ctrl6_c = 0x03
 
         # Establish flags
         self.imu_enable = asyncio.Event()   # enable:       Whether imu should allow reads
         self.imu_ready  = asyncio.Event()   # imu_rdy:      Set when imu has fresh data
-        self.data_ready = asyncio.Event()   # data_rdt:     Set when imu data has been read and assigned to values
-        self.tap_detect = asyncio.Event()
+        self.data_ready = asyncio.Event()   # data_rdy:     Set when imu data has been read and assigned to values
         self.tap_type = None # 1 for single, 2 for double
 
         # Build fields
         self.acc        = np.array([0.0, 0.0, 0.0]) # accelerometer fields
         self.gyro_vals  = np.array([0.0, 0.0, 0.0]) # gyro fields
+
+        # Calibration params
         self.gyro_trim  = config["calibration"]["drift"] # Gyroscope trim values set by calibrate
         self.not_calibrated = True
         self.autoCalibLen = config["calibration"]["auto_samples"]
-        self.autoCalibThresh = config["calibration"]["auto_threshold"]
+        self.autoCalibThresh = config["calibration"]["auto_threshold"]*config["mouse"]["idle_threshold"]
         self.sleep_thresh = config["sleep"]["threshold"]
 
         # Rotational Adjustment Values (From Calibrate)
@@ -147,6 +117,10 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             [0.0, 0.0, 1.0]
         ])
 
+        # load tap config settings
+        self.tap_ths_6d = 0x1F & config['clicker']['tap_ths']
+        self.int_dur2   = ( (0x1F) & (config['clicker']['quiet'] << 2) ) | config['clicker']['shock']
+
         # Configure IMU for accel and gyro stream
         self.data_ready_on_int1_setup()
         
@@ -156,12 +130,25 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
             self.tasks.update({"read_click" : asyncio.create_task(self.read_clicks())})
         else:
             self.tasks.update({"read"      : asyncio.create_task( self.read() )})
-
+        if config['operation_mode'] == "stream_imu":
+            self.tasks.update({'stream' : asyncio.create_task( self.stream() )})
         self.tasks.update({"interrupt" : asyncio.create_task( self.interrupt() ) })
 
-    def data_ready_on_int1_setup(self):
-        self.int1_ctrl = 0x02
     
+    @property
+    def status(self) -> int:
+        """get status"""
+        return self._status_reg
+
+    @property
+    def gyro_ready(self) -> bool:
+        return (self._status_reg & 2 > 0)
+
+    @property
+    def accel_ready(self) -> bool:
+        return (self._status_reg & 1 > 0)
+
+
     @property
     def setup_type(self):
         if(self.int1_ctrl == 0x00):
@@ -169,34 +156,26 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         elif(self.int1_ctrl == 0x02):
             return "gyro"
  
-    def sign_motn_ena(self):
-        self._sm_ths        = 0x06 # significant motion threshold [7:0] (default 0x06)
+    def sig_mot_ena(self):
+        # self._sm_ths        = 0x06 # significant motion threshold [7:0] (default 0x06)
+        # print(self._sm_ths)
         self.int1_ctrl      = 0x40 # step_detector, int1_Sign_motn, int1FullFlag, int1FIFO_OVR, int1_Fth, int1_Boot, int1DrdyG, int1DrdyXL
         self._ctrl10_c      = 0x05 # WristTiltEn, 0, TimerEn, PedoEn, TiltEn, FuncEn, PedoRST_Step, Sign_Motn_En
 
+    def data_ready_on_int1_setup(self):
+        self.int1_ctrl = 0x02
+    
     def tap_ena(self):
-        # Don't call this, instead, call single, double, or single-double
         self.int1_ctrl      = 0x00 # step_detector, int1_Sign_motn, int1FullFlag, int1FIFO_OVR, int1_Fth, int1_Boot, int1DrdyG, int1DrdyXL
         self._ctrl1_xl      = 0x60 # accelerometer ODR (output data rate) control
         self._tap_cfg       = 0x8E # int_ena, inact_ena1, inact ena0, slope_fds, tap_x, tap_y, tap_z, latched interrupt
-        self._tap_ths_6d    = 0x8B # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
-        self._int_dur2      = 0x13 # Dur[3:0], Quiet[1:0], Shock[1:0]
-        # self._wake_up_ths   = 0x80 # SingleDoubleTap, Inactivity, Wk_Ths[5:0]
-        # self._ctrl10_c     = 0x05 # WristTiltEn, 0, TimerEn, PedoEn, TiltEn, FuncEn, PedoRST_Step, Sign_Motn_En
-        # SELECT A TAP WITH SINGLE OR DOUBLE
+        self._tap_ths_6d    = 0x1F & config['clicker']['tap_ths'] # d4d (4d direction), 6d_ths[1:0], tap_ths[4:0]
+        self._int_dur2      = ( (0x1F) & (config['clicker']['quiet'] << 2) ) | config['clicker']['shock'] # Dur[3:0], Quiet[1:0], Shock[1:0]
 
     def single_tap_cfg(self):
+        print("Single Tap Config")
         self.tap_ena()
         self._md1_cfg   = 0x40
-
-    # NOTE: TO ENABLE DBL TAP, MUST CONFIGURE WAKE_THS
-    # def double_tap_cfg(self):
-    #     self.tap_ena()
-    #     self._md1_cfg     = 0x08 # Inactivity, SGL_Tap, Wakeup, Freefall, Doubletap, 6D, Tilt, Timer
-    
-    # def sgl_dbl_tap_cfg(self):
-    #     self.tap_ena()
-    #     self._md1_cfg = 0x48
 
     @property
     def pwr(self):
@@ -266,7 +245,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
                 gyro_delta_mag = np.linalg.norm(self.gyro_vals - gyro_prev)
 
                 if(calibCycles == self.autoCalibLen):
-                    # print("...calibrated...")
+                    print("...calibrated...")
                     for i in range(len(self.gyro_trim)):
                         self.gyro_trim[i] += trimAdjust[i]
                     self.gyro_vals -= trimAdjust
@@ -340,52 +319,133 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self.not_calibrated = False
         print("Done Calibrating")
     
-    async def full_calibrate(self, num_calib_cycles):
-        from WakeDog import WakeDog
-        print("Calibrating HOLD STILL")
+    # async def full_calibrate(self, num_calib_cycles):
+    #     from WakeDog import WakeDog
+    #     print("Calibrating HOLD STILL")
         
-        gyro_avg = np.array([0.0, 0.0, 0.0])
+    #     gyro_avg = np.array([0.0, 0.0, 0.0])
+    #     accel_avg = np.array([0.0, 0.0, 0.0])
 
-        accel_avg = np.array([0.0, 0.0, 0.0])
-
-        for i in range(num_calib_cycles):
-            await self.wait()
-            gyro_avg    += self.gyro_vals
-            accel_avg   += self.acc
+    #     for i in range(num_calib_cycles):
+    #         await self.wait()
+    #         gyro_avg    += self.gyro_vals
+    #         accel_avg   += self.acc
             
-            WakeDog.feed()
+    #         WakeDog.feed()
 
-        for i in range(len(self.gyro_trim)):
-            self.gyro_trim[i] += gyro_avg[i] / num_calib_cycles
+    #     for i in range(len(self.gyro_trim)):
+    #         self.gyro_trim[i] += gyro_avg[i] / num_calib_cycles
 
-        # Find Average Direction of Gravity Over Calibration 
-        accel_avg /= num_calib_cycles
-        grav_dir = accel_avg / np.linalg.norm(accel_avg)
+    #     # Find Average Direction of Gravity Over Calibration 
+    #     accel_avg /= num_calib_cycles
+    #     grav_dir = accel_avg / np.linalg.norm(accel_avg)
+    #     print(grav_dir)
 
-        # describe desired endpoint of rotation
-        down = np.array([0.0, -1.0, 0.0])
+    #     # describe the most aligned "down" direction
+    #     grav = np.array([0.0, 0.0, 0.0])
+    #     grav_axis = np.argmax( abs(grav_dir) )
+    #     grav[ grav_axis ] = 1 if (grav_dir[grav_axis] > 0) else -1
 
-        # Rotation axis is in line with Crossproduct
-        n = np.cross(grav_dir, down)
-        mag_n = np.linalg.norm(n)
+
+    def reorient(self):
+        #validate orientation strings
+        ori_regex = re.compile('[+-][xyzXYZ]')
         
-        n = n / mag_n # Normalize to Unit Vector
+        x_screen_str = config['orientation']['bottom']
+        y_screen_str = config['orientation']['left']
+        roll_str = config['orientation']['front']
 
-        # Angle is related by a cross b = |a||b|sin(angle)
-        # We extract angle as angle = arcsin(a cross b)
-        th = asin(mag_n)
-
-        self.rot_mat = rot_mat( q_gen(n, th) )
+        for ax in [x_screen_str, y_screen_str, roll_str]:
+            if ori_regex.match(ax) is None:
+                raise ValueError("Invalid Orientation String")
         
-        self.not_calibrated = False
-        print("Done Calibrating")
+        re.sub('[xX]', 'x', x_screen_str)
+        re.sub('[yY]', 'y', y_screen_str)
+        re.sub('[zZ]', 'z', roll_str)
+        
+        print(  "Top: " + x_screen_str + "\n" +
+                "Left: " + y_screen_str + '\n' + 
+                "Back:     " + roll_str 
+        )
 
+        top = np.array([
+            1.0 if 'x' in x_screen_str else 0.0,
+            1.0 if 'y' in x_screen_str else 0.0,
+            1.0 if 'z' in x_screen_str else 0.0
+        ])
+
+        left = np.array([
+            1.0 if 'x' in y_screen_str else 0.0,
+            1.0 if 'y' in y_screen_str else 0.0,
+            1.0 if 'z' in y_screen_str else 0.0
+        ])
+
+        front = np.array([
+            1.0 if 'x' in roll_str else 0.0,
+            1.0 if 'y' in roll_str else 0.0,
+            1.0 if 'z' in roll_str else 0.0
+        ])
+
+        if '-' in roll_str:
+            front *= -1
+
+        if '-' in x_screen_str:
+            top *= -1
+
+        if '-' in y_screen_str:
+            left *= -1
+
+        if np.dot(top, left)   != 0.0:
+            raise ValueError("Orientation of 'x' and 'y' are not perpendicular")
+        if np.dot(left, front)       != 0.0:
+            raise ValueError("Orientation of Roll and Y are not perpendicular")
+        if np.dot(top, front)       != 0.0:
+            raise ValueError("X and Roll not Perpendicular")
+
+        # ORIGINAL ORIENTATION:
+        # SCREEN_X  : +Y
+        # SCREEN_Y  : +Z
+        # ROLL      : +X
+
+        # BOARD FRAME:
+        # "Into USB-C" = "+X"
+        # "Up out of top" = "+Z"
+
+        x_col = front
+        y_col = top
+        z_col = left
+
+        full_calib_msg = f"Reorient Result:\n"
+
+        transform = np.array([
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0]
+        ])
+
+        for row in range(3):
+            transform[row][0] = x_col[row]
+            transform[row][1] = y_col[row]
+            transform[row][2] = z_col[row]
+
+        transform = np.linalg.inv(transform)
+        self.rot_mat = transform
+        
+        full_calib_msg += "\tMatrix:     \n"
+        for row in self.rot_mat.tolist():
+            full_calib_msg += '\t\t'
+            for idx, entry in enumerate(row):
+                full_calib_msg += f"{entry:<+6.1f}" + ( '\n' if (idx==2) else '' )
+        full_calib_msg += f"\t Det: {np.linalg.det(transform)}"
+        print(full_calib_msg)
+        
     async def stream(self):
         #print("+ stream")
         while True:
             #print(": stream -> awaiting self.wait")
             await self.wait()
-            print(f"Gyro: {self.gx :.2f}, {self.gy :.2f}, {self.gz :.2f} \tAccel: {self.ax :.2f}, {self.ay :.2f}, {self.az :.2f}")
+            print(f"Gyro: {self.gx :10.2f}, {self.gy :10.2f}, {self.gz :10.2f}" + 
+                  f"\tAccel: {self.ax :10.2f}, {self.ay :10.2f}, {self.az :10.2f}")
 
     def spark(self):
         '''
@@ -396,19 +456,38 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         for i in range(3):
             temp_g, temp_a = self.gyro, self.acceleration
 
+    """ Imu properties """
     @property
-    def status(self) -> int:
-        """get status"""
-        return self._status_reg
-
+    def gx(self):
+        return self.gyro_vals[0]
     @property
-    def gyro_ready(self) -> bool:
-        return (self._status_reg & 2 > 0)
-
+    def gy(self):
+        return self.gyro_vals[1]                         
     @property
-    def accel_ready(self) -> bool:
-        return (self._status_reg & 1 > 0)
+    def gz(self):
+        return self.gyro_vals[2]
+    
+    @property
+    def ax(self):
+        return self.acc[0]
+    @property
+    def ay(self):
+        return self.acc[1]                         
+    @property
+    def az(self):
+        return self.acc[2]
+    
+    """ Register Properties """
+    # _int1_ctrl  
+    @property
+    def int1_ctrl(self) -> int:
+        return (self._int1_ctrl)
 
+    @int1_ctrl.setter
+    def int1_ctrl(self, value: int) -> None:
+        self._int1_ctrl = value
+
+    # _ctrl1_xl
     @property
     def int1_ctrl(self) -> int:
         return (self._int1_ctrl)
@@ -417,35 +496,94 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     def int1_ctrl(self, value: int) -> None:
         self._int1_ctrl = value
     
+    # _ctrl4_c  
+    @property
+    def ctrl4_c(self) -> int:
+        return (self._ctrl4_c)
+
+    @ctrl4_c.setter
+    def ctrl4_c(self, value: int) -> None:
+        self._ctrl4_c = value
+
+    # _ctrl10_c
+    @property
+    def ctrl10_c(self) -> int:
+        return (self._ctrl10_c)
+
+    @ctrl10_c.setter
+    def ctrl10_c(self, value: int) -> None:
+        self._ctrl10_c = value
+    
+    # _master_cfg
     @property
     def master_cfg(self) -> int:
         return (self._master_cfg)
-    
+
     @master_cfg.setter
     def master_cfg(self, value: int) -> None:
         self._master_cfg = value
 
+    # _tap_cfg    
     @property
-    def gx(self):
-        return self.gyro_vals[0]
+    def tap_cfg(self) -> int:
+        return (self._tap_cfg)
+
+    @tap_cfg.setter
+    def tap_cfg(self, value: int) -> None:
+        self._tap_cfg = value
     
+    # _tap_ths_6d 
     @property
-    def gy(self):
-        return self.gyro_vals[1]
-                              
-    @property
-    def gz(self):
-        return self.gyro_vals[2]
+    def tap_ths_6d(self) -> int:
+        return (self._tap_ths_6d)
+
+    @tap_ths_6d.setter
+    def tap_ths_6d(self, value: int) -> None:
+        self._tap_ths_6d = value
     
+    # _int_dur2   
     @property
-    def ax(self):
-        return self.acc[0]
+    def int_dur2(self) -> int:
+        return (self._int_dur2)
+
+    @int_dur2.setter
+    def int_dur2(self, value: int) -> None:
+        self._int_dur2 = value
     
+    # _wake_up_ths
     @property
-    def ay(self):
-        return self.acc[1]
-                              
+    def wake_up_ths(self) -> int:
+        return (self._wake_up_ths)
+
+    @wake_up_ths.setter
+    def wake_up_ths(self, value: int) -> None:
+        self._wake_up_ths = value
+
+    # _wake_up_dur
     @property
-    def az(self):
-        return self.acc[2]
+    def wake_up_dur(self) -> int:
+        return (self._wake_up_dur)
+
+    @wake_up_dur.setter
+    def wake_up_dur(self, value: int) -> None:
+        self._wake_up_dur = value
+
+    # _md1_cfg  
+    @property
+    def md1_cfg(self) -> int:
+        return (self._md1_cfg)
+
+    @md1_cfg.setter
+    def md1_cfg(self, value: int) -> None:
+        self._md1_cfg = value  
+
+    # _sm_ths     
+    @property
+    def sm_ths(self) -> int:
+        return (self._sm_ths)
+
+    @sm_ths.setter
+    def sm_ths(self, value: int) -> None:
+        self._sm_ths = value    
+
     

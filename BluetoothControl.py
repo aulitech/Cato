@@ -91,7 +91,7 @@ class BluetoothControl():
         self.tasks = {}
         if( not(mc.nvm[2]) ): # Should always be true, unless specifically wired training routine
             self.tasks = {  # tasks
-                "characteristic_loop"   : asyncio.create_task(SUS.config_loop()),
+                #"characteristic_loop"   : asyncio.create_task(SUS.config_loop()),
                 "manage_connection"     : asyncio.create_task(self.manage_connection()),
                 "monitor_connections"   : asyncio.create_task(self.monitor_connections()),
                 "reconnect"             : asyncio.create_task(self.reconnect())
