@@ -790,10 +790,10 @@ class Cato:
                 else:
                     actor.press(b)
 
-        elif(action == "hold_umtil_idle"):
+        elif(action == "hold_until_idle"):
             actor.press(*buttons)
             asyncio.create_task(self.event_release(actor, *buttons, triggers = (Events.gesturing,)))
-        elif(action == "hold_umtil_sig_motion"):
+        elif(action == "hold_until_sig_motion"):
             actor.press(*buttons)
             asyncio.create_task(self.event_release(actor, *buttons, triggers = (Events.gesturing,Events.sig_motion)))
         elif(action == "turbo"):
