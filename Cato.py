@@ -968,6 +968,7 @@ class Cato:
             idleLen     = config["gesture"]["idle_cutoff"]
             gestThresh  = config["gesture"]["start_threshold"]
             idleThresh  = config["gesture"]["idle_threshold"]
+            del(config)
             # timeout     = config["gesture"]["gc_timeout"]
             gc.collect()
             print(gc.mem_free())
