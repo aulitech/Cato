@@ -968,6 +968,7 @@ class Cato:
             idleLen     = config["gesture"]["idle_cutoff"]
             gestThresh  = config["gesture"]["start_threshold"]
             idleThresh  = config["gesture"]["idle_threshold"]
+            del(config)
             # timeout     = config["gesture"]["gc_timeout"]
             gc.collect()
             print(gc.mem_free())
@@ -1057,6 +1058,7 @@ class Cato:
     
     async def gesture_loop(self):
         DBS.println("+ gesture_loop")
+        gestPerLine = 2
         gestKey = config["gesture"]["key"]
         while True:
             await self.gesture_interpreter(indicator = self.shake_cursor, timeout = 0)
@@ -1065,10 +1067,17 @@ class Cato:
             if(max(neuton_outputs) >= config["confidence_threshold"]):
                 gestName = gestKey[self.n.inference()+1]
 
-            gestName += "\n"
+            #gestName += "\n"
+            gcount = -1
             for idx, gesture in enumerate(config['gesture']['key'][1:]):
-                if(neuton_outputs[idx] >= 0.05):
-                    gestName += f"\t{gesture:12}{int(neuton_outputs[idx]*100):>5n}\n"
+                if(neuton_outputs[idx] >= 0.005):
+                    gcount += 1
+                    if(gcount%gestPerLine == 0):
+                        gestName += '\n'
+                    else:
+                        gestName += '\t'
+                    gestName += f"\t{gesture:12}\t{int((neuton_outputs[idx]+0.005)*100):>3n}"
+            gestName += "\n"
             
             DBS.println("typing:\n"+gestName)
             await self.blue_type(gestName+'\n')
