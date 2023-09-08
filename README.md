@@ -1,95 +1,19 @@
-# Cato docs
+# Cato
 
-Hello and welcome to CATO, an aulitech alternative communication device for everyone
+Hello and welcome to CATO, an Auli Tech alternative communication device
 
-This device can be used as
-    A bluetooth mouse
-    A television remote
+Our system is an IMU (Inertial Measurement Unit) based BLE (Bluetooth Low Energy) smart controller with an emphasis on customizabile accessibility
 
-## Programming the device
+## Documentation
 
-coming soon
+Complete Documentation for Cato's operation, installation, and configuration are located on our Wiki
 
-# Using the device
+[Cato Wiki](https://github.com/aulitech/Cato/wiki)
 
-Cato connects to devices via bluetooth under the name "Cato"
+## About Us
 
-It must be mounted narrow-end first, on the left side of a pair of glasses (to be opened to other orientations soon)
+Auli Tech is a small start-up focused on using robotics and AI to make low-cost open-source accessibility devices.
 
-When booted or restarted, the device runs a calibration check, in which it must be held still
+We believe in "Zero impediments to living"
 
-## Once connected
-
-The board alternates between two modes:
-
-Mode 1: Detecting Gestures
-
-Mode 2: Moving the mouse
-
-## Mode 1: Detecting Gestures
-
-Cato detects nods in each of 4 directions (up, down, right, left) 
-
-It detects rolling (left ear -> left shoulder; right ear -> right shoulder)
-
-It detects "Yes" and "No"
-
-## Mode 2: Mouse Movement
-
-    Cato moves the cursor on screen until the user idles the cursor for a moment
-
-    It then gently jiggles the cursor to indicate completion of mouse movement
-
-    It then re-enters gesture detection mode
-
-# Settings Guide
-
-## Mouse Settings
-
-    "idle_thresh"   : Slower than this number means mouse is detecting idle (default 5.0)
-    "min_run_cycles": Number of samples to run before starting idle-checking (default 30.0)
-    "scale"         : Base number - change this to increase mouse speed by flat multiplier (default 1.0)
-    "slow_thresh"   : User speed floor. Above this, mouse accelerates (default 20.0)
-    "fast_thresh"   : User speed ceiling. Motion faster than this no longer accelerates. (default 240.0)
-    "slow_scale"    : Cursor speed floor. (default 0.2)
-    "fast_scale"    : Cursor speed ceiling. (default 3.0)
-
-## State Matrix
-
-| GESTURE       | IDLE              | MOUSE (Coming soon!)  | KEYBOARD MODE (Coming soon!)  |
-| -----------   | -----------       | -----------           | -----------                   |
-| Up            | Left Click        | -----------           | -----------                   |
-| Down          | Move Mouse        | -----------           | -----------                   |
-| Right         | Scroll            | -----------           | -----------                   |
-| Left          | Wait for Motion   | -----------           | -----------                   |
-| Roll Right    | Scroll Left/Right | -----------           | -----------                   |
-| Roll Left     | Scroll Left/Right | -----------           | -----------                   |
-| Nod Yes       | Double Click      | -----------           | -----------                   |
-| Shake No      | No Operation      | -----------           | -----------                   |
-
-## Operation Mode
-
-    Select mode of operation:
-
-    Gesture Collection
-
-    Standard operation
-
-    TV Mode (coming soon)
-    
-# UUID Communication
-
-## Sending config.json to client
-
-Once a bluetooth connection is established, Cato will imediately begin sending config.json over uuid e077bdec-f18b-4944-9e9e-8b3a815162b4.
-
-config.json will be sent one line at a time, awaiting the stream to be updated to "NEXT" after every line.  After the file has been fully read, the stream will be updated to "SEND COMPLETE".
-
-## Update config.json
-
-(procedure goes here & error text)
-
-## Overwrite config.json
-
-(procedure goes here & error text)
-
+For more information on our team, our ongoing projects, and our web based apps, visit us at [Auli.Tech](https://www.auli.tech/) 
