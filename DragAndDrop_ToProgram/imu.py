@@ -67,7 +67,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
     _int1_ctrl      = RWBits(7,     _LSM6DS_INT1_CTRL,      0   ) # [step, sig_mot, fifo_full, fifo_ovr, fifo_ths, boot, drdy_g, drdy_xl]
     _ctrl1_xl       = RWBits(7,     _LSM6DS_CTRL1_XL,       0   ) # [odr_xl(3:0), fs_xl(1:0), lpf_bw_sel, bw0_xl]
     _ctrl4_c        = RWBits(7,     _LSM6DS_CTRL4_C,        0   ) # [den_xl_en, sleep, den_drdy_int1, int2_on_int1, drdy_mask, i2c_disable, lpf1_sel_g]
-    _ctrl6_c        = RWBits(7,     _LSM6DS_CTRL6_C,        0   ) # 
+    _ctrl6_c        = RWBits(7,     _LSM6DS_CTRL6_C,        0   ) # [Trig_en, lvl_en, lvl2_en, xl_hm_mode, usr_off_w, 0, ftype[1:0]]
     _ctrl10_c       = RWBits(7,     _LSM6DS_CTRL10_C,       0   ) # [wrist_tilt_en, timer_en, pedo_en, tilt_en, func_en, pedo_rst_step, sign_motion_en]
     _master_cfg     = RWBits(7,     _LSM6DS_MASTER_CFG,     0   ) # [drdy_on_int1, data_valid_sel_fifo, 0, start_config, pull_up_en, pass_through_mode, iron_en, master_on]
     _tap_cfg        = RWBits(7,     _LSM6DS_TAP_CFG,        0   ) # [int_ena, inact_en1, inact_en(1:0), slope_fds, tapx, tapy, tapz, lir]
@@ -89,8 +89,8 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         # Open i2c communication
         self.i2c = busio.I2C(board.IMU_SCL, board.IMU_SDA)
         super().__init__(self.i2c, address)
-        self.ctrl4_c = 0x02
-        self.ctrl6_c = 0x03
+        # self.ctrl4_c = 0x02
+        # self.ctrl6_c = 0x03
 
         # Establish flags
         self.imu_enable = asyncio.Event()   # enable:       Whether imu should allow reads
@@ -149,9 +149,6 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         return (self._status_reg & 1 > 0)
 
 
-    def data_ready_on_int1_setup(self):
-        self.int1_ctrl = 0x02
-    
     @property
     def setup_type(self):
         if(self.int1_ctrl == 0x00):
@@ -165,8 +162,10 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self.int1_ctrl      = 0x40 # step_detector, int1_Sign_motn, int1FullFlag, int1FIFO_OVR, int1_Fth, int1_Boot, int1DrdyG, int1DrdyXL
         self._ctrl10_c      = 0x05 # WristTiltEn, 0, TimerEn, PedoEn, TiltEn, FuncEn, PedoRST_Step, Sign_Motn_En
 
+    def data_ready_on_int1_setup(self):
+        self.int1_ctrl = 0x02
+    
     def tap_ena(self):
-        # Don't call this, instead, call single, double, or single-double
         self.int1_ctrl      = 0x00 # step_detector, int1_Sign_motn, int1FullFlag, int1FIFO_OVR, int1_Fth, int1_Boot, int1DrdyG, int1DrdyXL
         self._ctrl1_xl      = 0x60 # accelerometer ODR (output data rate) control
         self._tap_cfg       = 0x8E # int_ena, inact_ena1, inact ena0, slope_fds, tap_x, tap_y, tap_z, latched interrupt
@@ -174,6 +173,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self._int_dur2      = ( (0x1F) & (config['clicker']['quiet'] << 2) ) | config['clicker']['shock'] # Dur[3:0], Quiet[1:0], Shock[1:0]
 
     def single_tap_cfg(self):
+        print("Single Tap Config")
         self.tap_ena()
         self._md1_cfg   = 0x40
 

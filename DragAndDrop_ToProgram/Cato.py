@@ -37,7 +37,8 @@ EV_NONE = 0
 class Events:
     control_loop            = asyncio.Event()   # enable flow through main control loop - set this in detect event
     move_mouse              = asyncio.Event()   # move the mouse
-    mouse_done              = asyncio.Event()   # indicates mouse movement has finished
+    mouse_idle              = asyncio.Event()   # indicates mouse movement has finished
+    mouse_dwell             = asyncio.Event()
     scroll                  = asyncio.Event()   # scroll the screen
     scroll_done             = asyncio.Event()   # indicates scroll has finished
     scroll_lr               = asyncio.Event()   # scroll left to right
@@ -228,8 +229,9 @@ class Cato:
 
     async def _move_mouse(self, hall_pass: asyncio.Event = None):
         Events.move_mouse.set()
-        await Events.mouse_done.wait()
-        Events.mouse_done.clear()
+        await Events.mouse_idle.wait()
+        Events.move_mouse.clear()
+        Events.mouse_idle.clear()
         hall_pass.set()
 
     async def center_mouse_cursor(self, hall_pass: asyncio.Event = None):
@@ -497,7 +499,6 @@ class Cato:
             hall_pass.set()
 
     async def dwell_click(self, buttons, tiltThresh, hall_pass: asyncio.Event = None):
-        # this method is gonna be gross
         async def tilt_check():
             await Cato.imu.wait()
             while(not (abs(Cato.imu.gx) > max(sqrt(Cato.imu.gy**2+Cato.imu.gz**2), tiltThresh))):
@@ -505,24 +506,33 @@ class Cato:
             DBS.println("Tilted!!")
             return
 
-        tcTask = asyncio.create_task(tilt_check())
-        Events.move_mouse.set()
-        await Events.mouse_done.wait()
-        Events.mouse_done.clear()
-        while(not tcTask.done()):
-            if(buttons):
+        async def dwell_clicker(buttons: int):
+            await Events.mouse_dwell.wait()
+            Events.mouse_dwell.clear()
+            while(True):
                 DBS.println("Clicked: ",buttons)
                 self.blue.mouse.click(buttons)
-            Events.move_mouse.set()
-            await Events.mouse_done.wait()
-            Events.mouse_done.clear()
+                await Events.mouse_dwell.wait()
+                Events.mouse_dwell.clear()
+
+        tcTask = asyncio.create_task(tilt_check())
+        clicker = None
+        if(buttons):
+            clicker = asyncio.create_task(dwell_clicker(buttons))
+        Events.move_mouse.set()
+
+        await tcTask
+        if(clicker != None):
+            clicker.cancel()
+        Events.move_mouse.clear()
+        DBS.println("-dwell_click")
 
         if hall_pass is not None:
             hall_pass.set()
         return
 
 
-    async def move_mouse(self, max_idle_cycles=80, mouse_type = "ACCEL", forever: bool = False):
+    async def move_mouse(self, mouse_type = "ACCEL", forever: bool = False):
         '''
             move the mouse via bluetooth until sufficiently idle
         '''
@@ -549,6 +559,10 @@ class Cato:
 
         # number of cycles currently idled (reset to 0 on motion)
         idle_count = 0
+        dwell_count = 0
+        idle_cycles = config['mouse']['idle_duration']
+        dwell_cycles = config['mouse']['dwell_duration']
+        dwell_repeat = config['mouse']['dwell_repeat']
 
         # number of cycles run in total
         cycle_count = 0
@@ -559,7 +573,12 @@ class Cato:
         while True:
             # print(".")
             if not Events.move_mouse.is_set():
-
+                cycle_count = 0
+                idle_count = 0
+                dwell_count = 0
+                Events.mouse_idle.clear()
+                Events.mouse_dwell.clear()
+                batcher = (0,0)
                 # DBS.println("move mouse -- awaiting")
                 pass
     
@@ -588,25 +607,28 @@ class Cato:
                 scrn_scale = translate(slow_thresh, fast_thresh, slow_scale, fast_scale, mag)
                 scrn_scale *= screen_scale
 
-            # Begin idle checking -- only after minimum duration
-            if(cycle_count >= min_run_cycles and not forever):
-                if( mag <= idle_thresh ): # if too slow
-                    # if (idle_count == 0): # count time of idle to finish (design util)
-                        # print("\tidle detected, count begun")
-                    idle_count += 1
-                else:
-                    # print("\tactivity resumed: idle counter reset")
-                    idle_count = 0
+            if( mag <= idle_thresh ): # if too slow
+                # if (idle_count == 0): # count time of idle to finish (design util)
+                    # print("\tidle detected, count begun")
+                idle_count += 1
+                dwell_count += 1
+            else:
+                # print("\tactivity resumed: idle counter reset")
+                idle_count = 0
+                dwell_count = 0
+            
+            if(not Events.mouse_dwell.is_set())and(dwell_count >= dwell_cycles): # if sufficiently idle, set mouse_idle
+                DBS.println(f"\t- Mouse Exit (mem: {gc.mem_free()})")
+                if(dwell_repeat):
+                    dwell_count = 0
+                Events.mouse_dwell.set()
+                await asyncio.sleep(0)
+            
+            if(not Events.mouse_idle.is_set())and(cycle_count >= min_run_cycles)and(idle_count >= idle_cycles): # if sufficiently idle, set mouse_idle
+                DBS.println(f"\t- Mouse Exit (mem: {gc.mem_free()})")
 
-                if idle_count >= max_idle_cycles: # if sufficiently idle, clear move_mouse
-                    DBS.println(f"\t- Mouse Exit (mem: {gc.mem_free()})")
-
-                    Events.move_mouse.clear()
-                    Events.mouse_done.set()
-
-                    idle_count = 0
-                    cycle_count = 0
-                    batcher = (0,0)
+                Events.mouse_idle.set()
+                await asyncio.sleep(0)
 
             scale = scrn_scale*mag
             scale = (usr_scale[0]*scale,usr_scale[0]*scale)
@@ -768,10 +790,10 @@ class Cato:
                 else:
                     actor.press(b)
 
-        elif(action == "hold_till_idle"):
+        elif(action == "hold_until_idle"):
             actor.press(*buttons)
             asyncio.create_task(self.event_release(actor, *buttons, triggers = (Events.gesturing,)))
-        elif(action == "hold_till_sig_motion"):
+        elif(action == "hold_until_sig_motion"):
             actor.press(*buttons)
             asyncio.create_task(self.event_release(actor, *buttons, triggers = (Events.gesturing,Events.sig_motion)))
         elif(action == "turbo"):

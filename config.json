@@ -18,7 +18,7 @@
         "label" : "Mode",
         "description" : "a user-settable integer defining the operation mode of Cato",
         "access"  : "rw",
-        "value" : "pointer",
+        "value" : "gesture_mouse",
         "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker", "practice"]
     },
 
@@ -58,7 +58,7 @@
             "height" : {
                 "description" : "height in pixels",
                 "access" : "rw",
-                "value" : 1920,
+                "value" : 1080,
                 "range" : {
                     "min" : 600,
                     "max" : 4320
@@ -67,7 +67,7 @@
             "width" : {
                 "description" : "width in pixels",
                 "access" : "rw",
-                "value" : 1080,
+                "value" : 1920,
                 "range" : {
                     "min" : 800,
                     "max" : 8192
@@ -105,13 +105,30 @@
                 "label" : "Idle timeout cycles",
                 "description" : "Number of consecutive cycles for mouse to observe idle behavior before exiting due to idle",
                 "access" : "rw",
-                "value" : 20,
+                "value" : 80,
                 "range" : {
-                    "min" : 15,
-                    "max" : 50
+                    "min" : 30,
+                    "max" : 150
                 }
             },
-            "scale_x"         : {
+            "dwell_duration" : {
+                "label" : "Dwell Trigger Cycles",
+                "description" : "Number of consecutive cycles for mouse to observe idle behavior performing dwell action in dwell_click",
+                "access" : "rw",
+                "value" : 50,
+                "range" : {
+                    "min" : 20,
+                    "max" : 100
+                }
+            },
+            "dwell_repeat" : {
+                "label" : "Dwell Repeat Clicks",
+                "description" : "If extended idle should trigger multiple clicks",
+                "access" : "rw",
+                "value" : true,
+                "options" : [true, false]
+            },
+            "scale_x" : {
                 "label" : "Horizontal Movement Scale Factor",
                 "description" : "Flat multiplier for all mouse movements",
                 "access" : "rw",
@@ -195,9 +212,8 @@
             },
             "shake_size" : {
                 "label" : "Shake Size",
-                "description" : "Settings for gesture indicator",
+                "description" : "size of cursor movement for gesturer indicator",
                 "access" : "rw",
-                "note" : "size of movement of cursor indicating 'do gesture now'",
                 "value" : 6,
                 "range" : {
                     "min" : 0,
@@ -237,7 +253,6 @@
             "max_click_spacing" : {
                 "label" : "Max Click Spacing",
                 "description" : "delay after detecting a tap to wait for the next",
-                "note" : "TODO: add setting preferences for tap intensity, shock, quiet",
                 "access" : "rw",
                 "value" : 0.45,
                 "range" : {
@@ -250,7 +265,7 @@
                 "description" : "Level of impact needed to trigger a click",
                 "note" : "5 bits, takes on values 0-31. Lower -> MORE SENSITIVE",
                 "access" : "rw",
-                "value" : 0,
+                "value" : 11,
                 "options" : [   0,  1,  2,  3,  4,  5,  6,  7,
                                 8,  9,  10, 11, 12, 13, 14, 15,
                                 16, 17, 18, 19, 20, 21, 22, 23,
@@ -262,7 +277,7 @@
                 "description" : "Amount of quiet required after a click",
                 "note" : "2-bit, 0-3",
                 "access" : "rw",
-                "value" : 0,
+                "value" : 2,
                 "options" : [0, 1, 2, 3]
             },
             "shock" : {
@@ -270,7 +285,7 @@
                 "description" : "Max duration of over threshold event",
                 "note" : "2-bit, 0-3",
                 "access" : "rw",
-                "value" : 0,
+                "value" : 2,
                 "options" : [0, 1, 2, 3]
             }
         }
@@ -284,7 +299,7 @@
             "key" : {
                 "label" : "Gesture Key",
                 "description" : "Human-readable field describing Gesture model's names of gestures - indexed",
-                "access" : "rw",
+                "access" : "r",
                 "value" : [
                     "None",
                     "Nod Up",
@@ -292,9 +307,7 @@
                     "Nod Right",
                     "Nod Left",
                     "Tilt Right",
-                    "Tilt Left",
-                    "Shake Yes",
-                    "Shake No"
+                    "Tilt Left"
                 ]
             },
             "length" : {
@@ -441,12 +454,6 @@
                 "_scroll",
                 "_scroll_lr",
                 "button_action",
-                "type_enter_key",
-                "type_esc_key",
-                "type_meta_key",
-                "type_up_key",
-                "type_left_key",
-                "type_right_key",
                 "quick_calibrate",
                 "quick_sleep"
             ]
@@ -462,8 +469,8 @@
                     [   ["button_action",0,"double_tap",1]  ],
                     [   ["button_action",0,"tap",1]         ],
                     [   ["button_action",0,"tap",2]         ],
-                    [   ["button_action",0,"toggle",1]      ],
-                    [   ["dwell_click", 0, 80]              ],
+                    [   ["button_action",0,"hold_until_idle",1]      ],
+                    [   ["dwell_click", 1, 50]              ],
                     [   ["pointer_sleep"]                   ],
                     [   ["button_action",0,"double_tap",1]  ],
                     [   ["noop"]                            ],
@@ -496,9 +503,9 @@
                 "note" : "available tap combos depend on number of bindings",
                 "value" : [
                     [   ["noop"]                            ],
-                    [   ["noop"]         ],
-                    [   ["noop"]         ],
-                    [   ["quick_sleep"]      ]
+                    [   ["button_action",0,"tap",1]         ],
+                    [   ["button_action",0,"double_tap", 1] ],
+                    [   ["button_action",0,"tap",2]         ]
                 ]
             }
         }
