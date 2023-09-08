@@ -58,7 +58,7 @@
             "height" : {
                 "description" : "height in pixels",
                 "access" : "rw",
-                "value" : 1920,
+                "value" : 1080,
                 "range" : {
                     "min" : 600,
                     "max" : 4320
@@ -67,7 +67,7 @@
             "width" : {
                 "description" : "width in pixels",
                 "access" : "rw",
-                "value" : 1080,
+                "value" : 1920,
                 "range" : {
                     "min" : 800,
                     "max" : 8192
@@ -128,7 +128,7 @@
                 "value" : true,
                 "options" : [true, false]
             },
-            "scale_x"         : {
+            "scale_x" : {
                 "label" : "Horizontal Movement Scale Factor",
                 "description" : "Flat multiplier for all mouse movements",
                 "access" : "rw",
@@ -469,8 +469,8 @@
                     [   ["button_action",0,"double_tap",1]  ],
                     [   ["button_action",0,"tap",1]         ],
                     [   ["button_action",0,"tap",2]         ],
-                    [   ["button_action",0,"toggle",1]      ],
-                    [   ["dwell_click", 1, 80]              ],
+                    [   ["button_action",0,"hold_until_idle",1]      ],
+                    [   ["dwell_click", 1, 50]              ],
                     [   ["pointer_sleep"]                   ],
                     [   ["button_action",0,"double_tap",1]  ],
                     [   ["noop"]                            ],
