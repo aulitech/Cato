@@ -1062,25 +1062,50 @@ class Cato:
         gestKey = config["gesture"]["key"]
         while True:
             await self.gesture_interpreter(indicator = self.shake_cursor, timeout = 0)
-            
-            gestName = "None"
-            if(max(neuton_outputs) >= config["confidence_threshold"]):
-                gestName = gestKey[self.n.inference()+1]
 
-            #gestName += "\n"
-            gcount = -1
-            for idx, gesture in enumerate(config['gesture']['key'][1:]):
-                if(neuton_outputs[idx] >= 0.005):
-                    gcount += 1
-                    if(gcount%gestPerLine == 0):
-                        gestName += '\n'
-                    else:
-                        gestName += '\t'
-                    gestName += f"\t{gesture:12}\t{int((neuton_outputs[idx]+0.005)*100):>3n}"
-            gestName += "\n"
+            gests = []
+            for idx, gesture in enumerate(gestKey[1:]):
+                if(neuton_outputs[idx]*100 >= config["practice"]["cutoff"]):
+                    gests.append((gesture,neuton_outputs[idx]))
             
-            DBS.println("typing:\n"+gestName)
-            await self.blue_type(gestName+'\n')
+            nDisp = min(len(gests),config["practice"]["num_infers"])
+            print(gests)
+            for i in range(nDisp):
+                sorted = True
+                for j in range(i,len(gests)-1):
+                    if(gests[j][1] < gests[j+1][1]):
+                        sorted = False
+                        temp = gests[j]
+                        gests[j] = gests[j+1]
+                        gests[j+1] = temp
+                print(i)
+                print(gests)
+                if(sorted):
+                    break
+            for i in range(nDisp, len(gests)):
+                gests.pop(i)
+            
+            outputStr = ""
+            if(config["practice"]["dense"]):
+                if(not gests):
+                    print(gests)
+                    outputStr = "None"
+                else:
+                    for g in gests:
+                        outputStr += g[0]+" "+str(int((g[1]+0.005)*100))+",  "
+                    outputStr = outputStr[:-3]
+            else:
+                if(max(neuton_outputs) >= config["confidence_threshold"]):
+                    outputStr = gestKey[self.n.inference()+1]
+                else:
+                    outputStr = "None"
+
+                gestName += "\n"
+                for idx, gesture in enumerate(gestKey[1:]):
+                    outputStr += f"\t{gesture:12}\t{int((neuton_outputs[idx]+0.005)*100):>3n}\n"
+            
+            DBS.println("typing:\n"+outputStr)
+            await self.blue_type(outputStr+'\n')
             DBS.println()
             # await asyncio.sleep(1)
     
@@ -1093,14 +1118,17 @@ class Cato:
                 self.blue.k.press(225)  #LShift
                 await asyncio.sleep(0.01)
                 c = ord(c) - 61
-            elif(c == ' '):
-                c = 44
-            elif(c == '\t'):
-                c = 43
-            elif(c == '\n'):
-                c = 40  #Enter
-            elif(c == '.'):
-                c = 55
+            elif(ord(c) < 48):
+                if(c == ' '):
+                    c = 44
+                elif(c == '\t'):
+                    c = 43
+                elif(c == '\n'):
+                    c = 40  #Enter
+                elif(c == '.'):
+                    c = 55
+                elif(c == ','):
+                    c = 54
             elif(c == '0'):
                 c = 39
             else:

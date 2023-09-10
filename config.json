@@ -11,14 +11,14 @@
         "label" : "Hardware Unique Identity",
         "description" : "Unique hex code for identifying different devices",
         "access" : "r",
-        "value" : ""
+        "value" : "wawawa"
     },
 
     "operation_mode" : {
         "label" : "Mode",
         "description" : "a user-settable integer defining the operation mode of Cato",
         "access"  : "rw",
-        "value" : "gesture_mouse",
+        "value" : "practice",
         "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker", "practice"]
     },
 
@@ -287,6 +287,32 @@
                 "access" : "rw",
                 "value" : 2,
                 "options" : [0, 1, 2, 3]
+            }
+        }
+    },
+
+    "practice" : {
+        "label" : "Practice Mode",
+        "description" : "Settings for practice mode",
+        "access" : "rw",
+        "value" : {
+            "dense" : {
+                "label" : "Format Condensed",
+                "description" : "true: type outputs in a single line; false: type outputs as a table",
+                "access" : "rw",
+                "value" : true
+            },
+            "num_infers" : {
+                "label" : "Maximum number of Displayed Inferences",
+                "description" : "Number of relevant inferences displayed per gesture",
+                "access" : "rw",
+                "value" : 6
+            },
+            "cutoff" : {
+                "label" : "Certainty Cutoff",
+                "description" : "Level of certainty below which gesture will not be displayed",
+                "access" : "rw",
+                "value" : 0.5
             }
         }
     },
