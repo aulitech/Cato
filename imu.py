@@ -204,7 +204,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         collect_spacer = 5 # collect garbage every n cycles
         rad_to_deg = 360.0 / (2*3.1416)
         
-        from WakeDog import WakeDog # Can this be at top?
+        # from WakeDog import WakeDog # Can this be at top?
 
         calibCycles = 0
         trimAdjust = np.array((0,0,0))
@@ -262,9 +262,9 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
                     trimAdjust = np.array((0,0,0))
             
             # Check sleep conditions
-            thresh = self.sleep_thresh
-            if gyro_mag > thresh:
-                WakeDog.feed()
+            # thresh = self.sleep_thresh
+            # if gyro_mag > thresh:
+            #     WakeDog.feed()
 
             self.data_ready.set()
 
@@ -303,7 +303,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self.data_ready.clear()
 
     async def calibrate(self, num_calib_cycles):
-        from WakeDog import WakeDog
+        # from WakeDog import WakeDog
         print("Calibrating HOLD STILL")
         
         gyro_avg = np.array([0.0, 0.0, 0.0])
@@ -311,7 +311,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         for i in range(num_calib_cycles):
             await self.wait()
             gyro_avg    += self.gyro_vals
-            WakeDog.feed()
+            # WakeDog.feed()
 
         for i in range(len(self.gyro_trim)):
             self.gyro_trim[i] += gyro_avg[i] / num_calib_cycles

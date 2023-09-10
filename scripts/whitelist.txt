@@ -1,10 +1,7 @@
-battery.py
 boot.py
 BluetoothControl.py
-Cato.py
 config.json
 imu.py
+MinPointer.py
 main.py
-StrUUIDService.py
 utils.py
-WakeDog.py

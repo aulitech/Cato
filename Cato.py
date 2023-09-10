@@ -84,7 +84,7 @@ class Cato:
         self.hall_pass = asyncio.Event() # separate event to be passed to functions when we must ensure they finish
 
         # battery managing container
-        self.battery = Battery()
+        # self.battery = Battery()
         
         self.blue = BluetoothControl()
 

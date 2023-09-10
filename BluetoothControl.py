@@ -6,15 +6,15 @@ from adafruit_ble.advertising import Advertisement #, AdvertisingFlag, Advertisi
 from adafruit_ble.advertising.standard import ProvideServicesAdvertisement
 from adafruit_ble.services.standard.hid import HIDService
 from adafruit_ble.services.standard.device_info import DeviceInfoService
-from adafruit_ble.services.standard import BatteryService
+# from adafruit_ble.services.standard import BatteryService
 
-from adafruit_hid.keyboard import Keyboard
-from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
-from adafruit_hid.keycode import Keycode
+# from adafruit_hid.keyboard import Keyboard
+# from adafruit_hid.keyboard_layout_us import KeyboardLayoutUS
+# from adafruit_hid.keycode import Keycode
 from adafruit_hid.mouse import Mouse
 
 
-from StrUUIDService import SUS
+# from StrUUIDService import SUS
 from utils import config
 
 import asyncio
@@ -74,12 +74,12 @@ class BluetoothControl():
 
 
         # HID handles
-        self.k = Keyboard(self.hid.devices)
-        self.kl = KeyboardLayoutUS(self.k)
+        # self.k = Keyboard(self.hid.devices)
+        # self.kl = KeyboardLayoutUS(self.k)
         self.mouse = Mouse(self.hid.devices)
         
         # Battery service. Can inform central of battery level with this.level
-        self.battery_service = BatteryService()
+        # self.battery_service = BatteryService()
 
         self.ena_adv = asyncio.Event()          # enable advertising
         self.is_connected = asyncio.Event()     # indicates connection
