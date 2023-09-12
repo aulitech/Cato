@@ -64,10 +64,11 @@ async def main():
 
     c = Cato( bt = True, do_calib = True)
     Cato.imu.imu_enable.set()
-
-    tasks = {
-        "control_loop"  : asyncio.create_task(control_loop( c )),
-    }
+    tasks = {}
+    if(config["operation_mode"] == "gesture_mouse"):
+        tasks = {
+            "control_loop"  : asyncio.create_task(control_loop( c )),
+        }
 
     tasks.update(c.tasks)
     await asyncio.sleep(0.3)

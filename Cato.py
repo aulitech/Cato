@@ -110,6 +110,7 @@ class Cato:
             self.tasks = {
                 "point"             : asyncio.create_task(self.move_mouse(forever = True)),
             }
+            Events.move_mouse.set()
         elif(mode == "clicker"):
             self.tasks = {
                 "clicker"           : asyncio.create_task(self.clicker_task()),
@@ -615,18 +616,19 @@ class Cato:
             else:
                 # print("\tactivity resumed: idle counter reset")
                 idle_count = 0
+                Events.mouse_idle.clear()
                 dwell_count = 0
+                Events.mouse_dwell.clear()
             
             if(not Events.mouse_dwell.is_set())and(dwell_count >= dwell_cycles): # if sufficiently idle, set mouse_idle
-                DBS.println(f"\t- Mouse Exit (mem: {gc.mem_free()})")
+                DBS.println(f"\t: Mouse_Dwell Set (mem: {gc.mem_free()})")
                 if(dwell_repeat):
                     dwell_count = 0
                 Events.mouse_dwell.set()
                 await asyncio.sleep(0)
             
             if(not Events.mouse_idle.is_set())and(cycle_count >= min_run_cycles)and(idle_count >= idle_cycles): # if sufficiently idle, set mouse_idle
-                DBS.println(f"\t- Mouse Exit (mem: {gc.mem_free()})")
-
+                DBS.println(f"\t: Mouse_Idle Set (mem: {gc.mem_free()})")
                 Events.mouse_idle.set()
                 await asyncio.sleep(0)
 
@@ -1058,7 +1060,6 @@ class Cato:
     
     async def gesture_loop(self):
         DBS.println("+ gesture_loop")
-        gestPerLine = 2
         gestKey = config["gesture"]["key"]
         while True:
             await self.gesture_interpreter(indicator = self.shake_cursor, timeout = 0)
@@ -1069,17 +1070,14 @@ class Cato:
                     gests.append((gesture,neuton_outputs[idx]))
             
             nDisp = min(len(gests),config["practice"]["num_infers"])
-            print(gests)
             for i in range(nDisp):
                 sorted = True
-                for j in range(i,len(gests)-1):
-                    if(gests[j][1] < gests[j+1][1]):
+                for j in range(len(gests)-1,i,-1):
+                    if(gests[j][1] > gests[j-1][1]):
                         sorted = False
                         temp = gests[j]
-                        gests[j] = gests[j+1]
-                        gests[j+1] = temp
-                print(i)
-                print(gests)
+                        gests[j] = gests[j-1]
+                        gests[j-1] = temp
                 if(sorted):
                     break
             for i in range(nDisp, len(gests)):
@@ -1088,7 +1086,6 @@ class Cato:
             outputStr = ""
             if(config["practice"]["dense"]):
                 if(not gests):
-                    print(gests)
                     outputStr = "None"
                 else:
                     for g in gests:
@@ -1100,13 +1097,12 @@ class Cato:
                 else:
                     outputStr = "None"
 
-                gestName += "\n"
+                outputStr += "\n"
                 for idx, gesture in enumerate(gestKey[1:]):
                     outputStr += f"\t{gesture:12}\t{int((neuton_outputs[idx]+0.005)*100):>3n}\n"
             
             DBS.println("typing:\n"+outputStr)
             await self.blue_type(outputStr+'\n')
-            DBS.println()
             # await asyncio.sleep(1)
     
     async def blue_type(self, str):
