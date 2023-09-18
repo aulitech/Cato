@@ -3,7 +3,7 @@ import time
 import analogio
 import digitalio
 import asyncio
-# from StrUUIDService import DebugStream as DBS
+from StrUUIDService import DebugStream as DBS
 from utils import config, translate
 class Battery:
     def __init__(self):
@@ -31,5 +31,5 @@ class Battery:
     @property
     def level(self):
         level = translate(config["battery"]["low"], config["battery"]["high"], 0, 100, self.raw_value)
-        # print(f"level = {level}")
+        DBS.println(f"level = {self.raw_value}")
         return int(level)

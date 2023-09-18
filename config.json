@@ -443,13 +443,13 @@
                 "label" : "Low",
                 "description" : "Value of analog pin indicating discharged battery. Typ. ~23000",
                 "access" : "r",
-                "value" : 24000
+                "value" : 22800
             },
             "high" : {
                 "label" : "High",
                 "description" : "Value of analog pin indicating charged battery. Typ. ~30000",
                 "access" : "r",
-                "value" : 28500
+                "value" : 27500
             }
         }
     },
