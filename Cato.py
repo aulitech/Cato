@@ -305,6 +305,10 @@ class Cato:
 
         await Cato.imu.wait()
         mag = gyro_mag()
+
+        
+        if mag > gestThresh:
+            return ["noop"]
         
         Events.gesturing.set()
         if(indicator != None):
@@ -317,7 +321,7 @@ class Cato:
         timeoutEv = asyncio.Event()
         Events.battery.set()
         asyncio.create_task(stopwatch(timeout, ev = timeoutEv))
-        await asyncio.create_task(self.wait_for_motion(sqrt(gestThresh),terminator = timeoutEv.is_set))
+        await asyncio.create_task(self.wait_for_motion(gestThresh, terminator = timeoutEv.is_set))
         if(not Events.sig_motion.is_set()):
             Events.gesturing.clear()
             DBS.println("\tTimeout")

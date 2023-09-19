@@ -18,7 +18,7 @@
         "label" : "Mode",
         "description" : "a user-settable integer defining the operation mode of Cato",
         "access"  : "rw",
-        "value" : "gesture_mouse",
+        "value" : "tv_remote",
         "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker", "practice"]
     },
 
@@ -239,7 +239,7 @@
                 "label" : "",
                 "description" : "wait for previous action to end before reading a new gesture",
                 "access" : "rw",
-                "value" : false,
+                "value" : true,
                 "options" : [true, false]
             }
         }
@@ -363,7 +363,7 @@
                 "label" : "Movement threshold",
                 "description" : "movement required to start capturing gesture. Startup threshold",
                 "access" : "r",
-                "value" : 500
+                "value" : 22.36
             },
             "idle_threshold" : {
                 "label" : "Idle threshold",
@@ -496,7 +496,7 @@
                     [   ["button_action",0,"tap",2]         ],
                     [   ["button_action",0,"hold_until_idle",1]      ],
                     [   ["dwell_click", 1, 50]              ],
-                    [   ["pointer_sleep"]                   ]
+                    [   ["quick_calibrate"]                   ]
                 ]
             },
             "tv_remote" : {
