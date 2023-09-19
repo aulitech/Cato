@@ -336,6 +336,17 @@
                     "Tilt Left"
                 ]
             },
+            "confidence_threshold" : {
+                "label" : "Confidence threshold",
+                "description" : "threshold of gesture confidence probability [0, 1), for Cato to accept gesture and execute command",
+                "note" : "Low value -> few dry-fires, more frequent mistakes. High value -> frequent dry-fires, rare mistakes", 
+                "access" : "rw",
+                "value" : 0.62,
+                "range" : {
+                    "min" : 0.55,
+                    "max" : 0.90
+                }
+            },
             "length" : {
                 "label" : "Length",
                 "description" : "Number of samples (max) in a gesture to be fed to Neuton",
@@ -451,18 +462,6 @@
                 "access" : "r",
                 "value" : 27500
             }
-        }
-    },
-
-    "confidence_threshold" : {
-        "label" : "Confidence threshold",
-        "description" : "threshold of gesture confidence probability [0, 1), for Cato to accept gesture and execute command",
-        "note" : "Low value -> few dry-fires, more frequent mistakes. High value -> frequent dry-fires, rare mistakes", 
-        "access" : "rw",
-        "value" : 0.62,
-        "range" : {
-            "min" : 0.55,
-            "max" : 0.90
         }
     },
 
