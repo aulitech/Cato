@@ -31,5 +31,5 @@ class Battery:
     @property
     def level(self):
         level = translate(config["battery"]["low"], config["battery"]["high"], 0, 100, self.raw_value)
-        # print(f"level = {level}")
+        # DBS.println(f"level = {self.raw_value}")
         return int(level)

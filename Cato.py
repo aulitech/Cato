@@ -163,7 +163,7 @@ class Cato:
             await asyncio.sleep(0.1)
             self.tasks['interrupt'] = None
 
-            self.imu.sig_mot_ena() # set wakeup condn to single tap detection
+            self.imu.single_tap_cfg() # set wakeup condn to single tap detection
 
             pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
             
@@ -176,6 +176,8 @@ class Cato:
             print("LIGHT SLEEP")
             alarm.light_sleep_until_alarms(pin_alarm)
             print("WOKE UP")
+
+            # restart if sleep was long
             if(time.time() - sleep_time > 600):
                 mc.reset()
 
@@ -197,9 +199,6 @@ class Cato:
             self.imu.imu_ready.set()
             
             await asyncio.sleep(0.1)
-
-
-            #await asyncio.sleep(1) # TAKE IMU READINGS BEFORE TRYING TO GO BACK TO SLEEP?
     
     async def pointer_sleep(self, hall_pass: asyncio.Event = None):
         DBS.println("+ pointer_sleep")
