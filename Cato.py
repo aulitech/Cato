@@ -118,7 +118,7 @@ class Cato:
         elif(mode == "practice"):
             self.bindings = config["bindings"]["gesture_mouse"]
             self.tasks = {
-                "gesture_loop"         : asyncio.create_task(self.gesture_loop())
+                "gesture_loop"         : asyncio.create_task(self.gesture_practice_loop())
             }
         elif("dev" in mode):
             self.tasks = {
@@ -289,7 +289,7 @@ class Cato:
         gc.collect()
         # DBS.println("+gesture_interpreter mem: ",gc.mem_free())
         # load interpreter specific parameters
-        confThresh  = config["confidence_threshold"]
+        confThresh  = config["gesture"]["confidence_threshold"]
         maxLen      = config["gesture"]["length"]
         idleLen     = config["gesture"]["idle_cutoff"]
         gestThresh  = config["gesture"]["start_threshold"]
@@ -1058,7 +1058,7 @@ class Cato:
             await asyncio.sleep(0.2)
     
     
-    async def gesture_loop(self):
+    async def gesture_practice_loop(self):
         DBS.println("+ gesture_loop")
         gestKey = config["gesture"]["key"]
         while True:
@@ -1092,7 +1092,7 @@ class Cato:
                         outputStr += g[0]+" "+str(int((g[1]+0.005)*100))+",  "
                     outputStr = outputStr[:-3]
             else:
-                if(max(neuton_outputs) >= config["confidence_threshold"]):
+                if(max(neuton_outputs) >= config["gesture"]["confidence_threshold"]):
                     outputStr = gestKey[self.n.inference()+1]
                 else:
                     outputStr = "None"
