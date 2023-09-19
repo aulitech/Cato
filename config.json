@@ -496,11 +496,7 @@
                     [   ["button_action",0,"tap",2]         ],
                     [   ["button_action",0,"hold_until_idle",1]      ],
                     [   ["dwell_click", 1, 50]              ],
-                    [   ["pointer_sleep"]                   ],
-                    [   ["button_action",0,"double_tap",1]  ],
-                    [   ["noop"]                            ],
-                    [   ["quick_sleep"]                     ],
-                    [   ["quick_sleep"]                     ]
+                    [   ["pointer_sleep"]                   ]
                 ]
             },
             "tv_remote" : {
@@ -514,11 +510,7 @@
                     [   ["button_action",1,"tap",79]        ],
                     [   ["button_action",1,"tap",80]        ],
                     [   ["button_action",1,"tap",40]        ],
-                    [   ["button_action",1,"tap",41]        ],
-                    [   ["button_action",1,"tap",227]       ],
-                    [   ["noop"]                            ],
-                    [   ["quick_sleep"]                     ],
-                    [   ["quick_sleep"]                     ]
+                    [   ["button_action",1,"tap",41]        ]
                 ]
             },
             "clicker" : {
