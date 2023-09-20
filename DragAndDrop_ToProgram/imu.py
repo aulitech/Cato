@@ -316,7 +316,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         for i in range(len(self.gyro_trim)):
             self.gyro_trim[i] += gyro_avg[i] / num_calib_cycles
         
-        self.not_calibrated = False
+        # self.not_calibrated = False
         print("Done Calibrating")
     
     # async def full_calibrate(self, num_calib_cycles):

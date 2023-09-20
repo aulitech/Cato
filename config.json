@@ -16,7 +16,7 @@
 
     "operation_mode" : {
         "label" : "Mode",
-        "description" : "a user-settable integer defining the operation mode of Cato",
+        "description" : "a name defining the operation mode of Cato",
         "access"  : "rw",
         "value" : "gesture_mouse",
         "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker", "practice"]
@@ -34,7 +34,7 @@
                 "value" : 600,
                 "range" : {
                     "min" : 10,
-                    "max" : 120
+                    "max" : 1200
                 }
             },
             "threshold" : {
@@ -239,7 +239,7 @@
                 "label" : "",
                 "description" : "wait for previous action to end before reading a new gesture",
                 "access" : "rw",
-                "value" : false,
+                "value" : true,
                 "options" : [true, false]
             }
         }
@@ -291,6 +291,32 @@
         }
     },
 
+    "practice" : {
+        "label" : "Practice Mode",
+        "description" : "Settings for practice mode",
+        "access" : "rw",
+        "value" : {
+            "dense" : {
+                "label" : "Format Condensed",
+                "description" : "true: type outputs in a single line; false: type outputs as a table",
+                "access" : "rw",
+                "value" : true
+            },
+            "num_infers" : {
+                "label" : "Maximum number of Displayed Inferences",
+                "description" : "Number of relevant inferences displayed per gesture",
+                "access" : "rw",
+                "value" : 6
+            },
+            "cutoff" : {
+                "label" : "Certainty Cutoff",
+                "description" : "Level of certainty below which gesture will not be displayed",
+                "access" : "rw",
+                "value" : 0.5
+            }
+        }
+    },
+
     "gesture" : {
         "label" : "Gesture Parameters",
         "description" : "structure describing gesture collection and cutoff tools",
@@ -310,6 +336,17 @@
                     "Tilt Left"
                 ]
             },
+            "confidence_threshold" : {
+                "label" : "Confidence threshold",
+                "description" : "threshold of gesture confidence probability [0, 1), for Cato to accept gesture and execute command",
+                "note" : "Low value -> few dry-fires, more frequent mistakes. High value -> frequent dry-fires, rare mistakes", 
+                "access" : "rw",
+                "value" : 0.62,
+                "range" : {
+                    "min" : 0.55,
+                    "max" : 0.90
+                }
+            },
             "length" : {
                 "label" : "Length",
                 "description" : "Number of samples (max) in a gesture to be fed to Neuton",
@@ -326,7 +363,7 @@
                 "label" : "Movement threshold",
                 "description" : "movement required to start capturing gesture. Startup threshold",
                 "access" : "r",
-                "value" : 500
+                "value" : 22.36
             },
             "idle_threshold" : {
                 "label" : "Idle threshold",
@@ -353,6 +390,7 @@
         "label" : "Orientation",
         "description" : "parameters describing usage orientation for Cato",
         "access" : "rw", 
+        "note" : "default orientation is on the right side of the glasses, with the circular battery compartment facing OUT (and usb port forward)",
         "value" : {
             "front" : {
                 "label" : "front",
@@ -417,26 +455,14 @@
                 "label" : "Low",
                 "description" : "Value of analog pin indicating discharged battery. Typ. ~23000",
                 "access" : "r",
-                "value" : 24000
+                "value" : 22800
             },
             "high" : {
                 "label" : "High",
                 "description" : "Value of analog pin indicating charged battery. Typ. ~30000",
                 "access" : "r",
-                "value" : 28500
+                "value" : 27500
             }
-        }
-    },
-
-    "confidence_threshold" : {
-        "label" : "Confidence threshold",
-        "description" : "threshold of gesture confidence probability [0, 1), for Cato to accept gesture and execute command",
-        "note" : "Low value -> few dry-fires, more frequent mistakes. High value -> frequent dry-fires, rare mistakes", 
-        "access" : "rw",
-        "value" : 0.62,
-        "range" : {
-            "min" : 0.55,
-            "max" : 0.90
         }
     },
 
@@ -471,11 +497,7 @@
                     [   ["button_action",0,"tap",2]         ],
                     [   ["button_action",0,"hold_until_idle",1]      ],
                     [   ["dwell_click", 1, 50]              ],
-                    [   ["pointer_sleep"]                   ],
-                    [   ["button_action",0,"double_tap",1]  ],
-                    [   ["noop"]                            ],
-                    [   ["quick_sleep"]                     ],
-                    [   ["quick_sleep"]                     ]
+                    [   ["pointer_sleep"]                   ]
                 ]
             },
             "tv_remote" : {
@@ -489,11 +511,7 @@
                     [   ["button_action",1,"tap",79]        ],
                     [   ["button_action",1,"tap",80]        ],
                     [   ["button_action",1,"tap",40]        ],
-                    [   ["button_action",1,"tap",41]        ],
-                    [   ["button_action",1,"tap",227]       ],
-                    [   ["noop"]                            ],
-                    [   ["quick_sleep"]                     ],
-                    [   ["quick_sleep"]                     ]
+                    [   ["button_action",1,"tap",41]        ]
                 ]
             },
             "clicker" : {
@@ -556,9 +574,7 @@
             "screen_size",
             "calibration",
             "sleep_threshold",
-            "battery",
-            "confidence_threshold",
-       
+            "battery",       
             "gesture",
             "turbo_rate",
             "key_order",

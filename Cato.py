@@ -110,6 +110,7 @@ class Cato:
             self.tasks = {
                 "point"             : asyncio.create_task(self.move_mouse(forever = True)),
             }
+            Events.move_mouse.set()
         elif(mode == "clicker"):
             self.tasks = {
                 "clicker"           : asyncio.create_task(self.clicker_task()),
@@ -117,7 +118,7 @@ class Cato:
         elif(mode == "practice"):
             self.bindings = config["bindings"]["gesture_mouse"]
             self.tasks = {
-                "gesture_loop"         : asyncio.create_task(self.gesture_loop())
+                "gesture_loop"         : asyncio.create_task(self.gesture_practice_loop())
             }
         elif("dev" in mode):
             self.tasks = {
@@ -138,9 +139,22 @@ class Cato:
         self.gesture = 0 # None
 
         self.pins = {
-            "led_green" : digitalio.DigitalInOut( board.LED_GREEN )
+            "led_green" : digitalio.DigitalInOut( board.LED_GREEN ),
+            "led_blue"  : digitalio.DigitalInOut( board.LED_BLUE),
+            "led_red"   : digitalio.DigitalInOut( board.LED_RED),
         }
-        self.pins['led_green'] = digitalio.Direction.OUTPUT
+
+        for pin in self.pins.values():
+            pin.direction = digitalio.Direction.OUTPUT
+            pin.value = True
+
+        # self.pins['led_green'].direction  = digitalio.Direction.OUTPUT
+        # self.pins['led_blue'].direction   = digitalio.Direction.OUTPUT
+        # self.pins['led_red'].direction    = digitalio.Direction.OUTPUT
+
+        # self.pins['led_green'].value    = True
+        # self.pins['led_blue'].value     = True
+        # self.pins['led_red'].value      = True
 
         DBS.println("- Cato Init")
 
@@ -162,7 +176,7 @@ class Cato:
             await asyncio.sleep(0.1)
             self.tasks['interrupt'] = None
 
-            self.imu.sig_mot_ena() # set wakeup condn to single tap detection
+            self.imu.single_tap_cfg() # set wakeup condn to single tap detection
 
             pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
             
@@ -175,6 +189,8 @@ class Cato:
             print("LIGHT SLEEP")
             alarm.light_sleep_until_alarms(pin_alarm)
             print("WOKE UP")
+
+            # restart if sleep was long
             if(time.time() - sleep_time > 600):
                 mc.reset()
 
@@ -196,9 +212,6 @@ class Cato:
             self.imu.imu_ready.set()
             
             await asyncio.sleep(0.1)
-
-
-            #await asyncio.sleep(1) # TAKE IMU READINGS BEFORE TRYING TO GO BACK TO SLEEP?
     
     async def pointer_sleep(self, hall_pass: asyncio.Event = None):
         DBS.println("+ pointer_sleep")
@@ -211,20 +224,26 @@ class Cato:
         return
 
     async def monitor_battery(self):
+        colors = ['led_red', 'led_green', 'led_blue']
+        num_blinks = 2 # number of time to blink each led
+        num_iters = 1 # number of times to repeat pattern
+        sleep_time = 0.1
         while True:
             try:
-                for i in range(3):
-                    await asyncio.sleep(0.2)
-                    self.pins['led_green'].value = False
-                    await asyncio.sleep(0.2)
-                    self.pins['led_green'].value = True
+                for color in colors:
+                    for i in range(num_blinks):
+                        self.pins[color].value = False
+                        await asyncio.sleep(sleep_time)
+                        self.pins[color].value = True
+                        await asyncio.sleep(sleep_time)
+                    
             except:
                 pass
-            await asyncio.sleep(5)
-            temp = self.battery.raw_value
-            # DBS.println(f"bat_ena True: {temp[0]}")
-            # await asyncio.sleep(0.1)
-            # DBS.println(f"bat_ena False: {temp[1]}")
+
+            batt_timer = 10
+            await asyncio.sleep(batt_timer)
+
+            # print("monitor_battery")
             self.blue.battery_service.level = self.battery.level
 
     async def _move_mouse(self, hall_pass: asyncio.Event = None):
@@ -288,7 +307,7 @@ class Cato:
         gc.collect()
         # DBS.println("+gesture_interpreter mem: ",gc.mem_free())
         # load interpreter specific parameters
-        confThresh  = config["confidence_threshold"]
+        confThresh  = config["gesture"]["confidence_threshold"]
         maxLen      = config["gesture"]["length"]
         idleLen     = config["gesture"]["idle_cutoff"]
         gestThresh  = config["gesture"]["start_threshold"]
@@ -305,6 +324,10 @@ class Cato:
 
         await Cato.imu.wait()
         mag = gyro_mag()
+
+        
+        if mag > gestThresh:
+            return ["noop"]
         
         Events.gesturing.set()
         if(indicator != None):
@@ -317,7 +340,7 @@ class Cato:
         timeoutEv = asyncio.Event()
         Events.battery.set()
         asyncio.create_task(stopwatch(timeout, ev = timeoutEv))
-        await asyncio.create_task(self.wait_for_motion(sqrt(gestThresh),terminator = timeoutEv.is_set))
+        await asyncio.create_task(self.wait_for_motion(gestThresh, terminator = timeoutEv.is_set))
         if(not Events.sig_motion.is_set()):
             Events.gesturing.clear()
             DBS.println("\tTimeout")
@@ -615,18 +638,19 @@ class Cato:
             else:
                 # print("\tactivity resumed: idle counter reset")
                 idle_count = 0
+                Events.mouse_idle.clear()
                 dwell_count = 0
+                Events.mouse_dwell.clear()
             
             if(not Events.mouse_dwell.is_set())and(dwell_count >= dwell_cycles): # if sufficiently idle, set mouse_idle
-                DBS.println(f"\t- Mouse Exit (mem: {gc.mem_free()})")
+                DBS.println(f"\t: Mouse_Dwell Set (mem: {gc.mem_free()})")
                 if(dwell_repeat):
                     dwell_count = 0
                 Events.mouse_dwell.set()
                 await asyncio.sleep(0)
             
             if(not Events.mouse_idle.is_set())and(cycle_count >= min_run_cycles)and(idle_count >= idle_cycles): # if sufficiently idle, set mouse_idle
-                DBS.println(f"\t- Mouse Exit (mem: {gc.mem_free()})")
-
+                DBS.println(f"\t: Mouse_Idle Set (mem: {gc.mem_free()})")
                 Events.mouse_idle.set()
                 await asyncio.sleep(0)
 
@@ -1056,32 +1080,51 @@ class Cato:
             await asyncio.sleep(0.2)
     
     
-    async def gesture_loop(self):
+    async def gesture_practice_loop(self):
         DBS.println("+ gesture_loop")
-        gestPerLine = 2
         gestKey = config["gesture"]["key"]
         while True:
             await self.gesture_interpreter(indicator = self.shake_cursor, timeout = 0)
-            
-            gestName = "None"
-            if(max(neuton_outputs) >= config["confidence_threshold"]):
-                gestName = gestKey[self.n.inference()+1]
 
-            #gestName += "\n"
-            gcount = -1
-            for idx, gesture in enumerate(config['gesture']['key'][1:]):
-                if(neuton_outputs[idx] >= 0.005):
-                    gcount += 1
-                    if(gcount%gestPerLine == 0):
-                        gestName += '\n'
-                    else:
-                        gestName += '\t'
-                    gestName += f"\t{gesture:12}\t{int((neuton_outputs[idx]+0.005)*100):>3n}"
-            gestName += "\n"
+            gests = []
+            for idx, gesture in enumerate(gestKey[1:]):
+                if(neuton_outputs[idx]*100 >= config["practice"]["cutoff"]):
+                    gests.append((gesture,neuton_outputs[idx]))
             
-            DBS.println("typing:\n"+gestName)
-            await self.blue_type(gestName+'\n')
-            DBS.println()
+            nDisp = min(len(gests),config["practice"]["num_infers"])
+            for i in range(nDisp):
+                sorted = True
+                for j in range(len(gests)-1,i,-1):
+                    if(gests[j][1] > gests[j-1][1]):
+                        sorted = False
+                        temp = gests[j]
+                        gests[j] = gests[j-1]
+                        gests[j-1] = temp
+                if(sorted):
+                    break
+            for i in range(nDisp, len(gests)):
+                gests.pop(i)
+            
+            outputStr = ""
+            if(config["practice"]["dense"]):
+                if(not gests):
+                    outputStr = "None"
+                else:
+                    for g in gests:
+                        outputStr += g[0]+" "+str(int((g[1]+0.005)*100))+",  "
+                    outputStr = outputStr[:-3]
+            else:
+                if(max(neuton_outputs) >= config["gesture"]["confidence_threshold"]):
+                    outputStr = gestKey[self.n.inference()+1]
+                else:
+                    outputStr = "None"
+
+                outputStr += "\n"
+                for idx, gesture in enumerate(gestKey[1:]):
+                    outputStr += f"\t{gesture:12}\t{int((neuton_outputs[idx]+0.005)*100):>3n}\n"
+            
+            DBS.println("typing:\n"+outputStr)
+            await self.blue_type(outputStr+'\n')
             # await asyncio.sleep(1)
     
     async def blue_type(self, str):
@@ -1093,14 +1136,17 @@ class Cato:
                 self.blue.k.press(225)  #LShift
                 await asyncio.sleep(0.01)
                 c = ord(c) - 61
-            elif(c == ' '):
-                c = 44
-            elif(c == '\t'):
-                c = 43
-            elif(c == '\n'):
-                c = 40  #Enter
-            elif(c == '.'):
-                c = 55
+            elif(ord(c) < 48):
+                if(c == ' '):
+                    c = 44
+                elif(c == '\t'):
+                    c = 43
+                elif(c == '\n'):
+                    c = 40  #Enter
+                elif(c == '.'):
+                    c = 55
+                elif(c == ','):
+                    c = 54
             elif(c == '0'):
                 c = 39
             else:
