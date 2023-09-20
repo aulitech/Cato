@@ -139,9 +139,22 @@ class Cato:
         self.gesture = 0 # None
 
         self.pins = {
-            "led_green" : digitalio.DigitalInOut( board.LED_GREEN )
+            "led_green" : digitalio.DigitalInOut( board.LED_GREEN ),
+            "led_blue"  : digitalio.DigitalInOut( board.LED_BLUE),
+            "led_red"   : digitalio.DigitalInOut( board.LED_RED),
         }
-        self.pins['led_green'] = digitalio.Direction.OUTPUT
+
+        for pin in self.pins.values():
+            pin.direction = digitalio.Direction.OUTPUT
+            pin.value = True
+
+        # self.pins['led_green'].direction  = digitalio.Direction.OUTPUT
+        # self.pins['led_blue'].direction   = digitalio.Direction.OUTPUT
+        # self.pins['led_red'].direction    = digitalio.Direction.OUTPUT
+
+        # self.pins['led_green'].value    = True
+        # self.pins['led_blue'].value     = True
+        # self.pins['led_red'].value      = True
 
         DBS.println("- Cato Init")
 
@@ -163,7 +176,7 @@ class Cato:
             await asyncio.sleep(0.1)
             self.tasks['interrupt'] = None
 
-            self.imu.sig_mot_ena() # set wakeup condn to single tap detection
+            self.imu.single_tap_cfg() # set wakeup condn to single tap detection
 
             pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
             
@@ -176,6 +189,8 @@ class Cato:
             print("LIGHT SLEEP")
             alarm.light_sleep_until_alarms(pin_alarm)
             print("WOKE UP")
+
+            # restart if sleep was long
             if(time.time() - sleep_time > 600):
                 mc.reset()
 
@@ -197,9 +212,6 @@ class Cato:
             self.imu.imu_ready.set()
             
             await asyncio.sleep(0.1)
-
-
-            #await asyncio.sleep(1) # TAKE IMU READINGS BEFORE TRYING TO GO BACK TO SLEEP?
     
     async def pointer_sleep(self, hall_pass: asyncio.Event = None):
         DBS.println("+ pointer_sleep")
@@ -212,20 +224,26 @@ class Cato:
         return
 
     async def monitor_battery(self):
+        colors = ['led_red', 'led_green', 'led_blue']
+        num_blinks = 2 # number of time to blink each led
+        num_iters = 1 # number of times to repeat pattern
+        sleep_time = 0.1
         while True:
             try:
-                for i in range(3):
-                    await asyncio.sleep(0.2)
-                    self.pins['led_green'].value = False
-                    await asyncio.sleep(0.2)
-                    self.pins['led_green'].value = True
+                for color in colors:
+                    for i in range(num_blinks):
+                        self.pins[color].value = False
+                        await asyncio.sleep(sleep_time)
+                        self.pins[color].value = True
+                        await asyncio.sleep(sleep_time)
+                    
             except:
                 pass
-            await asyncio.sleep(5)
-            temp = self.battery.raw_value
-            # DBS.println(f"bat_ena True: {temp[0]}")
-            # await asyncio.sleep(0.1)
-            # DBS.println(f"bat_ena False: {temp[1]}")
+
+            batt_timer = 10
+            await asyncio.sleep(batt_timer)
+
+            # print("monitor_battery")
             self.blue.battery_service.level = self.battery.level
 
     async def _move_mouse(self, hall_pass: asyncio.Event = None):
@@ -306,6 +324,10 @@ class Cato:
 
         await Cato.imu.wait()
         mag = gyro_mag()
+
+        
+        if mag > gestThresh:
+            return ["noop"]
         
         Events.gesturing.set()
         if(indicator != None):
@@ -318,7 +340,7 @@ class Cato:
         timeoutEv = asyncio.Event()
         Events.battery.set()
         asyncio.create_task(stopwatch(timeout, ev = timeoutEv))
-        await asyncio.create_task(self.wait_for_motion(sqrt(gestThresh),terminator = timeoutEv.is_set))
+        await asyncio.create_task(self.wait_for_motion(gestThresh, terminator = timeoutEv.is_set))
         if(not Events.sig_motion.is_set()):
             Events.gesturing.clear()
             DBS.println("\tTimeout")
