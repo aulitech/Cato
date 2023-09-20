@@ -11,14 +11,14 @@
         "label" : "Hardware Unique Identity",
         "description" : "Unique hex code for identifying different devices",
         "access" : "r",
-        "value" : "wahwah"
+        "value" : ""
     },
 
     "operation_mode" : {
         "label" : "Mode",
-        "description" : "a user-settable integer defining the operation mode of Cato",
+        "description" : "a name defining the operation mode of Cato",
         "access"  : "rw",
-        "value" : "pointer",
+        "value" : "gesture_mouse",
         "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker", "practice"]
     },
 
@@ -34,7 +34,7 @@
                 "value" : 600,
                 "range" : {
                     "min" : 10,
-                    "max" : 120
+                    "max" : 1200
                 }
             },
             "threshold" : {
@@ -390,6 +390,7 @@
         "label" : "Orientation",
         "description" : "parameters describing usage orientation for Cato",
         "access" : "rw", 
+        "note" : "default orientation is on the right side of the glasses, with the circular battery compartment facing OUT (and usb port forward)",
         "value" : {
             "front" : {
                 "label" : "front",
@@ -496,7 +497,7 @@
                     [   ["button_action",0,"tap",2]         ],
                     [   ["button_action",0,"hold_until_idle",1]      ],
                     [   ["dwell_click", 1, 50]              ],
-                    [   ["quick_calibrate"]                   ]
+                    [   ["pointer_sleep"]                   ]
                 ]
             },
             "tv_remote" : {
@@ -573,9 +574,7 @@
             "screen_size",
             "calibration",
             "sleep_threshold",
-            "battery",
-            "confidence_threshold",
-       
+            "battery",       
             "gesture",
             "turbo_rate",
             "key_order",

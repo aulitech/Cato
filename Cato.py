@@ -243,7 +243,7 @@ class Cato:
             batt_timer = 10
             await asyncio.sleep(batt_timer)
 
-            print("monitor_battery")
+            # print("monitor_battery")
             self.blue.battery_service.level = self.battery.level
 
     async def _move_mouse(self, hall_pass: asyncio.Event = None):
