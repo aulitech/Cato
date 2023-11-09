@@ -522,7 +522,7 @@
                 "value" : [
                     [   ["noop"]                            ],
                     [   ["button_action",0,"tap",1]         ],
-                    [   ["button_action",0,"double_tap", 1] ],
+                    [   ["button_action",0,"toggle", 1]     ],
                     [   ["button_action",0,"tap",2]         ]
                 ]
             }
