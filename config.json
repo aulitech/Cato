@@ -396,14 +396,14 @@
                 "label" : "front",
                 "description" : "",
                 "access" : "rw",
-                "value" : "-x",
+                "value" : "-y",
                 "options" : ["+x", "-x", "+y", "-y", "+z", "-z"]
             },
             "bottom" : {
                 "label" : "bottom",
                 "description" : "",
                 "access" : "rw",
-                "value" : "-y",
+                "value" : "+x",
                 "options" : ["+x", "-x", "+y", "-y", "+z", "-z"]
             },
             "left" : {
@@ -496,7 +496,7 @@
                     [   ["button_action",0,"tap",1]         ],
                     [   ["button_action",0,"tap",2]         ],
                     [   ["button_action",0,"hold_until_idle",1]      ],
-                    [   ["dwell_click", 1, 50]              ],
+                    [   ["quick_sleep"]              ],
                     [   ["pointer_sleep"]                   ]
                 ]
             },
