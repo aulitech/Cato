@@ -60,7 +60,8 @@ class Events:
     gesture_not_collecting.set()
 
 # Home for neuton inference
-neuton_outputs = array.array( "f", [0]*len(config["gesture"]["key"]) )
+
+neuton_outputs = array.array( "f", [0]*(1 if ('gesture' not in config.keys()) else len(config['gesture']['key'])) )
 
 class Cato:
     ''' Main Class of Cato Gesture Mouse '''
@@ -305,8 +306,8 @@ class Cato:
             action = asyncio.create_task(self.block_on_eval(target))
             if(await_actions):
                 await action
-
-    async def gesture_interpreter(self, indicator = None, timeout = config["gesture"]["timeout"]):
+    
+    async def gesture_interpreter(self, indicator = None, timeout = (1 if ('gesture' not in config.keys()) else config['gesture']['timeout'])):
         gc.collect()
         # DBS.println("+gesture_interpreter mem: ",gc.mem_free())
         # load interpreter specific parameters

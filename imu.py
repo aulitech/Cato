@@ -106,7 +106,7 @@ class LSM6DS3TRC(LSM6DS):   # pylint: disable=too-many-instance-attributes
         self.gyro_trim  = config["calibration"]["drift"] # Gyroscope trim values set by calibrate
         self.not_calibrated = True
         self.autoCalibLen = config["calibration"]["auto_samples"]
-        self.autoCalibThresh = config["calibration"]["auto_threshold"]*config["mouse"]["idle_threshold"]
+        self.autoCalibThresh = config["calibration"]["auto_threshold"]
         self.sleep_thresh = config["sleep"]["threshold"]
 
         # Rotational Adjustment Values (From Calibrate)
