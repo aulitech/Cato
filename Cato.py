@@ -224,9 +224,9 @@ class Cato:
 
     async def monitor_battery(self):
         colors = ['led_red', 'led_green', 'led_blue']
-        num_blinks = 2 # number of time to blink each led
+        num_blinks = 1 # number of time to blink each led
         num_iters = 1 # number of times to repeat pattern
-        sleep_time = 0.1
+        sleep_time = 0.2
         while True:
             try:
                 for color in colors:
@@ -234,7 +234,7 @@ class Cato:
                         self.pins[color].value = False
                         await asyncio.sleep(sleep_time)
                         self.pins[color].value = True
-                        await asyncio.sleep(sleep_time)
+                        #await asyncio.sleep(sleep_time)
                     
             except:
                 pass
@@ -1088,7 +1088,7 @@ class Cato:
         DBS.println("+ gesture_loop")
         gestKey = config["gesture"]["key"]
         while True:
-            await self.gesture_interpreter(indicator = self.shake_cursor, timeout = 0)
+            await self.gesture_interpreter(indicator = None, timeout = 0)
 
             gests = []
             for idx, gesture in enumerate(gestKey[1:]):
