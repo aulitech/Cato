@@ -1,0 +1,584 @@
+{
+    "name" : {
+        "label" : "Device Name",
+        "description" : "a user-settable string for assigning the name of the Cato device",
+        "note" : "Name defaults to 'Cato_<HW_UID>' at boot, but is not set if name is defined here",
+        "access" : "rw",
+        "value" : ""
+    },
+
+    "HW_UID" : {
+        "label" : "Hardware Unique Identity",
+        "description" : "Unique hex code for identifying different devices",
+        "access" : "r",
+        "value" : ""
+    },
+
+    "operation_mode" : {
+        "label" : "Mode",
+        "description" : "a name defining the operation mode of Cato",
+        "access"  : "rw",
+        "value" : "clicker",
+        "options" : ["gesture_mouse", "tv_remote", "pointer", "clicker", "practice"]
+    },
+
+    "sleep" : {
+        "label" : "Sleep",
+        "description" : "Controls for Entering Sleep",
+        "access" : "rw",
+        "value" : {
+            "timeout" : {
+                "label" : "Timeout",
+                "description" : "Number of consecutive low-movement seconds before Cato sleeps",
+                "access" : "rw",
+                "value" : 600,
+                "range" : {
+                    "min" : 10,
+                    "max" : 1200
+                }
+            },
+            "threshold" : {
+                "label" : "Sleep Threshold",
+                "description" : "Movement level below which Cato starts counting towards sleep",
+                "access" : "rw",
+                "value" : 5.0,
+                "range" : {
+                    "min" : 2.0,
+                    "max" : 10.0
+                }
+            }
+        }
+    },
+
+    "screen_size" : {
+        "label" : "Screen Size", 
+        "description" : "structure containing screen height and width in pixels",
+        "access"  : "rw",
+        "value" : {
+            "height" : {
+                "description" : "height in pixels",
+                "access" : "rw",
+                "value" : 1080,
+                "range" : {
+                    "min" : 600,
+                    "max" : 4320
+                }
+            },
+            "width" : {
+                "description" : "width in pixels",
+                "access" : "rw",
+                "value" : 1920,
+                "range" : {
+                    "min" : 800,
+                    "max" : 8192
+                }
+            }
+        }
+    },
+
+    "mouse" : {
+        "label" : "Mouse", 
+        "description" : "structure containing values defining mouse operation",
+        "access"  : "rw",
+        "value" : {
+            "idle_threshold"   : {
+                "label" : "Mouse Idle Threshold",
+                "description" : "Value of move speed below which is considered idle. Causes mouse exit. High number = easier to idle out",
+                "access" : "rw",
+                "value" : 5.0, 
+                "range" : {
+                    "min" : 5.0,
+                    "max" : 12.0
+                } 
+            },
+            "min_run_cycles": {
+                "label" : "Minimum Mouse Runtime",
+                "description" : "Number of cycles mouse will always run before beginning to check idle condns",
+                "access" : "rw",
+                "value" : 0,
+                "range" : {
+                    "min" : 0,
+                    "max" : 100
+                }
+            },
+            "idle_duration" : {
+                "label" : "Idle timeout cycles",
+                "description" : "Number of consecutive cycles for mouse to observe idle behavior before exiting due to idle",
+                "access" : "rw",
+                "value" : 80,
+                "range" : {
+                    "min" : 30,
+                    "max" : 150
+                }
+            },
+            "dwell_duration" : {
+                "label" : "Dwell Trigger Cycles",
+                "description" : "Number of consecutive cycles for mouse to observe idle behavior performing dwell action in dwell_click",
+                "access" : "rw",
+                "value" : 50,
+                "range" : {
+                    "min" : 20,
+                    "max" : 100
+                }
+            },
+            "dwell_repeat" : {
+                "label" : "Dwell Repeat Clicks",
+                "description" : "If extended idle should trigger multiple clicks",
+                "access" : "rw",
+                "value" : true,
+                "options" : [true, false]
+            },
+            "scale_x" : {
+                "label" : "Horizontal Movement Scale Factor",
+                "description" : "Flat multiplier for all mouse movements",
+                "access" : "rw",
+                "value" : 0.50,
+                "range" : {
+                    "min" : 0.1,
+                    "max" : 4.0
+                }
+            },
+            "scale_y"         : {
+                "label" : "Vertical Movement Scale Factor",
+                "description" : "Flat multiplier for all mouse movements",
+                "access" : "rw",
+                "value" : 0.40,
+                "range" : {
+                    "min" : 0.1,
+                    "max" : 4.0
+                }
+            },
+            "dynamic_mouse" :{
+                "label" : "Dynamic Mouse",
+                "description" : "Settings for mouse acceleration, please see graphic on Cato wiki",
+                "access" : "rw",
+                "note" : "For both input and output, Fast > Slow.",
+                "value" : {
+                    "input" : {
+                        "label" : "Input",
+                        "description" : "User movement conditions defining slow and fast head movement for dynamic scaling",
+                        "access" : "rw",
+                        "value" : {
+                            "slow"   : {
+                                "label" : "Slow",
+                                "description" : "Rotation speed floor below which scale remains constant",
+                                "access" : "rw",
+                                "value" : 20.0,
+                                "range" : {
+                                    "min" : 0.0,
+                                    "max" : 400.0
+                                }
+                            },
+                            "fast"   : {
+                                "label" : "Fast",
+                                "description" : "Rotation speed ceiling above which scale remains constant",
+                                "access" : "rw",
+                                "value" : 40.0,
+                                "range" : {
+                                    "min" : 0.0,
+                                    "max" : 500.0
+                                }
+                            }
+                        }
+                    },
+                    "output" : {
+                        "label" : "Output",
+                        "description" : "Cursor speed output scaling. Slow when input slow, fast when input fast",
+                        "access" : "rw",
+                        "value" : {
+                            "slow"    : {
+                                "label" : "Slow",
+                                "description" : "Scale factor at (and below) slowest input speed",
+                                "access" : "rw",
+                                "value" : 0.50, 
+                                "range" : {
+                                    "min" : 0.1,
+                                    "max" : 2.0
+                                }
+                            },
+                            "fast"    : {
+                                "label" : "Fast",
+                                "description" : "Scale factor at (and above) fastest input speed",
+                                "access" : "rw",
+                                "value" : 1.5,
+                                "range" : {
+                                    "min" : 1.0,
+                                    "max" : 6.0
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "shake_size" : {
+                "label" : "Shake Size",
+                "description" : "size of cursor movement for gesturer indicator",
+                "access" : "rw",
+                "value" : 6,
+                "range" : {
+                    "min" : 0,
+                    "max" : 20
+                }
+            },
+            "num_shake" : {
+                "label" : "Number of Shakes",
+                "description" : "Number of times to repeat gesture ready indicator",
+                "access" : "rw",
+                "value" : 3,
+                "options" : [1, 2, 3, 4]
+            }
+        }
+    },
+
+    "tv_remote" : {
+        "label" : "TV Remote",
+        "description" : "Operation Loop: Tap/Double Tap",
+        "access" : "rw",
+        "value" : {
+            "await_actions" : {
+                "label" : "",
+                "description" : "wait for previous action to end before reading a new gesture",
+                "access" : "rw",
+                "value" : true,
+                "options" : [true, false]
+            }
+        }
+    },
+
+    "clicker" : {
+        "label" : "Clicker",
+        "description" : "Settings for clicker sensitivity and spacing",
+        "access" : "rw",
+        "value" : {
+            "max_click_spacing" : {
+                "label" : "Max Click Spacing",
+                "description" : "delay after detecting a tap to wait for the next",
+                "access" : "rw",
+                "value" : 0.45,
+                "range" : {
+                    "min" : 0.1,
+                    "max" : 1.0
+                }
+            },
+            "tap_ths" : {
+                "label" : "Tap Threshold",
+                "description" : "Level of impact needed to trigger a click",
+                "note" : "5 bits, takes on values 0-31. Lower -> MORE SENSITIVE",
+                "access" : "rw",
+                "value" : 11,
+                "options" : [   0,  1,  2,  3,  4,  5,  6,  7,
+                                8,  9,  10, 11, 12, 13, 14, 15,
+                                16, 17, 18, 19, 20, 21, 22, 23,
+                                24, 25, 26, 27, 28, 29, 30, 31 
+                            ]
+            },
+            "quiet" : {
+                "label" : "Quiet",
+                "description" : "Amount of quiet required after a click",
+                "note" : "2-bit, 0-3",
+                "access" : "rw",
+                "value" : 2,
+                "options" : [0, 1, 2, 3]
+            },
+            "shock" : {
+                "label" : "Shock",
+                "description" : "Max duration of over threshold event",
+                "note" : "2-bit, 0-3",
+                "access" : "rw",
+                "value" : 2,
+                "options" : [0, 1, 2, 3]
+            }
+        }
+    },
+
+    "practice" : {
+        "label" : "Practice Mode",
+        "description" : "Settings for practice mode",
+        "access" : "rw",
+        "value" : {
+            "dense" : {
+                "label" : "Format Condensed",
+                "description" : "true: type outputs in a single line; false: type outputs as a table",
+                "access" : "rw",
+                "value" : true
+            },
+            "num_infers" : {
+                "label" : "Maximum number of Displayed Inferences",
+                "description" : "Number of relevant inferences displayed per gesture",
+                "access" : "rw",
+                "value" : 6
+            },
+            "cutoff" : {
+                "label" : "Certainty Cutoff",
+                "description" : "Level of certainty below which gesture will not be displayed",
+                "access" : "rw",
+                "value" : 0.5
+            }
+        }
+    },
+
+    "gesture" : {
+        "label" : "Gesture Parameters",
+        "description" : "structure describing gesture collection and cutoff tools",
+        "access" : "rw",
+        "value" : {
+            "key" : {
+                "label" : "Gesture Key",
+                "description" : "Human-readable field describing Gesture model's names of gestures - indexed",
+                "access" : "r",
+                "value" : [
+                    "None",
+                    "Nod Up",
+                    "Nod Down",
+                    "Nod Right",
+                    "Nod Left",
+                    "Tilt Right",
+                    "Tilt Left"
+                ]
+            },
+            "confidence_threshold" : {
+                "label" : "Confidence threshold",
+                "description" : "threshold of gesture confidence probability [0, 1), for Cato to accept gesture and execute command",
+                "note" : "Low value -> few dry-fires, more frequent mistakes. High value -> frequent dry-fires, rare mistakes", 
+                "access" : "rw",
+                "value" : 0.62,
+                "range" : {
+                    "min" : 0.55,
+                    "max" : 0.90
+                }
+            },
+            "length" : {
+                "label" : "Length",
+                "description" : "Number of samples (max) in a gesture to be fed to Neuton",
+                "access" : "r",
+                "value" : 200
+            },
+            "idle_cutoff" : {
+                "label" : "Idle Cutoff",
+                "description" : "Number of consecutive idle samples leading to gesture cutoff",
+                "access" : "r",
+                "value" : 20
+            },
+            "start_threshold" : {
+                "label" : "Movement threshold",
+                "description" : "movement required to start capturing gesture. Startup threshold",
+                "access" : "r",
+                "value" : 22.36
+            },
+            "idle_threshold" : {
+                "label" : "Idle threshold",
+                "description" : "Value of move speed below which is considered idle - leading to mouse exit. Low number = more stillness to idle out of mouse",
+                "access" : "r",
+                "value" : 30
+            },
+            "timeout" : {
+                "label" : "Timeout",
+                "description" : "Maximum Time to Wait for Gesture Start before returning 'noop'",
+                "access" : "rw",
+                "value" : 1.0
+            },
+            "gc_timeout" : {
+                "label" : "Gesture Collection Timeout",
+                "description" : "Gesture Collection Startup Delay Timeout",
+                "access" : "rw",
+                "value" : 10
+            }
+        }
+    },
+
+    "orientation" : {
+        "label" : "Orientation",
+        "description" : "parameters describing usage orientation for Cato",
+        "access" : "rw", 
+        "note" : "default orientation is on the right side of the glasses, with the circular battery compartment facing OUT (and usb port forward)",
+        "value" : {
+            "front" : {
+                "label" : "front",
+                "description" : "",
+                "access" : "rw",
+                "value" : "-x",
+                "options" : ["+x", "-x", "+y", "-y", "+z", "-z"]
+            },
+            "bottom" : {
+                "label" : "bottom",
+                "description" : "",
+                "access" : "rw",
+                "value" : "-y",
+                "options" : ["+x", "-x", "+y", "-y", "+z", "-z"]
+            },
+            "left" : {
+                "label" : "left",
+                "description" : "",
+                "access" : "rw",
+                "value" : "+z",
+                "options" : ["+x", "-x", "+y", "-y", "+z", "-z"]
+            }
+        }
+    },
+
+    "calibration" : {
+        "label" : "Calibration (including automatic) Parameters",
+        "description" : "structure containing both current calibration (trim) values and preferences for auto calibration",
+        "access" : "rw",
+        "value" : {
+            "drift" : {
+                "label" : "drift",
+                "description" : "x, y, z gyroscope drift per-cycle - used as trim adjustments",
+                "access" : "r",
+                "value" : [0, 0, 0]
+            },
+            "auto_threshold" : {
+                "label" : "Auto-Calibration Threshold",
+                "description" : "movement required (as a scale of mouse>idle_threshold) to fail automatic calibration for gyro drift",
+                "access" : "rw",
+                "value" : 0.6,
+                "range" : {
+                    "min" : 0.2,
+                    "max" : 1.0
+                }
+            },
+            "auto_samples" : {
+                "label" : "Auto-Calibration Samples Taken",
+                "description" : "number of samples to wait (at below auto_threshold) required to trigger auto recalibratoion",
+                "access" : "rw",
+                "value" : 100
+            }
+        }
+    },
+    
+    "battery" : {
+        "label" : "Battery",
+        "description" : "DEV TOOL: analog pin values of high and low battery charge [low, high]",
+        "access" : "r",
+        "value" : {
+            "low" : {
+                "label" : "Low",
+                "description" : "Value of analog pin indicating discharged battery. Typ. ~23000",
+                "access" : "r",
+                "value" : 22800
+            },
+            "high" : {
+                "label" : "High",
+                "description" : "Value of analog pin indicating charged battery. Typ. ~30000",
+                "access" : "r",
+                "value" : 27500
+            }
+        }
+    },
+
+    "bindings" : {
+        "label" : "Bindings",
+        "description" : "structure linking gestures to actions in different modes",
+        "access" : "rw",
+        "action_key" : {
+            "label" : "Action Key",
+            "description" : "Human-readable field describing available Cato actions",
+            "access" : "r",
+            "value" : [
+                "noop",
+                "all_release",
+                "_scroll",
+                "_scroll_lr",
+                "button_action",
+                "quick_calibrate",
+                "quick_sleep"
+            ]
+        },
+
+        "value" : {
+            "gesture_mouse" : {
+                "label" : "Gesture Mouse",
+                "description" : "Operation loop: Mouse movement -> Idle -> Gesture -> Action",
+                "access" : "rw",
+                "value" : [
+                    [   ["noop"]                            ],
+                    [   ["button_action",0,"double_tap",1]  ],
+                    [   ["button_action",0,"tap",1]         ],
+                    [   ["button_action",0,"tap",2]         ],
+                    [   ["button_action",0,"hold_until_idle",1]      ],
+                    [   ["dwell_click", 1, 50]              ],
+                    [   ["pointer_sleep"]                   ]
+                ]
+            },
+            "tv_remote" : {
+                "label" : "TV Remote",
+                "description" : "Operation Loop: Gesture -> (Turbo) Action",
+                "access" : "rw",
+                "value" : [
+                    [   ["noop"]                            ],
+                    [   ["button_action",1,"tap",82]        ],
+                    [   ["button_action",1,"tap",81]        ],
+                    [   ["button_action",1,"tap",79]        ],
+                    [   ["button_action",1,"tap",80]        ],
+                    [   ["button_action",1,"tap",40]        ],
+                    [   ["button_action",1,"tap",41]        ]
+                ]
+            },
+            "clicker" : {
+                "label" : "Clicker",
+                "description" : "Operation Loop: Click -> multiple click timeout -> Action",
+                "access" : "rw",
+                "note" : "available tap combos depend on number of bindings",
+                "value" : [
+                    [   ["noop"]                            ],
+                    [   ["button_action",0,"tap",1]         ],
+                    [   ["button_action",0,"double_tap", 1] ],
+                    [   ["button_action",0,"tap",2]         ]
+                ]
+            }
+        }
+    },
+
+    "turbo_rate" : {
+        "label" : "Turbo Options",
+        "description" : "Options for 'Turbo' (repeated, accelerating button presses until cancelled)",
+        "note" : "TODO: not yet implemented with current button acctions",
+        "access" : "rw",
+        "value" : {
+            "initial" : {
+                "label" : "Initial Spacing",
+                "description" : "Initial button-press spacing",
+                "access" : "rw",
+                "value" : 1
+            },
+            "minimum" : {
+                "label" : "Minimum Spacing",
+                "description" : "Minimum (fastest) button press spacings",
+                "access" : "rw",
+                "value" : 0.2
+            },
+            "decay_rate" : {
+                "label" : "Decay Rate",
+                "description" : "Rate (geometric) of time-between-press decay",
+                "access" : "rw",
+                "value" : 0.9,
+                "range" : {
+                    "min" : 0.65,
+                    "max" : 0.95
+                }
+            }
+        }
+    },
+
+    "key_order" : {
+        "label" : "key_order",
+        "description" : "dev key for displying key/val's in resonable ordering on webapp",
+        "access" : "r",
+        "value" : [
+            "name",
+            "operation_mode",
+            "bindings",
+            "clicker",
+            "mouse",
+            "sleep",
+            "screen_size",
+            "calibration",
+            "sleep_threshold",
+            "battery",       
+            "gesture",
+            "turbo_rate",
+            "key_order",
+            "HW_UID"
+        ]
+    }
+}

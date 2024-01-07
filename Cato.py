@@ -91,8 +91,8 @@ class Cato:
         self.state = 0 # CHOPPING BLOCK??
 
         mode = config["operation_mode"]
-        if mode in config["bindings"].keys():
-            self.bindings = config["bindings"][mode]
+        if "bindings" in config.keys():
+            self.bindings = config["bindings"]
         
         self.tasks = {}
         
@@ -116,7 +116,6 @@ class Cato:
                 "clicker"           : asyncio.create_task(self.clicker_task()),
             }
         elif(mode == "practice"):
-            self.bindings = config["bindings"]["gesture_mouse"]
             self.tasks = {
                 "gesture_loop"         : asyncio.create_task(self.gesture_practice_loop())
             }
@@ -215,8 +214,8 @@ class Cato:
     
     async def pointer_sleep(self, hall_pass: asyncio.Event = None):
         DBS.println("+ pointer_sleep")
-        target = []
-        while(target != ["pointer_sleep"])and(not Events.sleep.is_set()):
+        target = {'command' : '', 'args' : []}
+        while(target['command'] != 'pointer_sleep')and(not Events.sleep.is_set()):
             target = await self.gesture_interpreter(timeout = 0)
             DBS.println(target)
         
@@ -265,8 +264,11 @@ class Cato:
         if hall_pass is not None:
             hall_pass.set()
     
-    async def block_on_eval(self,target: str):
-        await self.block_on(eval("self."+target[0], {"self":self}), *target[1:])
+    async def block_on_eval(self, target: str):
+        cmd_str = "self." + target['command']
+        arg_str = target['args']
+        print(f"Command: {cmd_str}\nArgs: {arg_str}")
+        await self.block_on(eval("self."+target['command'], {"self":self}), *target['args'])
     
     async def block_on(self, coro, *args):
         '''
@@ -284,6 +286,7 @@ class Cato:
             Events.mouse_event.clear()
             await Events.gesture_not_collecting.wait()
             target = await self.gesture_interpreter(indicator = self.shake_cursor)
+            print(f"Target: {target}")
             await self.block_on_eval(target)
             print(f"\t \"{target}\" finished at mouse_event")
             
@@ -325,9 +328,9 @@ class Cato:
         await Cato.imu.wait()
         mag = gyro_mag()
 
-        
-        if mag > gestThresh:
-            return ["noop"]
+        # Revenge of the Thrash Window
+        if mag > gestThresh: 
+            return {'command' : 'noop', 'args' : []}
         
         Events.gesturing.set()
         if(indicator != None):
@@ -347,7 +350,7 @@ class Cato:
             Events.battery.set()
             Events.battery.clear()
             Events.gesturing.clear()
-            return self.bindings[EV_NONE][self.state] 
+            return self.bindings[EV_NONE]
         Events.battery.clear()
         Events.sig_motion.clear()
         
@@ -399,9 +402,9 @@ class Cato:
             await indicator
         gc.collect()
         if(max(neuton_outputs) < confThresh):
-            return ["noop"]     # always perform no operation on failed gesture read
+            return {'command' : 'noop', 'args' : []}     # always perform no operation on failed gesture read
         # DBS.println("-gesture_interpreter mem: ",gc.mem_free())
-        return self.bindings[infer][self.state]
+        return self.bindings[infer]
     
     async def wait_for_motion(self, thresh, terminator = None):
         Events.sig_motion.clear()
@@ -479,7 +482,8 @@ class Cato:
             Events.battery.clear()
             WakeDog.feed()
             try:
-                target = self.bindings[Cato.imu.tap_type][self.state]
+                target = self.bindings[Cato.imu.tap_type]
+                print("In Clicker Task")
                 Events.sig_motion.clear()
                 Events.gesturing.clear()
                 print(target)
@@ -513,10 +517,10 @@ class Cato:
     
     async def set_dwell(self, bind, hall_pass: asyncio.Event = None):
         # this action is mostly not useful
-        if(self.bindings[0][self.state] == bind):
-            self.bindings[0][self.state] = ["noop"]
+        if(self.bindings[0] == bind):
+            self.bindings[0] = ["noop"]
         else:
-            self.bindings[0][self.state] = bind
+            self.bindings[0] = bind
         
         if hall_pass is not None:
             hall_pass.set()
@@ -825,9 +829,9 @@ class Cato:
             buttons = buttons[1:]
             asyncio.create_task(self.wait_for_motion(thresh))
             
-            delay = config["turbo_rate"]["initial"]
-            minDelay = config["turbo_rate"]["minimum"]
-            decay = config["turbo_rate"]["decay_rate"]
+            delay = config["gesture"]["turbo_rate"]["initial"]
+            minDelay = config["gesture"]["turbo_rate"]["minimum"]
+            decay = config["gesture"]["turbo_rate"]["decay_rate"]
             while(not Events.sig_motion.is_set()):
                 actor.press(*buttons)
                 actor.release(*buttons)

@@ -7,7 +7,6 @@ def unpack_val_dict(d):
     if not isinstance(d, dict):
         return d
     for key in d.keys():
-        # print(key)
         d[key] = unpack_val_dict(d[key]["value"])
     return d
     
@@ -16,13 +15,13 @@ with open("config.json", 'r') as cfg:
     import json
     config = json.load(cfg)
 
-if(config['global_info']["HW_UID"]["value"] == ""):
+if(config["HW_UID"]["value"] == ""):
     import microcontroller as mc
     try:
         with open("config.json",'w') as cfg:
             import json
             from binascii import hexlify
-            config['global_info']["HW_UID"]["value"] = str(hexlify(mc.cpu.uid))[2:-1]
+            config["HW_UID"]["value"] = str(hexlify(mc.cpu.uid))[2:-1]
             json.dump(config, cfg)
         print("SUCCESSFUL HW_UID WRITE")
         mc.reset()
@@ -31,13 +30,9 @@ if(config['global_info']["HW_UID"]["value"] == ""):
         mc.nvm[0] = False
         mc.reset()
 
-unpack_val_dict(config['global_info'])
-unpack_val_dict(config['connections'][0])
+config = unpack_val_dict(config)
+        
 
-config.update(config.pop('global_info'))
-config.update(config.pop('connections')[0])
-
-# print(config)
 
 import asyncio
 import microcontroller as mc
