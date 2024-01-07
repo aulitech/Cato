@@ -3,12 +3,13 @@
     "python.linting.pylintEnabled": false,
     "python.linting.enabled": false,
     "python.analysis.diagnosticSeverityOverrides": {
-        "reportMissingModuleSource": "none"
+        "reportMissingModuleSource": "none",
+        "reportShadowedImports": "none"
     },
     "python.analysis.extraPaths": [
         "c:\\Users\\finnb\\.vscode\\extensions\\joedevivo.vscode-circuitpython-0.1.20-win32-x64\\boards\\0x2886\\0x0045",
         "c:\\Users\\finnb\\.vscode\\extensions\\joedevivo.vscode-circuitpython-0.1.20-win32-x64\\stubs",
-        "c:\\Users\\finnb\\AppData\\Roaming\\Code\\User\\globalStorage\\joedevivo.vscode-circuitpython\\bundle\\20230919\\adafruit-circuitpython-bundle-py-20230919\\lib"
+        "c:\\Users\\finnb\\AppData\\Roaming\\Code\\User\\globalStorage\\joedevivo.vscode-circuitpython\\bundle\\20231228\\adafruit-circuitpython-bundle-py-20231228\\lib"
     ],
     "circuitpython.board.version": null,
     "circuitpython.board.vid": "0x2886",
