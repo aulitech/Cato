@@ -494,11 +494,8 @@
                         ]
                     },
                     {
-                        "command": "dwell_click",
-                        "args": [
-                            1,
-                            50
-                        ]
+                        "command": "quick_sleep",
+                        "args": []
                     },
                     {
                         "command": "pointer_sleep",
