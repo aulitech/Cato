@@ -77,9 +77,11 @@ class Cato:
 
         if(mc.nvm[2]): # Wired training condn
             mc.nvm[2] = False
+            
             self.tasks = {
                 "collect_gesture"   : asyncio.create_task(Cato.collect_gestures_wired())    
             }
+            Events.gesture_collecting.set()
             return
 
         self.hall_pass = asyncio.Event() # separate event to be passed to functions when we must ensure they finish
@@ -992,7 +994,8 @@ class Cato:
                 os.remove("log.txt")
             except:
                 DBS.println("Failed to delete gesture.cato")
-
+            
+            from utils import config
             gestLen     = config["gesture"]["length"]
             idleLen     = config["gesture"]["idle_cutoff"]
             gestThresh  = config["gesture"]["start_threshold"]

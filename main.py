@@ -65,7 +65,7 @@ async def main():
     c = Cato( bt = True, do_calib = True)
     Cato.imu.imu_enable.set()
     tasks = {}
-    if(config["operation_mode"] == "gesture_mouse"):
+    if((config["operation_mode"] == "gesture_mouse") and not Events.gesture_collecting.is_set()):
         tasks = {
             "control_loop"  : asyncio.create_task(control_loop( c )),
         }
