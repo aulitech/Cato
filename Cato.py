@@ -986,28 +986,30 @@ class Cato:
 
             Events.gesture_collecting.set()
             Events.gesture_not_collecting.clear()
-            DBS.println("Collecting Gesture (wired)")
+            DBS.println("Collecting Gesture (wired connection)")
 
+            import os
+            os.remove("gesture.cato")
+            DBS.println("Removed gesture.cato")
             try:
-                import os
-                os.remove("gesture.cato")
-            except:
-                DBS.println("Failed to delete gesture.cato")
-            try:
-                import os
                 os.remove("log.txt")
-            except:
-                DBS.println("Failed to delete log.txt")
+                DBS.println("Removed log.txt")
+            except ex:
+                DBS.println(ex)
+                DBS.println("log.txt not found for deletion")
+            del(os)
             
             from utils import config
+            DBS.println("\nGathering gesture params")
             gestLen     = config["gesture"]["length"]
             idleLen     = config["gesture"]["idle_cutoff"]
             gestThresh  = config["gesture"]["start_threshold"]
             idleThresh  = config["gesture"]["idle_threshold"]
-            del(config)
             # timeout     = config["gesture"]["gc_timeout"]
+            DBS.println("Removing config and garbage collecting for space")
+            del(config)
             gc.collect()
-            print(gc.mem_free())
+            DBS.println("\tmem free:\t",gc.mem_free())
             
             gesture = [(0,0,0,0,0,0,0)]
             mag = 0
@@ -1015,7 +1017,7 @@ class Cato:
             def gyro_mag():
                 return get_mag((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz))
             
-            print("Thrash Window")
+            DBS.println("\nThrash Window (stalling to let prematurre motion pass)")
             # let premature motion pass
             idle = 0
             while(idle < idleLen):
@@ -1026,19 +1028,16 @@ class Cato:
                 else:
                     idle = 0
 
-            # timeout = asyncio.create_task(stopwatch(timeout))
-            print("Ready for Gesture")
+            DBS.println("\nReady for Gesture Input")
             gc.collect()
-            print(gc.mem_free())
             while(mag**2 < gestThresh):
-                # if(timeout.done()):
-                #     raise Exception("CGTimeout: movement threshold was not exceeded within given time window")
                 await Cato.imu.wait()
                 gesture[0] = (Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz)
                 mag = gyro_mag()
-            print("Recording")
-            print(gc.mem_free())
+
             # actual gesture is performed and recorded here
+            DBS.println("Recording")
+            DBS.println("\tmem free:\t",gc.mem_free())
             idle = 0
             while(len(gesture) < gestLen)and(idle < idleLen):
                 await Cato.imu.wait()
@@ -1050,9 +1049,10 @@ class Cato:
                 else:
                     idle = 0
 
-            DBS.println("Gesture Recording Completed")
+            DBS.println("\nGesture Recording Completed")
+            DBS.println("num samples recorded: ",len(gesture))
             gc.collect()
-            print(gc.mem_free())
+            DBS.println("\tmem free:\t",gc.mem_free())
             with open("log.txt",'w') as log:
                 l = len(gesture)
                 while(gesture):
@@ -1065,20 +1065,16 @@ class Cato:
             Events.gesture_collecting.clear()
             Events.gesture_not_collecting.set()
             
-            '''
-            SUS.collGestUUID = "stop"
-            while(SUS.collGestUUID == "stop"):
-                await asyncio.sleep(0.1)
-            '''
-            print(gc.mem_free())
-            print("Gesture Finnished Logging")
+            DBS.println("\nGesture Finnished Logging")
+            DBS.println("\tmem free:\t",gc.mem_free())
         except Exception as ex:
+            DBS.println("ERRORED OUT!!")
             try:
+                DBS.println("Removing gesture.cato")
                 import os
                 os.remove("gesture.cato")
             except:
-                print("Already Removed gesture.cato")
-            print("ERRORED OUT!!")
+                DBS.println("Already Removed gesture.cato")
             DBS.println(ex)
         await asyncio.sleep(5)
         mc.reset()
