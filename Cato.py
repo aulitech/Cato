@@ -999,7 +999,7 @@ class Cato:
             except:
                 DBS.println("Failed to delete log.txt")
             
-            #from utils import config
+            from utils import config
             gestLen     = config["gesture"]["length"]
             idleLen     = config["gesture"]["idle_cutoff"]
             gestThresh  = config["gesture"]["start_threshold"]
