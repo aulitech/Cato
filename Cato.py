@@ -979,6 +979,7 @@ class Cato:
     #'''
 
     async def collect_gestures_wired():
+        print("coll_gest")
         await asyncio.sleep(5)
         try:
             #from StrUUIDService import SUS
@@ -994,13 +995,12 @@ class Cato:
             try:
                 os.remove("log.txt")
                 DBS.println("Removed log.txt")
-            except ex:
-                DBS.println(ex)
+            except:
                 DBS.println("log.txt not found for deletion")
             del(os)
             
-            from utils import config
             DBS.println("\nGathering gesture params")
+            from utils import config
             gestLen     = config["gesture"]["length"]
             idleLen     = config["gesture"]["idle_cutoff"]
             gestThresh  = config["gesture"]["start_threshold"]
