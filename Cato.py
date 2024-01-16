@@ -979,7 +979,6 @@ class Cato:
     #'''
 
     async def collect_gestures_wired():
-        print("coll_gest")
         await asyncio.sleep(5)
         try:
             #from StrUUIDService import SUS
@@ -1076,7 +1075,7 @@ class Cato:
             except:
                 DBS.println("Already Removed gesture.cato")
             DBS.println(ex)
-        await asyncio.sleep(5)
+        # await asyncio.sleep(5)
         mc.reset()
 
     async def test_loop(self):
