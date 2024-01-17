@@ -1027,6 +1027,9 @@ class Cato:
                 else:
                     idle = 0
 
+            with open("flag.txt",'w') as flg:
+                flg.write("")
+                pass
             DBS.println("\nReady for Gesture Input")
             gc.collect()
             while(mag**2 < gestThresh):
@@ -1060,6 +1063,9 @@ class Cato:
                     await asyncio.sleep(0)
                 for z in range(l,gestLen):
                     log.write("0,0,0,0,0,0\n")
+            import os
+            os.remove("flag.txt")
+            del(os)
             
             Events.gesture_collecting.clear()
             Events.gesture_not_collecting.set()
@@ -1072,6 +1078,7 @@ class Cato:
                 DBS.println("Removing gesture.cato")
                 import os
                 os.remove("gesture.cato")
+                os.remove("flag.txt")
             except:
                 DBS.println("Already Removed gesture.cato")
             DBS.println(ex)
