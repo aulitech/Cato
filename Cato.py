@@ -979,7 +979,7 @@ class Cato:
     #'''
 
     async def collect_gestures_wired():
-        await asyncio.sleep(5)
+        #await asyncio.sleep(5)
         try:
             #from StrUUIDService import SUS
             #SUS.collGestUUID = "go"
