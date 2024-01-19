@@ -896,108 +896,25 @@ class Cato:
 
         
 
-    '''
-    async def collect_gestures_app():
-        from StrUUIDService import SUS
-        SUS.collGestUUID = "AWAITING INTERACTION"
-        Events.gesture_not_collecting.set()
-        while(True):
-            if(SUS.collGestUUID[:2] == "CG"):
-                Events.gesture_collecting.set()
-                Events.gesture_not_collecting.clear()
-                DBS.println("Collecting Gesture (app)")
-                #try:
-                gestID : int
-                gestLength = config["gesture_length"]
-                timeLimit = config["gc_time_window"]
-
-                args = SUS.collGestUUID[2:].split(',')
-                if(len(args) > 3):
-                    raise Exception("Too many input args (expects 1-3 ints)")
-                gestID = int(args[0])
-                if(gestID < 0)or(gestID >= len(EV.gesture_key)):
-                    raise Exception("Gesture ID "+gestID+" does not exist")
-                
-                if(len(args) >= 2):
-                    gestLength = int(args[1])
-                if(len(args) == 3):
-                    timeLimit = int(args[2])
-                del(args)
-                
-
-                hist = []
-                maxGest = []
-                maxMag = 0
-                drift : tuple
-
-
-                DBS.println("Recording")
-
-                while(len(hist) < gestLength):
-                    await Cato.imu.wait()
-                    hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
-
-                drift = hist[gestLength-1]
-                maxGest = hist.copy()
-                maxMag = maxGest[int(gestLength/2)]
-                DBS.println(maxMag)
-                for g in maxMag:
-                    DBS.println(type(g))
-                maxMag = (maxMag[3]-drift[3])**2 + (maxMag[4]-drift[4])**2 + (maxMag[5]-drift[5])**2
-                sw = asyncio.create_task(stopwatch(timeLimit))  # Timer starts here
-                DBS.println("Perform Gesture: ", EV.gesture_key[gestID],"(",str(gestID),")")
-                SUS.collGestUUID = "Perform Gesture: " + EV.gesture_key[gestID]+"("+str(gestID)+")"
-                
-                while(not sw.done()):
-                    await Cato.imu.wait()
-                    hist.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz, gestID))
-                    hist.pop(0)
-
-                    currMid = hist[int(gestLength/2)]
-                    currMag = (currMid[3]-drift[3])**2 + (currMid[4]-drift[4])**2 + (currMid[5]-drift[5])**2
-                    if(currMag > maxMag):
-                        DBS.println("New Max Read")
-                        DBS.println(currMag, ">", maxMag)
-                        maxMag = currMag
-                        maxGest = hist.copy()
-
-                DBS.println("Gesture Recording Completed")
-
-                while(len(maxGest) > 0):
-                    d = maxGest.pop(0)
-                    SUS.collGestUUID = ','.join(str(v) for v in d)
-                    await asyncio.sleep(0)  ##prob dont need sleep but leaving in for safety
-
-                # except Exception as ex:
-                #     SUS.collGestUUID = "EX: "+str(ex)
-                #     DBS.println(ex)
-                
-                Events.gesture_collecting.clear()
-                Events.gesture_not_collecting.set()
-            else:
-                await asyncio.sleep(0.1)
-    #'''
-
     async def collect_gestures_wired():
-        await asyncio.sleep(5)
         try:
-            #from StrUUIDService import SUS
-            #SUS.collGestUUID = "go"
-
             Events.gesture_collecting.set()
             Events.gesture_not_collecting.clear()
             DBS.println("Collecting Gesture (wired connection)")
-
+            numRec = 1
+            with open("gesture.cato",'r') as g:
+                s = g.read()
+                if(s != ""):
+                    numRec = int(s)
             import os
             os.remove("gesture.cato")
             DBS.println("Removed gesture.cato")
-            try:
-                os.remove("log.txt")
-                DBS.println("Removed log.txt")
-            except:
-                DBS.println("log.txt not found for deletion")
             del(os)
-            
+
+            with open("log.txt",'w') as l:
+                l.write("")
+                DBS.println("Cleared log.txt")
+
             DBS.println("\nGathering gesture params")
             from utils import config
             gestLen     = config["gesture"]["length"]
@@ -1010,56 +927,61 @@ class Cato:
             gc.collect()
             DBS.println("\tmem free:\t",gc.mem_free())
             
-            gesture = [(0,0,0,0,0,0,0)]
-            mag = 0
-
             def gyro_mag():
                 return get_mag((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz))
             
-            DBS.println("\nThrash Window (stalling to let prematurre motion pass)")
-            # let premature motion pass
-            idle = 0
-            while(idle < idleLen):
-                await Cato.imu.wait()
-                mag = gyro_mag()
-                if(mag**2 < gestThresh):
-                    idle += 1
-                else:
-                    idle = 0
+            while (numRec > 0):
+                numRec -=1
 
-            DBS.println("\nReady for Gesture Input")
-            gc.collect()
-            while(mag**2 < gestThresh):
-                await Cato.imu.wait()
-                gesture[0] = (Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz)
-                mag = gyro_mag()
+                gesture = [(0,0,0,0,0,0,0)]
+                mag = 0
+                
+                asyncio.sleep(3)
 
-            # actual gesture is performed and recorded here
-            DBS.println("Recording")
-            DBS.println("\tmem free:\t",gc.mem_free())
-            idle = 0
-            while(len(gesture) < gestLen)and(idle < idleLen):
-                await Cato.imu.wait()
-                gesture.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz))
-                mag = gyro_mag()
+                DBS.println("\nThrash Window (stalling to let prematurre motion pass)")
+                # let premature motion pass
+                idle = 0
+                while(idle < idleLen):
+                    await Cato.imu.wait()
+                    mag = gyro_mag()
+                    if(mag**2 < gestThresh):
+                        idle += 1
+                    else:
+                        idle = 0
 
-                if(mag**2 < idleThresh):
-                    idle += 1
-                else:
-                    idle = 0
+                DBS.println("\nReady for Gesture Input")
+                gc.collect()
+                while(mag**2 < gestThresh):
+                    await Cato.imu.wait()
+                    gesture[0] = (Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz)
+                    mag = gyro_mag()
 
-            DBS.println("\nGesture Recording Completed")
-            DBS.println("num samples recorded: ",len(gesture))
-            gc.collect()
-            DBS.println("\tmem free:\t",gc.mem_free())
-            with open("log.txt",'w') as log:
-                l = len(gesture)
-                while(gesture):
-                    log.write(",".join(str(v) for v in gesture.pop(0)))
-                    log.write("\n")
-                    await asyncio.sleep(0)
-                for z in range(l,gestLen):
-                    log.write("0,0,0,0,0,0\n")
+                # actual gesture is performed and recorded here
+                DBS.println("Recording")
+                DBS.println("\tmem free:\t",gc.mem_free())
+                idle = 0
+                while(len(gesture) < gestLen)and(idle < idleLen):
+                    await Cato.imu.wait()
+                    gesture.append((Cato.imu.ax, Cato.imu.ay, Cato.imu.az, Cato.imu.gx, Cato.imu.gy, Cato.imu.gz))
+                    mag = gyro_mag()
+
+                    if(mag**2 < idleThresh):
+                        idle += 1
+                    else:
+                        idle = 0
+
+                DBS.println("\nGesture Recording Completed")
+                # DBS.println("num samples recorded: ",len(gesture))
+                gc.collect()
+                DBS.println("\tmem free:\t",gc.mem_free())
+                with open("log.txt",'a') as log:
+                    l = len(gesture)
+                    while(gesture):
+                        log.write(",".join(str(v) for v in gesture.pop(0)))
+                        log.write("\n")
+                        await asyncio.sleep(0)
+                    for z in range(l,gestLen):
+                        log.write("0,0,0,0,0,0\n")
             
             Events.gesture_collecting.clear()
             Events.gesture_not_collecting.set()

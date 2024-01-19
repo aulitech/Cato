@@ -37,9 +37,9 @@ async def control_loop(c : Cato):
 
 async def main():
     try:
-        with open("gesture.cato",'r') as cg:
+        with open("gesture.cato",'r') as g:
             pass
-        with open("gesture.cato",'w') as cg:
+        with open("gesture.cato",'a') as g:
             pass
         mc.nvm[2] = True
     except OSError as ose:
