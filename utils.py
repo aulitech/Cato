@@ -38,6 +38,17 @@ config.update(config.pop('global_info'))
 config.update(config.pop('connections')[0])
 
 # print(config)
+import board
+import digitalio
+pins = {
+            "led_green" : digitalio.DigitalInOut( board.LED_GREEN ),
+            "led_blue"  : digitalio.DigitalInOut( board.LED_BLUE),
+            "led_red"   : digitalio.DigitalInOut( board.LED_RED),
+        }
+for pin in pins.values():
+    pin.direction = digitalio.Direction.OUTPUT
+    pin.value = True
+
 
 import asyncio
 import microcontroller as mc

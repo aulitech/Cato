@@ -25,6 +25,7 @@ import gc
 from neutonml import Neuton
 
 from utils import config
+from utils import pins
 from StrUUIDService import DebugStream as DBS
 from BluetoothControl import BluetoothControl
 
@@ -79,7 +80,7 @@ class Cato:
             mc.nvm[2] = False
             
             self.tasks = {
-                "collect_gesture"   : asyncio.create_task(Cato.collect_gestures_wired())    
+                "collect_gesture"   : asyncio.create_task(Cato.collect_gestures_app())    
             }
             Events.gesture_collecting.set()
             return
@@ -140,23 +141,7 @@ class Cato:
         self.n = Neuton(outputs=neuton_outputs)
         self.gesture = 0 # None
 
-        self.pins = {
-            "led_green" : digitalio.DigitalInOut( board.LED_GREEN ),
-            "led_blue"  : digitalio.DigitalInOut( board.LED_BLUE),
-            "led_red"   : digitalio.DigitalInOut( board.LED_RED),
-        }
-
-        for pin in self.pins.values():
-            pin.direction = digitalio.Direction.OUTPUT
-            pin.value = True
-
-        # self.pins['led_green'].direction  = digitalio.Direction.OUTPUT
-        # self.pins['led_blue'].direction   = digitalio.Direction.OUTPUT
-        # self.pins['led_red'].direction    = digitalio.Direction.OUTPUT
-
-        # self.pins['led_green'].value    = True
-        # self.pins['led_blue'].value     = True
-        # self.pins['led_red'].value      = True
+        self.pins = pins
 
         DBS.println("- Cato Init")
 
@@ -183,8 +168,8 @@ class Cato:
             pin_alarm = alarm.pin.PinAlarm(pin = board.IMU_INT1, value = True) #Create pin alarm
             
             # ensure that LED is OFF
-            while( self.pins["led_green"] == False ):
-                await asyncio.sleep(0.001)
+            for pin in pins.values():
+                pin.value = True
             
             import time
             sleep_time = time.time()
@@ -234,9 +219,9 @@ class Cato:
             try:
                 for color in colors:
                     for i in range(num_blinks):
-                        self.pins[color].value = False
+                        pins[color].value = False
                         await asyncio.sleep(sleep_time)
-                        self.pins[color].value = True
+                        pins[color].value = True
                         #await asyncio.sleep(sleep_time)
                     
             except:
@@ -873,9 +858,9 @@ class Cato:
             raise ValueError(f"Invalid Pin. Valid options: {digital_pins}")
         
         # configure pin settings
-        if pin not in self.pins.keys():
-            self.pins.update( {pin : digitalio.DigitalInOut( eval(f"board.{pin}") ) } )
-            self.pins[pin].direction = digitalio.Direction.OUTPUT
+        if pin not in pins.keys():
+            pins.update( {pin : digitalio.DigitalInOut( eval(f"board.{pin}") ) } )
+            pins[pin].direction = digitalio.Direction.OUTPUT
         
         # validate action input
         valid_actions = ("set_high", "set_low")
@@ -886,61 +871,90 @@ class Cato:
         # Should this generate a task of its own for something like "blink"?
         # Do I need to hold a handle to preseve its value?
         if action == "set_high":
-            self.pins[pin].value = True
+            pins[pin].value = True
         
         if action == "set_low":
-            self.pins[pin].value = False
+            pins[pin].value = False
 
         if hall_pass is not None:
             hall_pass.set()
 
-        
 
-    async def collect_gestures_wired():
+    async def collect_gestures_app():
+        Events.gesture_not_collecting.clear()
+        # print("Collecting Gesture (wired connection)")
+        
         try:
-            Events.gesture_collecting.set()
-            Events.gesture_not_collecting.clear()
-            DBS.println("Collecting Gesture (wired connection)")
             numRec = 1
+            stillTime = 2
+            situateTime = 0
+            unplugTime = 0
+            logPref = "log_"
             with open("gesture.cato",'r') as g:
-                s = g.read()
-                if(s != ""):
-                    numRec = int(s)
+                lines = g.readlines()
+                gestName = lines[0].strip()
+                timeStamp = lines[1].strip()
+                numRec = int(lines[2])
+                logPref = gestName+"_"+timeStamp+"_"
+                print(logPref)
+                try:
+                    stillTime = int(lines[3])
+                    situateTime = int(lines[4])
+                    unplugTime = int(lines[5])
+                except IndexError as ie:
+                    print("Not Enough Args")
+                    pass
+                del(lines)
+
             import os
             os.remove("gesture.cato")
-            DBS.println("Removed gesture.cato")
+            print("Removed gesture.cato")
             del(os)
 
-            with open("log.txt",'w') as l:
-                l.write("")
-                DBS.println("Cleared log.txt")
+            if(unplugTime > 0):
+                timeout = asyncio.create_task(stopwatch(unplugTime))
+                import supervisor
+                while(supervisor.runtime.usb_connected):
+                    await asyncio.sleep(0.5)
+                    # print(timeout.done())
+                    if(timeout.done()):
+                        print("Failed to unplug")
+                        print("Reseting")
+                        mc.reset()
+                timeout.cancel()
+                del(timeout)
+                print("Unplugged")
+                del(supervisor)
+            await asyncio.sleep(situateTime)
 
-            DBS.println("\nGathering gesture params")
+            print("\nGathering gesture params")
             from utils import config
             gestLen     = config["gesture"]["length"]
             idleLen     = config["gesture"]["idle_cutoff"]
             gestThresh  = config["gesture"]["start_threshold"]
             idleThresh  = config["gesture"]["idle_threshold"]
             # timeout     = config["gesture"]["gc_timeout"]
-            DBS.println("Removing config and garbage collecting for space")
+            print("Removing config and garbage collecting for space")
             del(config)
             gc.collect()
-            DBS.println("\tmem free:\t",gc.mem_free())
+            print("\tmem free:\t",gc.mem_free())
             
+            #from utils import pins
             def gyro_mag():
                 return get_mag((Cato.imu.gx,Cato.imu.gy,Cato.imu.gz))
-            
-            while (numRec > 0):
-                numRec -=1
+            for i in range(1,numRec+1):
 
                 gesture = [(0,0,0,0,0,0,0)]
                 mag = 0
                 
-                asyncio.sleep(3)
+                pins["led_red"].value = False
+                await asyncio.sleep(stillTime)
 
-                DBS.println("\nThrash Window (stalling to let prematurre motion pass)")
+                pins["led_green"].value = False
+                print("\nThrash Window (stalling to let prematurre motion pass)")
                 # let premature motion pass
                 idle = 0
+                count = 0
                 while(idle < idleLen):
                     await Cato.imu.wait()
                     mag = gyro_mag()
@@ -948,8 +962,18 @@ class Cato:
                         idle += 1
                     else:
                         idle = 0
+                    count += 1
+                    if(count % 6 == 0):
+                        print("flash")
+                        pins["led_red"].value = not(pins["led_red"].value)
+                        pins["led_green"].value = not(pins["led_green"].value)
+                pins["led_red"].value = True
+                pins["led_green"].value = False
 
-                DBS.println("\nReady for Gesture Input")
+                with open("flag.txt",'w') as flg:
+                    flg.write("")
+                    pass
+                print("\nReady for Gesture Input")
                 gc.collect()
                 while(mag**2 < gestThresh):
                     await Cato.imu.wait()
@@ -957,8 +981,8 @@ class Cato:
                     mag = gyro_mag()
 
                 # actual gesture is performed and recorded here
-                DBS.println("Recording")
-                DBS.println("\tmem free:\t",gc.mem_free())
+                print("Recording")
+                print("\tmem free:\t",gc.mem_free())
                 idle = 0
                 while(len(gesture) < gestLen)and(idle < idleLen):
                     await Cato.imu.wait()
@@ -970,11 +994,15 @@ class Cato:
                     else:
                         idle = 0
 
-                DBS.println("\nGesture Recording Completed")
-                # DBS.println("num samples recorded: ",len(gesture))
+                print("\nGesture Recording Completed")
+                pins["led_green"].value = True
+
+                # print("num samples recorded: ",len(gesture))
                 gc.collect()
-                DBS.println("\tmem free:\t",gc.mem_free())
-                with open("log.txt",'a') as log:
+                print("\tmem free:\t",gc.mem_free())
+                logName = logPref+str(i)+".txt"
+                print(logName)
+                with open(logName,'w') as log:
                     l = len(gesture)
                     while(gesture):
                         log.write(",".join(str(v) for v in gesture.pop(0)))
@@ -982,21 +1010,23 @@ class Cato:
                         await asyncio.sleep(0)
                     for z in range(l,gestLen):
                         log.write("0,0,0,0,0,0\n")
+                import os
+                os.remove("flag.txt")
+                del(os)
             
             Events.gesture_collecting.clear()
             Events.gesture_not_collecting.set()
             
-            DBS.println("\nGesture Finnished Logging")
-            DBS.println("\tmem free:\t",gc.mem_free())
+            print("\nGesture Finnished Logging")
+            print("\tmem free:\t",gc.mem_free())
         except Exception as ex:
-            DBS.println("ERRORED OUT!!")
+            print("ERRORED OUT!!")
             try:
-                DBS.println("Removing gesture.cato")
                 import os
                 os.remove("gesture.cato")
             except:
-                DBS.println("Already Removed gesture.cato")
-            DBS.println(ex)
+                pass
+            print(ex)
         # await asyncio.sleep(5)
         mc.reset()
 

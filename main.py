@@ -3,6 +3,7 @@
 # 17-Nov-2022
 
 from utils import config
+from Cato import Cato, Events
 
 import microcontroller as mc
 from microcontroller import watchdog as w
@@ -12,8 +13,6 @@ import gc
 import asyncio
 
 from imu import LSM6DS3TRC
-
-from Cato import Cato, Events
 
 from StrUUIDService import DebugStream as DBS
 import storage
@@ -35,19 +34,24 @@ async def control_loop(c : Cato):
         await c.block_on( c._move_mouse )
         Events.mouse_event.set()
 
+
 async def main():
     try:
         with open("gesture.cato",'r') as g:
             pass
         with open("gesture.cato",'a') as g:
             pass
+        
+        print("Unplug Cato for gesture recording session")
         mc.nvm[2] = True
+
     except OSError as ose:
         print(ose)
         if(ose.errno == 30):
             print("Rebooting for Gesture Training")
             mc.nvm[0] = False
             mc.reset()
+    
     
     '''
     ##once remount process is confirmed to work consistently, only try/except is necessary
