@@ -11,7 +11,7 @@
             "label": "Hardware Unique Identity",
             "description": "Unique hex code for identifying different devices",
             "access": "r",
-            "value": "badaba"
+            "value": ""
         },
         "sleep": {
             "label": "Sleep",
@@ -22,7 +22,7 @@
                     "label": "Timeout",
                     "description": "Number of consecutive low-movement seconds before Cato sleeps",
                     "access": "rw",
-                    "value": 0,
+                    "value": 600,
                     "range": {
                         "min": 10,
                         "max": 1200

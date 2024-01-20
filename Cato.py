@@ -892,10 +892,10 @@ class Cato:
             logPref = "log_"
             with open("gesture.cato",'r') as g:
                 lines = g.readlines()
-                gestName = lines[0].strip()
-                timeStamp = lines[1].strip()
+                timeStamp = lines[0].strip()
+                gestName = lines[1].strip()
                 numRec = int(lines[2])
-                logPref = gestName+"_"+timeStamp+"_"
+                logPref = timeStamp+"_"+gestName+"_"
                 print(logPref)
                 try:
                     stillTime = int(lines[3])
