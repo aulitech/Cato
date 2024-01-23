@@ -11,7 +11,7 @@
             "label": "Hardware Unique Identity",
             "description": "Unique hex code for identifying different devices",
             "access": "r",
-            "value": "badaba"
+            "value": ""
         },
         "sleep": {
             "label": "Sleep",
