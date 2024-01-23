@@ -1042,6 +1042,7 @@ class Cato:
     async def gesture_practice_loop(self):
         DBS.println("+ gesture_loop")
         gestKey = config["gesture"]["key"]
+        self.bindings = [0]*(len(gestKey)+1)
         while True:
             await self.gesture_interpreter(indicator = None, timeout = 0)
 
