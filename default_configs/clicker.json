@@ -260,6 +260,14 @@
                             "double_tap",
                             1
                         ]
+                    },
+                    {
+                        "command": "button_action",
+                        "args": [
+                            0,
+                            "tap",
+                            2
+                        ]
                     }
                 ]
             }
