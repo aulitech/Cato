@@ -317,7 +317,7 @@ class Cato:
         mag = gyro_mag()
 
         # Revenge of the Thrash Window
-        if mag > gestThresh: 
+        if mag > gestThresh:
             return {'command' : 'noop', 'args' : []}
         
         Events.gesturing.set()
@@ -1044,7 +1044,10 @@ class Cato:
         gestKey = config["gesture"]["key"]
         self.bindings = [0]*(len(gestKey)+1)
         while True:
+            prevInterp = list(neuton_outputs)
             await self.gesture_interpreter(indicator = None, timeout = 0)
+            if(prevInterp == list(neuton_outputs)):
+                continue
 
             gests = []
             for idx, gesture in enumerate(gestKey[1:]):

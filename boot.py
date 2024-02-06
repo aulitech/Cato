@@ -17,6 +17,9 @@ import os
 import storage
 import microcontroller as mc
 
+import re
+from binascii import hexlify
+
 import usb_hid
 
 class CHMOD:
@@ -94,6 +97,41 @@ def main():
     has_config = check_config()
     print(f"Checking config: {has_config}")
     #print("USB?",supervisor.runtime.usb_connected)
+
+    config = {}
+    with open("config.json", 'r') as cfg:
+        import json
+        config = json.load(cfg)
+
+    uidstr = str(hexlify(mc.cpu.uid))[2:-1]
+    if(config['global_info']["HW_UID"]["value"] != uidstr):
+        try:
+            with open("config.json",'w') as cfg:
+                import json
+                config['global_info']["HW_UID"]["value"] = uidstr
+                json.dump(config, cfg)
+            print("SUCCESSFUL HW_UID WRITE")
+        except Exception as ex:
+            print(ex)
+    
+    try:
+        uidstr = "0x"+uidstr
+        os.sync()
+        dirs = os.listdir()
+        r = re.compile("0x[0-9a-fA-F]*")
+        matches = list(filter(r.match,dirs))
+        print(matches)
+        for path in matches:
+            try:
+                os.rmdir(path)
+                print("dir removing: ",path)
+            except:
+                print("dir remove failed: ",path)
+                os.remove(path)
+        os.mkdir(uidstr)
+    except Exception as ex:
+        print(ex)
+
 
     storage.remount("/", mc.nvm[0])
     mc.nvm[1] = mc.nvm[0]

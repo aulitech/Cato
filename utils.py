@@ -17,19 +17,7 @@ with open("config.json", 'r') as cfg:
     config = json.load(cfg)
 
 if(config['global_info']["HW_UID"]["value"] == ""):
-    import microcontroller as mc
-    try:
-        with open("config.json",'w') as cfg:
-            import json
-            from binascii import hexlify
-            config['global_info']["HW_UID"]["value"] = str(hexlify(mc.cpu.uid))[2:-1]
-            json.dump(config, cfg)
-        print("SUCCESSFUL HW_UID WRITE")
-        mc.reset()
-    except OSError as ose:
-        print("REBOOTING FOR HW_UID")
-        mc.nvm[0] = False
-        mc.reset()
+    mc.reset()
 
 unpack_val_dict(config['global_info'])
 unpack_val_dict(config['connections'][0])
