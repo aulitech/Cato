@@ -17,6 +17,7 @@ with open("config.json", 'r') as cfg:
     config = json.load(cfg)
 
 if(config['global_info']["HW_UID"]["value"] == ""):
+    import microcontroller as mc
     mc.reset()
 
 unpack_val_dict(config['global_info'])
