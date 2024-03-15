@@ -99,10 +99,15 @@ class Cato:
             self.bindings = config["bindings"]
         
         self.tasks = {}
-        
+        mouse_type = ""
+        try:
+            mouse_type = config["mouse"]["mouse_type"]
+        except:
+            mouse_type = "ACCEL"
+
         if(mode == "gesture_mouse"):
             self.tasks = {
-                "move_mouse"        : asyncio.create_task(self.move_mouse()),
+                "move_mouse"        : asyncio.create_task(self.move_mouse(mouse_type=mouse_type)),
                 "mouse_event"       : asyncio.create_task(self.mouse_event()),
                 "scroll"            : asyncio.create_task(self.scroll())
             }
@@ -112,7 +117,7 @@ class Cato:
             }
         elif(mode == "pointer"):
             self.tasks = {
-                "point"             : asyncio.create_task(self.move_mouse(forever = True)),
+                "point"             : asyncio.create_task(self.move_mouse(mouse_type=mouse_type, forever = True)),
             }
             Events.move_mouse.set()
         elif(mode == "clicker"):
@@ -173,23 +178,23 @@ class Cato:
             
             import time
             sleep_time = time.time()
-            print("LIGHT SLEEP")
+            DBS.println("LIGHT SLEEP")
             alarm.light_sleep_until_alarms(pin_alarm)
-            print("WOKE UP")
+            DBS.println("WOKE UP")
 
             # restart if sleep was long
             if(time.time() - sleep_time > 600):
                 mc.reset()
 
             del(pin_alarm) # release imu_int1
-            print("Del pin")
+            DBS.println("Del pin")
 
             if(config['operation_mode'] == "clicker"):
                 Cato.imu.single_tap_cfg() # set up click task
 
             else:
                 Cato.imu.data_ready_on_int1_setup() #setup imu data ready
-                print("Mode other")
+                DBS.println("Mode other")
 
             Events.sleep.clear()
             WakeDog.feed()
@@ -202,8 +207,11 @@ class Cato:
     
     async def pointer_sleep(self, hall_pass: asyncio.Event = None):
         DBS.println("+ pointer_sleep")
+        async def wake_termination():
+            await Events.sleep.wait()
         target = {'command' : '', 'args' : []}
-        while(target['command'] != 'pointer_sleep')and(not Events.sleep.is_set()):
+        wt = asyncio.create_task(wake_termination())
+        while(target['command'] != 'pointer_sleep')and(not wt.done()):
             target = await self.gesture_interpreter(timeout = 0)
             DBS.println(target)
         
@@ -230,8 +238,8 @@ class Cato:
             batt_timer = 10
             await asyncio.sleep(batt_timer)
 
-            # print("monitor_battery")
             self.blue.battery_service.level = self.battery.level
+            DBS.println("Battery Level: "+str(self.battery.level))
 
     async def _move_mouse(self, hall_pass: asyncio.Event = None):
         Events.move_mouse.set()
@@ -255,7 +263,7 @@ class Cato:
     async def block_on_eval(self, target: str):
         cmd_str = "self." + target['command']
         arg_str = target['args']
-        print(f"Command: {cmd_str}\nArgs: {arg_str}")
+        DBS.println(f"Command: {cmd_str}\nArgs: {arg_str}")
         await self.block_on(eval("self."+target['command'], {"self":self}), *target['args'])
     
     async def block_on(self, coro, *args):
@@ -274,9 +282,9 @@ class Cato:
             Events.mouse_event.clear()
             await Events.gesture_not_collecting.wait()
             target = await self.gesture_interpreter(indicator = self.shake_cursor)
-            print(f"Target: {target}")
+            DBS.println(f"Target: {target}")
             await self.block_on_eval(target)
-            print(f"\t \"{target}\" finished at mouse_event")
+            DBS.println(f"\t \"{target}\" finished at mouse_event")
             
             #DBS.println("Detect Event: Finished Dispatching")
             Events.control_loop.set()
@@ -381,7 +389,7 @@ class Cato:
         gesture_result_str = f"Result: {config['gesture']['key'][infer]} \n"
         for idx, gesture in enumerate(config['gesture']['key'][1:]):
             gesture_result_str += f"\t{gesture:12}: {neuton_outputs[idx]:>5.1%}\n"
-        print(gesture_result_str)
+        DBS.println(gesture_result_str)
         # DBS.println("Interpreted "+config["gesture"]["key"][infer]+"("+str(max(neuton_outputs))+")")
         Events.battery.set()
         Events.battery.clear()
@@ -471,10 +479,10 @@ class Cato:
             WakeDog.feed()
             try:
                 target = self.bindings[Cato.imu.tap_type]
-                print("In Clicker Task")
+                DBS.println("In Clicker Task")
                 Events.sig_motion.clear()
                 Events.gesturing.clear()
-                print(target)
+                DBS.println(target)
                 await self.block_on_eval(target)
             except ConnectionError as ce:
                 DBS.println("ConnectionError: connection lost in clicker_task()")
@@ -558,7 +566,7 @@ class Cato:
         
         #scale is "base" for acceleration - do adjustments here
         screen_mag = get_mag(tuple(config['screen_size'].values()))
-        print(config['screen_size'].values())
+        DBS.println(config['screen_size'].values())
         screen_scale = screen_mag / get_mag((1920,1080)) # default scale to 1920 * 1080 - use diagonal number of pixels as scalar
         usr_scale = (config['mouse']['scale_x'], config['mouse']['scale_y']) #user multipliers
 
@@ -586,7 +594,7 @@ class Cato:
         batcher = (0,0)
 
         while True:
-            # print(".")
+            # DBS.println(".")
             if not Events.move_mouse.is_set():
                 cycle_count = 0
                 idle_count = 0
@@ -606,8 +614,12 @@ class Cato:
             cycle_count += 1    # count cycles
 
             # isolate x and y axes so they can be changed later with different orientations
-            x_mvmt = self.imu.gy
-            y_mvmt = self.imu.gz
+            if(mouse_type == "JOYSTICK"):
+                x_mvmt = 4*self.imu.az if(abs(self.imu.az) > 1) else 0
+                y_mvmt = 4*-self.imu.ax if(abs(self.imu.ax) > 1) else 0
+            else:
+                x_mvmt = self.imu.gy
+                y_mvmt = self.imu.gz
             
             # calculate magnitude and angle for linear scaling
             mag = sqrt(x_mvmt**2 + y_mvmt**2)
@@ -624,11 +636,11 @@ class Cato:
 
             if( mag <= idle_thresh ): # if too slow
                 # if (idle_count == 0): # count time of idle to finish (design util)
-                    # print("\tidle detected, count begun")
+                    # DBS.println("\tidle detected, count begun")
                 idle_count += 1
                 dwell_count += 1
             else:
-                # print("\tactivity resumed: idle counter reset")
+                # DBS.println("\tactivity resumed: idle counter reset")
                 idle_count = 0
                 Events.mouse_idle.clear()
                 dwell_count = 0
@@ -665,13 +677,13 @@ class Cato:
             try:
                 self.blue.mouse.move(dx, dy, 0)
                 if(cycle_count%10 == 0):
-                    #print(self.blue.mouse.report)
+                    #DBS.println(self.blue.mouse.report)
                     pass
             except ConnectionError as ce:
                 DBS.println("ConnectionError: connection lost in move_mouse()")
                 DBS.println(str(ce))
             except Exception as ex:
-                print(f"OtherException:{ex}")
+                DBS.println(f"OtherException:{ex}")
             
     async def _scroll(self, hall_pass: asyncio.Event = None):
         DBS.println("+ _scroll")
@@ -719,20 +731,20 @@ class Cato:
                 Events.scroll_done.set()
                 Events.scroll.clear()
                 if hall_pass is not None:
-                    print("\tSCROLL: Scroll_done set & hall_pass set")
+                    DBS.println("\tSCROLL: Scroll_done set & hall_pass set")
                     hall_pass.set()
     
     async def _scroll_lr(self, hall_pass: asyncio.Event = None):
         # Left/Right Scroll Manager
         # Holds Shift, Sets Scroll, Releases Shift.
         lshift_keycode = 225
-        print(f"+ _scroll_lr")
+        DBS.println(f"+ _scroll_lr")
         self.blue.k.press(lshift_keycode)
         Events.scroll.set()
         await Events.scroll_done.wait()
         Events.scroll_done.clear()
         self.blue.k.release(lshift_keycode)
-        print(f"b: {gc.mem_free()}")
+        DBS.println(f"b: {gc.mem_free()}")
         if hall_pass is not None:
             DBS.println("\t- _scroll_lr")
             hall_pass.set()
@@ -742,7 +754,7 @@ class Cato:
             if(t != None):
                 await t.wait()
         actor.release(*buttons)
-        print(f"EventRelease: {type(actor)} released {buttons}")
+        DBS.println(f"EventRelease: {type(actor)} released {buttons}")
     
     '''
         INPUTS
@@ -882,7 +894,7 @@ class Cato:
 
     async def collect_gestures_app():
         Events.gesture_not_collecting.clear()
-        # print("Collecting Gesture (wired connection)")
+        # DBS.println("Collecting Gesture (wired connection)")
         
         try:
             numRec = 1
@@ -896,19 +908,19 @@ class Cato:
                 gestName = lines[1].strip()
                 numRec = int(lines[2])
                 logPref = timeStamp+"_"+gestName+"_"
-                print(logPref)
+                DBS.println(logPref)
                 try:
                     stillTime = int(lines[3])
                     situateTime = int(lines[4])
                     unplugTime = int(lines[5])
                 except IndexError as ie:
-                    print("Not Enough Args")
+                    DBS.println("Not Enough Args")
                     pass
                 del(lines)
 
             import os
             os.remove("gesture.cato")
-            print("Removed gesture.cato")
+            DBS.println("Removed gesture.cato")
             del(os)
 
             if(unplugTime > 0):
@@ -916,28 +928,28 @@ class Cato:
                 import supervisor
                 while(supervisor.runtime.usb_connected):
                     await asyncio.sleep(0.5)
-                    # print(timeout.done())
+                    # DBS.println(timeout.done())
                     if(timeout.done()):
-                        print("Failed to unplug")
-                        print("Reseting")
+                        DBS.println("Failed to unplug")
+                        DBS.println("Reseting")
                         mc.reset()
                 timeout.cancel()
                 del(timeout)
-                print("Unplugged")
+                DBS.println("Unplugged")
                 del(supervisor)
             await asyncio.sleep(situateTime)
 
-            print("\nGathering gesture params")
+            DBS.println("\nGathering gesture params")
             from utils import config
             gestLen     = config["gesture"]["length"]
             idleLen     = config["gesture"]["idle_cutoff"]
             gestThresh  = config["gesture"]["start_threshold"]
             idleThresh  = config["gesture"]["idle_threshold"]
             # timeout     = config["gesture"]["gc_timeout"]
-            print("Removing config and garbage collecting for space")
+            DBS.println("Removing config and garbage collecting for space")
             del(config)
             gc.collect()
-            print("\tmem free:\t",gc.mem_free())
+            DBS.println("\tmem free:\t",gc.mem_free())
             
             #from utils import pins
             def gyro_mag():
@@ -951,7 +963,7 @@ class Cato:
                 await asyncio.sleep(stillTime)
 
                 pins["led_green"].value = False
-                print("\nThrash Window (stalling to let prematurre motion pass)")
+                DBS.println("\nThrash Window (stalling to let prematurre motion pass)")
                 # let premature motion pass
                 idle = 0
                 count = 0
@@ -964,7 +976,7 @@ class Cato:
                         idle = 0
                     count += 1
                     if(count % 6 == 0):
-                        print("flash")
+                        DBS.println("flash")
                         pins["led_red"].value = not(pins["led_red"].value)
                         pins["led_green"].value = not(pins["led_green"].value)
                 pins["led_red"].value = True
@@ -973,7 +985,7 @@ class Cato:
                 with open("flag.txt",'w') as flg:
                     flg.write("")
                     pass
-                print("\nReady for Gesture Input")
+                DBS.println("\nReady for Gesture Input")
                 gc.collect()
                 while(mag**2 < gestThresh):
                     await Cato.imu.wait()
@@ -981,8 +993,8 @@ class Cato:
                     mag = gyro_mag()
 
                 # actual gesture is performed and recorded here
-                print("Recording")
-                print("\tmem free:\t",gc.mem_free())
+                DBS.println("Recording")
+                DBS.println("\tmem free:\t",gc.mem_free())
                 idle = 0
                 while(len(gesture) < gestLen)and(idle < idleLen):
                     await Cato.imu.wait()
@@ -994,14 +1006,14 @@ class Cato:
                     else:
                         idle = 0
 
-                print("\nGesture Recording Completed")
+                DBS.println("\nGesture Recording Completed")
                 pins["led_green"].value = True
 
-                # print("num samples recorded: ",len(gesture))
+                # DBS.println("num samples recorded: ",len(gesture))
                 gc.collect()
-                print("\tmem free:\t",gc.mem_free())
+                DBS.println("\tmem free:\t",gc.mem_free())
                 logName = logPref+str(i)+".txt"
-                print(logName)
+                DBS.println(logName)
                 with open(logName,'w') as log:
                     l = len(gesture)
                     while(gesture):
@@ -1017,16 +1029,16 @@ class Cato:
             Events.gesture_collecting.clear()
             Events.gesture_not_collecting.set()
             
-            print("\nGesture Finnished Logging")
-            print("\tmem free:\t",gc.mem_free())
+            DBS.println("\nGesture Finnished Logging")
+            DBS.println("\tmem free:\t",gc.mem_free())
         except Exception as ex:
-            print("ERRORED OUT!!")
+            DBS.println("ERRORED OUT!!")
             try:
                 import os
                 os.remove("gesture.cato")
             except:
                 pass
-            print(ex)
+            DBS.println(ex)
         # await asyncio.sleep(5)
         mc.reset()
 
@@ -1034,7 +1046,7 @@ class Cato:
         DBS.println("+ test_loop")
         await asyncio.sleep(2)
         while(True):
-            print()
+            DBS.println()
             DBS.println('\t', int(Cato.imu.gx*10), '\t', int(Cato.imu.gy*10), '\t', int(Cato.imu.gz*10))
             await asyncio.sleep(0.2)
     

@@ -194,6 +194,17 @@
                 "description": "Settings specific to mouse movement",
                 "access": "rw",
                 "value": {
+                    "mouse_type": {
+                        "label": "Type of Mouse Movement",
+                        "description": "",
+                        "access": "rw",
+                        "value": "ACCEL",
+                        "options": [
+                            "ACCEL",
+                            "LINEAR",
+                            "JOYSTICK"
+                        ]
+                    },
                     "idle_threshold": {
                         "label": "Mouse Idle Threshold",
                         "description": "Value of move speed below which is considered idle. Causes mouse exit; High value: easier to idle out; Low value: mouse stays active.",
